@@ -147,47 +147,62 @@ const runMigrations = async (): Promise<void> => {
 
 /**
  * Backup database
- * Note: react-native-quick-sqlite stores DB in app's documents directory
- * For backup, we'll need to use react-native-fs to copy the file
+ * Note: expo-sqlite stores DB in app's documents directory
+ * For backup, we'll use expo-file-system to copy the file
  */
 export const backupDatabase = async (): Promise<string> => {
-  // Import dynamically to avoid issues if not installed
-  const RNFS = require('react-native-fs');
-  const {Platform} = require('react-native');
-  
-  const documentsPath = Platform.OS === 'ios' 
-    ? RNFS.DocumentDirectoryPath 
-    : RNFS.DocumentDirectoryPath;
-  
-  const dbPath = `${documentsPath}/${DB_NAME}.db`;
-  const backupPath = `${documentsPath}/${DB_NAME}.backup.${Date.now()}.db`;
-  
-  // Copy database file
-  await RNFS.copyFile(dbPath, backupPath);
-  
-  return backupPath;
+  try {
+    const FileSystem = await import('expo-file-system');
+    const {documentDirectory} = FileSystem;
+    
+    if (!documentDirectory) {
+      throw new Error('Document directory not available');
+    }
+    
+    const dbPath = `${documentDirectory}SQLite/${DB_NAME}.db`;
+    const backupPath = `${documentDirectory}SQLite/${DB_NAME}.backup.${Date.now()}.db`;
+    
+    // Copy database file
+    await FileSystem.copyAsync({
+      from: dbPath,
+      to: backupPath,
+    });
+    
+    return backupPath;
+  } catch (error) {
+    console.error('Backup failed:', error);
+    throw error;
+  }
 };
 
 /**
  * Restore database from backup
  */
 export const restoreDatabase = async (backupPath: string): Promise<void> => {
-  const RNFS = require('react-native-fs');
-  const {Platform} = require('react-native');
-  
-  const documentsPath = Platform.OS === 'ios' 
-    ? RNFS.DocumentDirectoryPath 
-    : RNFS.DocumentDirectoryPath;
-  
-  const dbPath = `${documentsPath}/${DB_NAME}.db`;
-  
-  // Close current connection
-  closeDatabase();
-  
-  // Copy backup to database location
-  await RNFS.copyFile(backupPath, dbPath);
-  
-  // Reinitialize database
-  await initDatabase();
+  try {
+    const FileSystem = await import('expo-file-system');
+    const {documentDirectory} = FileSystem;
+    
+    if (!documentDirectory) {
+      throw new Error('Document directory not available');
+    }
+    
+    const dbPath = `${documentDirectory}SQLite/${DB_NAME}.db`;
+    
+    // Close current connection
+    await closeDatabase();
+    
+    // Copy backup to database location
+    await FileSystem.copyAsync({
+      from: backupPath,
+      to: dbPath,
+    });
+    
+    // Reinitialize database
+    await initDatabase();
+  } catch (error) {
+    console.error('Restore failed:', error);
+    throw error;
+  }
 };
 
