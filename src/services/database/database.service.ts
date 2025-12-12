@@ -13,11 +13,22 @@ const DB_NAME = 'dentalapp';
 // Initialize database connection
 let db: SQLite.SQLiteDatabase | null = null;
 
+// Track if database is available
+export let isDatabaseAvailable = false;
+
 /**
  * Initialize database connection
+ * Note: expo-sqlite requires a development build, not Expo Go
+ * This will fail gracefully if running in Expo Go
  */
 export const initDatabase = async (): Promise<void> => {
   try {
+    // Check if SQLite is available (requires development build)
+    if (!SQLite || typeof SQLite.openDatabaseAsync !== 'function') {
+      console.warn('SQLite not available - requires development build');
+      return;
+    }
+
     // Open database connection using expo-sqlite
     // expo-sqlite v16+ API: openDatabaseAsync(name, options?)
     // The database will be created in the default SQLite directory
@@ -29,11 +40,23 @@ export const initDatabase = async (): Promise<void> => {
     // Run migrations
     await runMigrations();
 
+    isDatabaseAvailable = true;
     console.log('Database initialized successfully');
-  } catch (error) {
+  } catch (error: any) {
+    // If error is about directory not being available, it means we're in Expo Go
+    if (error?.message?.includes('directory') || error?.message?.includes('null')) {
+      console.warn(
+        'Database initialization skipped - expo-sqlite requires development build.\n' +
+        'Run: npx expo run:ios or npx expo run:android\n' +
+        'Or create development build: npx expo prebuild && npx expo run:ios'
+      );
+      isDatabaseAvailable = false;
+      // Don't throw - allow app to continue without database for now
+      return;
+    }
+    isDatabaseAvailable = false;
     console.error('Failed to initialize database:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
-    throw error;
+    // Don't throw - allow app to continue
   }
 };
 
@@ -42,7 +65,10 @@ export const initDatabase = async (): Promise<void> => {
  */
 export const getDatabase = () => {
   if (!db) {
-    throw new Error('Database not initialized. Call initDatabase() first.');
+    throw new Error(
+      'Database not initialized. This app requires a development build.\n' +
+      'Run: npx expo prebuild && npx expo run:ios'
+    );
   }
   return db;
 };

@@ -18,20 +18,17 @@ const App = (): React.JSX.Element => {
     const initializeApp = async () => {
       try {
         // Initialize database
-        // Note: expo-sqlite may need the app to be fully loaded
-        // Add a small delay to ensure Expo is ready
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        // Note: expo-sqlite requires development build
+        // If running in Expo Go, database init will be skipped gracefully
         await initDatabase();
 
-        // Check authentication
+        // Check authentication (will work with AsyncStorage even without DB)
         await checkAuth();
 
         setIsInitializing(false);
       } catch (error) {
         console.error('Failed to initialize app:', error);
-        // Don't block app startup if database init fails
-        // The app can still run, database will be initialized when needed
+        // Don't block app startup - allow UI to show
         setIsInitializing(false);
       }
     };
