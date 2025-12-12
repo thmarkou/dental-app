@@ -46,8 +46,18 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           });
-        } catch (error) {
+        } catch (error: any) {
           set({isLoading: false});
+          // If database error, show helpful message
+          if (error?.message?.includes('Database not available') || 
+              error?.message?.includes('development build')) {
+            throw new Error(
+              'Database not available. This app requires a development build.\n\n' +
+              'To enable login functionality, run:\n' +
+              'npx expo run:ios\n\n' +
+              'The UI is available for preview without database.'
+            );
+          }
           throw error;
         }
       },

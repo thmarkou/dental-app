@@ -83,44 +83,59 @@ export const createUser = async (
 
 /**
  * Authenticate user
+ * Note: In Expo Go (without database), this will throw an error
+ * Use development build for full functionality
  */
 export const authenticateUser = async (
   username: string,
   password: string,
 ): Promise<User> => {
-  // Find user
-  const users = await query(
-    'SELECT * FROM users WHERE username = ? AND is_active = 1',
-    [username],
-  );
+  try {
+    // Find user
+    const users = await query(
+      'SELECT * FROM users WHERE username = ? AND is_active = 1',
+      [username],
+    );
 
-  if (users.length === 0) {
-    throw new Error('Invalid username or password');
+    if (users.length === 0) {
+      throw new Error('Invalid username or password');
+    }
+
+    const user = users[0];
+
+    // Verify password
+    const isValid = await verifyPassword(password, user.password_hash);
+    if (!isValid) {
+      throw new Error('Invalid username or password');
+    }
+
+    // Update last login
+    await executeQuery(
+      'UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?',
+      [new Date().toISOString(), new Date().toISOString(), user.id],
+    );
+
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role as UserRole,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      phone: user.phone,
+    };
+  } catch (error: any) {
+    // If database is not available, provide helpful error message
+    if (error?.message?.includes('Database not available') || 
+        error?.message?.includes('development build')) {
+      throw new Error(
+        'Database not available. Please use development build:\n' +
+        'npx expo run:ios'
+      );
+    }
+    // Re-throw other errors (invalid credentials, etc.)
+    throw error;
   }
-
-  const user = users[0];
-
-  // Verify password
-  const isValid = await verifyPassword(password, user.password_hash);
-  if (!isValid) {
-    throw new Error('Invalid username or password');
-  }
-
-  // Update last login
-  await executeQuery(
-    'UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?',
-    [new Date().toISOString(), new Date().toISOString(), user.id],
-  );
-
-  return {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    role: user.role as UserRole,
-    firstName: user.first_name,
-    lastName: user.last_name,
-    phone: user.phone,
-  };
 };
 
 /**

@@ -4,7 +4,14 @@
  */
 
 // Using expo-sqlite instead of react-native-quick-sqlite for Expo compatibility
-import * as SQLite from 'expo-sqlite';
+// Note: expo-sqlite requires development build, not Expo Go
+let SQLite: any = null;
+try {
+  SQLite = require('expo-sqlite');
+} catch (error) {
+  console.warn('expo-sqlite not available - requires development build');
+}
+
 import {migrations} from './migrations';
 
 // Database configuration
@@ -65,10 +72,14 @@ export const initDatabase = async (): Promise<void> => {
  */
 export const getDatabase = () => {
   if (!db) {
-    throw new Error(
-      'Database not initialized. This app requires a development build.\n' +
-      'Run: npx expo prebuild && npx expo run:ios'
-    );
+    if (!isDatabaseAvailable) {
+      throw new Error(
+        'Database not available. This app requires a development build.\n' +
+        'Run: npx expo prebuild && npx expo run:ios\n' +
+        'The app UI is available for preview without database.'
+      );
+    }
+    throw new Error('Database not initialized. Call initDatabase() first.');
   }
   return db;
 };
@@ -90,6 +101,13 @@ export const executeQuery = async (
   sql: string,
   params: any[] = [],
 ): Promise<{rows: any[]; insertId?: number; rowsAffected: number}> => {
+  if (!isDatabaseAvailable) {
+    throw new Error(
+      'Database not available. This app requires a development build.\n' +
+      'Run: npx expo prebuild && npx expo run:ios'
+    );
+  }
+  
   const database = getDatabase();
   
   if (sql.trim().toUpperCase().startsWith('SELECT')) {
@@ -112,6 +130,13 @@ export const executeQuery = async (
  * Execute SQL query and return rows
  */
 export const query = async (sql: string, params: any[] = []): Promise<any[]> => {
+  if (!isDatabaseAvailable) {
+    throw new Error(
+      'Database not available. This app requires a development build.\n' +
+      'Run: npx expo prebuild && npx expo run:ios'
+    );
+  }
+  
   const result = await executeQuery(sql, params);
   return result.rows || [];
 };
