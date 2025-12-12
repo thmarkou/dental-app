@@ -38,16 +38,8 @@ export const useAuthStore = create<AuthState>()(
       login: async (username: string, password: string) => {
         set({isLoading: true});
         try {
-          // TODO: Implement actual authentication
-          // For now, this is a placeholder
-          const user: User = {
-            id: '1',
-            username,
-            email: `${username}@example.com`,
-            role: 'dentist',
-            firstName: 'Doctor',
-            lastName: 'User',
-          };
+          const {authenticateUser} = await import('../services/auth');
+          const user = await authenticateUser(username, password);
 
           set({
             user,

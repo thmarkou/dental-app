@@ -25,7 +25,9 @@
     "zustand": "^4.4.7",
     "date-fns": "^3.0.6",
     "uuid": "^9.0.1",
-    "@types/uuid": "^9.0.7"
+    "@types/uuid": "^9.0.7",
+    "bcryptjs": "^2.4.3",
+    "@types/bcryptjs": "^2.4.6"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",
