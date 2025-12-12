@@ -41,9 +41,15 @@ yarn-error.log
 yarn.lock
 package-lock.json
 
-# React Native
+# Expo
 .expo/
 .expo-shared/
+dist/
+web-build/
+.expo/
+.expo-shared/
+
+# React Native
 *.jks
 *.p8
 *.p12
@@ -189,12 +195,6 @@ fastlane/test_output
 # CocoaPods
 ios/Pods/
 
-# Expo
-.expo/
-.expo-shared/
-dist/
-web-build/
-
 # Native
 *.orig.*
 *.jks
@@ -257,3 +257,10 @@ test-results/
 playwright-report/
 playwright/.cache/
 
+# Expo
+.expo/
+.expo-shared/
+.expo-source/
+.expo/
+.expo-shared/
+.expo-source/

@@ -3,29 +3,26 @@
  * SQLite database management for offline-first architecture
  */
 
-import {open, SQLiteDatabase} from 'react-native-quick-sqlite';
+// Using expo-sqlite instead of react-native-quick-sqlite for Expo compatibility
+import * as SQLite from 'expo-sqlite';
 import {migrations} from './migrations';
 
 // Database configuration
 const DB_NAME = 'dentalapp';
 
 // Initialize database connection
-let db: SQLiteDatabase | null = null;
+let db: SQLite.SQLiteDatabase | null = null;
 
 /**
  * Initialize database connection
  */
 export const initDatabase = async (): Promise<void> => {
   try {
-    // Open database connection
-    // react-native-quick-sqlite uses name and location
-    db = open({
-      name: DB_NAME,
-      location: 'default', // 'default' stores in app's documents directory
-    });
+    // Open database connection using expo-sqlite
+    db = await SQLite.openDatabaseAsync(DB_NAME);
 
     // Enable foreign keys
-    db.execute('PRAGMA foreign_keys = ON;');
+    await db.execAsync('PRAGMA foreign_keys = ON;');
 
     // Run migrations
     await runMigrations();
@@ -50,9 +47,9 @@ export const getDatabase = () => {
 /**
  * Close database connection
  */
-export const closeDatabase = (): void => {
+export const closeDatabase = async (): Promise<void> => {
   if (db) {
-    db.close();
+    await db.closeAsync();
     db = null;
   }
 };
@@ -60,38 +57,47 @@ export const closeDatabase = (): void => {
 /**
  * Execute SQL query
  */
-export const executeQuery = (
+export const executeQuery = async (
   sql: string,
   params: any[] = [],
-): {rows: any[]; insertId?: number; rowsAffected: number} => {
+): Promise<{rows: any[]; insertId?: number; rowsAffected: number}> => {
   const database = getDatabase();
-  const result = database.execute(sql, params);
-  return {
-    rows: result.rows?._array || [],
-    insertId: result.insertId,
-    rowsAffected: result.rowsAffected || 0,
-  };
+  
+  if (sql.trim().toUpperCase().startsWith('SELECT')) {
+    const result = await database.getAllAsync(sql, params);
+    return {
+      rows: result || [],
+      rowsAffected: 0,
+    };
+  } else {
+    const result = await database.runAsync(sql, params);
+    return {
+      rows: [],
+      insertId: result.lastInsertRowId,
+      rowsAffected: result.changes,
+    };
+  }
 };
 
 /**
  * Execute SQL query and return rows
  */
-export const query = (sql: string, params: any[] = []): any[] => {
-  const result = executeQuery(sql, params);
+export const query = async (sql: string, params: any[] = []): Promise<any[]> => {
+  const result = await executeQuery(sql, params);
   return result.rows || [];
 };
 
 /**
  * Execute transaction
  */
-export const transaction = (callback: () => void): void => {
+export const transaction = async (callback: () => Promise<void>): Promise<void> => {
   const database = getDatabase();
-  database.execute('BEGIN TRANSACTION;');
+  await database.execAsync('BEGIN TRANSACTION;');
   try {
-    callback();
-    database.execute('COMMIT;');
+    await callback();
+    await database.execAsync('COMMIT;');
   } catch (error) {
-    database.execute('ROLLBACK;');
+    await database.execAsync('ROLLBACK;');
     throw error;
   }
 };
@@ -103,7 +109,7 @@ const runMigrations = async (): Promise<void> => {
   const database = getDatabase();
   
   // Create migrations table if it doesn't exist
-  database.execute(`
+  await database.execAsync(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version INTEGER PRIMARY KEY,
       applied_at TEXT NOT NULL
@@ -111,26 +117,26 @@ const runMigrations = async (): Promise<void> => {
   `);
 
   // Get current version
-  const versionResult = database.execute(
+  const versionResult = await database.getAllAsync(
     'SELECT MAX(version) as version FROM schema_migrations',
   );
-  const currentVersion = versionResult.rows?.[0]?.version || 0;
+  const currentVersion = (versionResult[0] as any)?.version || 0;
 
   // Run migrations
   for (const migration of migrations) {
     if (migration.version > currentVersion) {
       console.log(`Running migration ${migration.version}...`);
-      database.execute('BEGIN TRANSACTION;');
+      await database.execAsync('BEGIN TRANSACTION;');
       try {
-        migration.up(database);
-        database.execute(
+        await migration.up(database);
+        await database.runAsync(
           'INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?);',
           [migration.version, new Date().toISOString()],
         );
-        database.execute('COMMIT;');
+        await database.execAsync('COMMIT;');
         console.log(`Migration ${migration.version} completed`);
       } catch (error) {
-        database.execute('ROLLBACK;');
+        await database.execAsync('ROLLBACK;');
         console.error(`Migration ${migration.version} failed:`, error);
         throw error;
       }

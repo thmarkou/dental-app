@@ -3,12 +3,12 @@
  * Version-controlled schema changes
  */
 
-import {SQLiteDatabase} from 'react-native-quick-sqlite';
+import * as SQLite from 'expo-sqlite';
 
 export interface Migration {
   version: number;
-  up: (db: SQLiteDatabase) => void;
-  down?: (db: SQLiteDatabase) => void;
+  up: (db: SQLite.SQLiteDatabase) => Promise<void>;
+  down?: (db: SQLite.SQLiteDatabase) => Promise<void>;
 }
 
 /**
@@ -18,9 +18,9 @@ export interface Migration {
 export const migrations: Migration[] = [
   {
     version: 1,
-    up: (database) => {
+    up: async (database) => {
       // Users table
-      database.execute(`
+      await database.execAsync(`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
           username TEXT UNIQUE NOT NULL,
@@ -38,7 +38,7 @@ export const migrations: Migration[] = [
       `);
 
       // Patients table
-      database.execute(`
+      await database.execAsync(`
         CREATE TABLE IF NOT EXISTS patients (
           id TEXT PRIMARY KEY,
           first_name TEXT NOT NULL,
@@ -62,17 +62,17 @@ export const migrations: Migration[] = [
       `);
 
       // Create indexes for patients
-      database.execute('CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone);');
-      database.execute('CREATE INDEX IF NOT EXISTS idx_patients_email ON patients(email);');
-      database.execute('CREATE INDEX IF NOT EXISTS idx_patients_amka ON patients(amka);');
-      database.execute('CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(last_name, first_name);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_patients_email ON patients(email);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_patients_amka ON patients(amka);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(last_name, first_name);');
     },
   },
   {
     version: 2,
-    up: (database) => {
+    up: async (database) => {
       // Appointments table
-      database.execute(`
+      await database.execAsync(`
         CREATE TABLE IF NOT EXISTS appointments (
           id TEXT PRIMARY KEY,
           patient_id TEXT NOT NULL,
@@ -100,10 +100,10 @@ export const migrations: Migration[] = [
       `);
 
       // Create indexes for appointments
-      database.execute('CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id);');
-      database.execute('CREATE INDEX IF NOT EXISTS idx_appointments_doctor ON appointments(doctor_id);');
-      database.execute('CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date);');
-      database.execute('CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_appointments_doctor ON appointments(doctor_id);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date);');
+      await database.execAsync('CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);');
     },
   },
   // Add more migrations as needed

@@ -48,7 +48,7 @@ export const createUser = async (
   phone?: string,
 ): Promise<User> => {
   // Check if username or email already exists
-  const existingUser = query(
+  const existingUser = await query(
     'SELECT id FROM users WHERE username = ? OR email = ?',
     [username, email],
   );
@@ -64,7 +64,7 @@ export const createUser = async (
   const userId = uuidv4();
   const now = new Date().toISOString();
 
-  executeQuery(
+  await executeQuery(
     `INSERT INTO users (id, username, email, password_hash, role, first_name, last_name, phone, is_active, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [userId, username, email, passwordHash, role, firstName, lastName, phone || null, 1, now, now],
@@ -89,7 +89,7 @@ export const authenticateUser = async (
   password: string,
 ): Promise<User> => {
   // Find user
-  const users = query(
+  const users = await query(
     'SELECT * FROM users WHERE username = ? AND is_active = 1',
     [username],
   );
@@ -107,7 +107,7 @@ export const authenticateUser = async (
   }
 
   // Update last login
-  executeQuery(
+  await executeQuery(
     'UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?',
     [new Date().toISOString(), new Date().toISOString(), user.id],
   );
@@ -127,7 +127,7 @@ export const authenticateUser = async (
  * Get user by ID
  */
 export const getUserById = async (userId: string): Promise<User | null> => {
-  const users = query('SELECT * FROM users WHERE id = ? AND is_active = 1', [
+  const users = await query('SELECT * FROM users WHERE id = ? AND is_active = 1', [
     userId,
   ]);
 
@@ -156,7 +156,7 @@ export const updateUserPassword = async (
   newPassword: string,
 ): Promise<void> => {
   // Get user
-  const users = query('SELECT password_hash FROM users WHERE id = ?', [userId]);
+  const users = await query('SELECT password_hash FROM users WHERE id = ?', [userId]);
   if (users.length === 0) {
     throw new Error('User not found');
   }
@@ -171,7 +171,7 @@ export const updateUserPassword = async (
   const newPasswordHash = await hashPassword(newPassword);
 
   // Update password
-  executeQuery(
+  await executeQuery(
     'UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?',
     [newPasswordHash, new Date().toISOString(), userId],
   );

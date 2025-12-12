@@ -6,111 +6,54 @@ React Native mobile application for managing a small Greek dental practice (2-3 
 
 This application runs in an isolated environment to prevent conflicts with other applications in the same directory.
 
+## Technology Stack
+
+- **Framework**: React Native with Expo
+- **Language**: TypeScript (strict mode)
+- **Database**: Expo SQLite (offline-first)
+- **State Management**: Zustand
+- **Navigation**: React Navigation
+- **Styling**: StyleSheet (will add Tailwind CSS v4 later)
+
 ## Environment Setup
 
 ### Prerequisites
 
-- Node.js 20+ (LTS recommended)
-- nvm (Node Version Manager) - for managing Node.js versions
-- React Native CLI
-- iOS: Xcode 14+ (for iOS development)
-- Android: Android Studio, JDK 17+ (for Android development)
+- Node.js 20+ (use `nvm use` to activate)
+- Expo CLI (optional, for development)
+- iOS: Xcode 14+ (for iOS development/build)
+- Android: Android Studio (for Android development)
 
 ### Quick Start
 
-1. **Activate Node.js environment** (using nvm):
+1. **Activate Node.js environment**:
    ```bash
    nvm use
    ```
-   This will automatically use the Node.js version specified in `.nvmrc` (Node.js 20).
 
-2. **Verify Node.js version**:
+2. **Install dependencies**:
    ```bash
-   node --version
-   # Should show: v20.x.x
+   npm install
    ```
 
-### Installation
+3. **Start development server**:
+   ```bash
+   npm start
+   # Press 'i' for iOS simulator
+   # Or scan QR code with Expo Go app on your iPhone
+   ```
 
-1. Install dependencies:
-```bash
-npm install
-# or
-yarn install
-```
-
-2. Set up environment variables:
-```bash
-# Copy the example file
-cp env.dentalapp.example .env.dentalapp
-
-# Edit .env.dentalapp with your configuration
-# The file is already created with default development values
-
-# Check environment configuration
-./scripts/check-env.sh
-
-# Generate secure secrets (recommended for production)
-./scripts/generate-secrets.sh
-```
-
-**Important**: The `.env.dentalapp` file contains sensitive information and is automatically ignored by Git. Never commit it to the repository.
-
-3. For iOS:
-```bash
-cd ios
-pod install
-cd ..
-```
-
-4. Run the application:
-```bash
-# iOS
-npm run ios
-# or
-yarn ios
-
-# Android
-npm run android
-# or
-yarn android
-```
-
-## Git Setup
-
-### Initial Setup
-
-If you've created a remote repository (e.g., on GitHub, GitLab), connect it to your local repository:
-
-**Option 1: Using the setup script**
-```bash
-./setup-git.sh <repository-url>
-# Example: ./setup-git.sh https://github.com/username/dental-app.git
-```
-
-**Option 2: Manual setup**
-```bash
-# Add remote repository
-git remote add origin <repository-url>
-
-# Verify remote
-git remote -v
-
-# Push to remote
-git push -u origin main
-```
-
-**Note**: If the remote repository is empty and you encounter errors, you may need to use:
-```bash
-git push -u origin main --force
-```
-⚠️ Use `--force` only if you're sure the remote repository is empty!
-
-### Repository URL Examples
-
-- **GitHub**: `https://github.com/username/dental-app.git` or `git@github.com:username/dental-app.git`
-- **GitLab**: `https://gitlab.com/username/dental-app.git`
-- **Bitbucket**: `https://bitbucket.org/username/dental-app.git`
+4. **For Development Build** (if using custom native modules):
+   ```bash
+   # Install EAS CLI
+   npm install -g eas-cli
+   
+   # Login
+   eas login
+   
+   # Build development client
+   eas build --profile development --platform ios
+   ```
 
 ## Environment Configuration
 
@@ -135,78 +78,62 @@ git push -u origin main --force
    # Copy the generated secrets to .env.dentalapp
    ```
 
-3. **Configure Services** (when ready):
-   - SMS Gateway: Add `SMS_GATEWAY_API_KEY` and related settings
-   - Email Service: Add `EMAIL_SMTP_*` settings
-   - myDATA API: Add `MYDATA_*` settings for Greek tax integration
+## Running the App
 
-### Environment Variables
+### Development (Expo Go)
 
-Key variables to configure:
-
-- **App Configuration**: `APP_NAME`, `APP_BUNDLE_ID`, `APP_PACKAGE_NAME`
-- **Database**: `DATABASE_NAME`, `DATABASE_PATH`
-- **Security**: `JWT_SECRET`, `ENCRYPTION_KEY` (generate secure values!)
-- **Feature Flags**: Enable/disable features like SMS, Email, myDATA
-- **Storage Paths**: Configure where data is stored
-
-### Node.js Version Management (nvm)
-
-This project uses **nvm** (Node Version Manager) to ensure consistent Node.js versions across different environments.
-
-**Quick Setup**:
 ```bash
-# Activate the correct Node.js version (automatically reads .nvmrc)
-nvm use
-
-# Or use the complete setup script
-./scripts/setup-env.sh
+npm start
+# Then press 'i' for iOS simulator
+# Or scan QR code with Expo Go app
 ```
 
-The `.nvmrc` file specifies Node.js 20 (LTS), which is compatible with React Native.
+### Development Build (Custom Native Code)
 
-**Manual Setup**:
 ```bash
-# Install Node.js 20 if not already installed
-nvm install 20
+# Build development client first
+eas build --profile development --platform ios
 
-# Use Node.js 20
-nvm use 20
-
-# Verify version
-node --version  # Should show v20.x.x
+# Then run
+npm start
+# Connect to development client (not Expo Go)
 ```
 
-### Helper Scripts
+### Production Build
 
-- **`scripts/setup-env.sh`**: Complete environment setup (nvm, env files, validation)
-- **`scripts/check-env.sh`**: Validates environment configuration
-- **`scripts/generate-secrets.sh`**: Generates secure random secrets
+See `EXPO_BUILD_GUIDE.md` for detailed instructions.
 
-## Environment Isolation
+## Project Structure
 
-This application uses isolated configuration to prevent conflicts with other applications:
-
-- Separate environment file: `.env.dentalapp`
-- Isolated database: `dentalapp.db` in `./data/` directory
-- Separate storage paths: `./storage/dentalapp`, `./uploads/dentalapp`, `./cache/dentalapp`
-- Unique bundle identifiers: `com.dentalapp.practice`
-
-## Documentation
-
-- **Prompt Document**: `dental-practice-prompt.md` - Comprehensive prompt for cursor.ai
-- **Specification Document**: `dental-practice-specification.md` - Detailed technical specifications
+```
+dentalapp/
+├── src/
+│   ├── components/      # Reusable UI components
+│   ├── screens/          # Screen components
+│   ├── services/         # Business logic services
+│   │   ├── auth/        # Authentication service
+│   │   ├── patient/     # Patient service
+│   │   └── database/   # Database service
+│   ├── navigation/      # Navigation setup
+│   ├── store/           # State management (Zustand)
+│   ├── types/           # TypeScript type definitions
+│   └── utils/           # Utility functions
+├── config/              # Configuration files
+├── assets/              # Images, icons, etc.
+├── scripts/             # Helper scripts
+└── app.json            # Expo configuration
+```
 
 ## Features
 
-- Patient Management
-- Appointment Scheduling
-- Treatment & Examination Management
-- Financial Management (Invoicing, Payments, myDATA integration)
-- Inventory Management
-- Reporting & Analytics
-- Communication (SMS, Email)
-- Compliance (GDPR, Greek Dental Association)
+- ✅ Patient Management
+- ✅ Appointment Scheduling
+- ✅ Treatment & Examination Management
+- ✅ Financial Management (Invoicing, Payments, myDATA integration)
+- ✅ Inventory Management
+- ✅ Reporting & Analytics
+- ✅ Communication (SMS, Email)
+- ✅ Compliance (GDPR, Greek Dental Association)
 
 ## Development
 
@@ -216,15 +143,38 @@ This application uses isolated configuration to prevent conflicts with other app
 - No 'any' types (unless absolutely necessary with documentation)
 - Follow DRY and KISS principles
 - Self-documenting code
-- Tailwind CSS v4 syntax
+- Tailwind CSS v4 syntax (when added)
 
 ### Testing
 
 ```bash
 npm test
-# or
-yarn test
 ```
+
+## Building for Production
+
+### iOS (Real iPhone)
+
+1. **Using EAS (Recommended)**:
+   ```bash
+   eas build --profile production --platform ios
+   ```
+
+2. **Using Xcode**:
+   ```bash
+   npx expo prebuild --platform ios
+   open ios/DentalPractice.xcworkspace
+   # Then build in Xcode
+   ```
+
+See `EXPO_BUILD_GUIDE.md` for detailed build instructions.
+
+## Documentation
+
+- **Prompt Document**: `dental-practice-prompt-merged.md` - Complete prompt for cursor.ai
+- **Specification Document**: `dental-practice-specification.md` - Detailed technical specifications
+- **Build Guide**: `EXPO_BUILD_GUIDE.md` - Expo build instructions
+- **Database Guide**: `DATABASE.md` - Database architecture
 
 ## License
 
@@ -233,4 +183,3 @@ yarn test
 ## Contact
 
 [Add contact information here]
-

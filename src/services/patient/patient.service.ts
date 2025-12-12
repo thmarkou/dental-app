@@ -16,7 +16,7 @@ export const createPatient = async (
   const patientId = uuidv4();
   const now = new Date().toISOString();
 
-  executeQuery(
+  await executeQuery(
     `INSERT INTO patients (
       id, first_name, last_name, date_of_birth, gender, amka, phone, email,
       address_street, address_city, address_postal_code, address_country,
@@ -57,7 +57,7 @@ export const createPatient = async (
  * Get patient by ID
  */
 export const getPatientById = async (patientId: string): Promise<Patient | null> => {
-  const patients = query('SELECT * FROM patients WHERE id = ?', [patientId]);
+  const patients = await query('SELECT * FROM patients WHERE id = ?', [patientId]);
 
   if (patients.length === 0) {
     return null;
@@ -86,7 +86,7 @@ export const getAllPatients = async (
     }
   }
 
-  const patients = query(sql, params);
+  const patients = await query(sql, params);
   return patients.map(mapPatientFromDb);
 };
 
@@ -98,7 +98,7 @@ export const searchPatients = async (
   limit: number = 50,
 ): Promise<Patient[]> => {
   const term = `%${searchTerm}%`;
-  const patients = query(
+  const patients = await query(
     `SELECT * FROM patients 
      WHERE first_name LIKE ? 
         OR last_name LIKE ? 
@@ -176,7 +176,7 @@ export const updatePatient = async (
   values.push(new Date().toISOString());
   values.push(patientId);
 
-  executeQuery(
+  await executeQuery(
     `UPDATE patients SET ${updates.join(', ')} WHERE id = ?`,
     values,
   );
@@ -193,7 +193,7 @@ export const updatePatient = async (
  */
 export const deletePatient = async (patientId: string): Promise<void> => {
   // For now, hard delete. In production, consider soft delete
-  executeQuery('DELETE FROM patients WHERE id = ?', [patientId]);
+  await executeQuery('DELETE FROM patients WHERE id = ?', [patientId]);
 };
 
 /**
