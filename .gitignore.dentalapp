@@ -1,0 +1,45 @@
+# Dental App Specific Ignore Patterns
+# This file contains app-specific ignore patterns
+# Can be merged with main .gitignore if needed
+
+# App-specific database
+dentalapp_*.db
+dentalapp_*.db-shm
+dentalapp_*.db-wal
+dentalapp_*.sqlite
+dentalapp_*.sqlite3
+
+# App-specific cache
+.dentalapp-cache/
+dentalapp-cache/
+
+# App-specific logs
+dentalapp-*.log
+logs/dentalapp/
+
+# App-specific build artifacts
+dentalapp-build/
+dentalapp-dist/
+build/dentalapp/
+
+# App-specific environment
+.env.dentalapp.*
+!.env.dentalapp.example
+
+# App-specific storage
+storage/dentalapp/
+.dentalapp-storage/
+
+# App-specific temporary files
+tmp/dentalapp/
+temp/dentalapp/
+.dentalapp-tmp/
+
+# App-specific uploads (patient documents, images, etc.)
+uploads/dentalapp/
+.dentalapp-uploads/
+
+# App-specific backups
+backups/dentalapp/
+.dentalapp-backups/
+
