@@ -126,4 +126,3 @@ eas submit --platform ios
 1. **Development**: Χρησιμοποιήστε `npm start` με Expo Go ή Development Build
 2. **Testing**: Build preview profile για TestFlight
 3. **Production**: Build production profile για App Store
-

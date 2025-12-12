@@ -27,16 +27,19 @@ This application runs in an isolated environment to prevent conflicts with other
 ### Quick Start
 
 1. **Activate Node.js environment**:
+
    ```bash
    nvm use
    ```
 
 2. **Install dependencies**:
+
    ```bash
    npm install
    ```
 
 3. **Start development server**:
+
    ```bash
    npm start
    # Press 'i' for iOS simulator
@@ -44,13 +47,14 @@ This application runs in an isolated environment to prevent conflicts with other
    ```
 
 4. **For Development Build** (if using custom native modules):
+
    ```bash
    # Install EAS CLI
    npm install -g eas-cli
-   
+
    # Login
    eas login
-   
+
    # Build development client
    eas build --profile development --platform ios
    ```
@@ -66,6 +70,7 @@ This application runs in an isolated environment to prevent conflicts with other
 ### Environment Setup
 
 1. **Initial Setup**:
+
    ```bash
    # The .env.dentalapp file is already created with defaults
    # Check if it's configured correctly
@@ -156,6 +161,7 @@ npm test
 ### iOS (Real iPhone)
 
 1. **Using EAS (Recommended)**:
+
    ```bash
    eas build --profile production --platform ios
    ```

@@ -12,7 +12,7 @@ For now, you can use placeholder images or generate them later.
 ## Quick Asset Generation
 
 You can use online tools or Expo's asset generator:
+
 - https://www.appicon.co/
 - https://makeappicon.com/
 - Or use `npx expo-asset-generator` (if available)
-
