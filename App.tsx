@@ -18,6 +18,10 @@ const App = (): React.JSX.Element => {
     const initializeApp = async () => {
       try {
         // Initialize database
+        // Note: expo-sqlite may need the app to be fully loaded
+        // Add a small delay to ensure Expo is ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         await initDatabase();
 
         // Check authentication
@@ -26,6 +30,8 @@ const App = (): React.JSX.Element => {
         setIsInitializing(false);
       } catch (error) {
         console.error('Failed to initialize app:', error);
+        // Don't block app startup if database init fails
+        // The app can still run, database will be initialized when needed
         setIsInitializing(false);
       }
     };

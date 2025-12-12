@@ -19,6 +19,8 @@ let db: SQLite.SQLiteDatabase | null = null;
 export const initDatabase = async (): Promise<void> => {
   try {
     // Open database connection using expo-sqlite
+    // expo-sqlite v16+ API: openDatabaseAsync(name, options?)
+    // The database will be created in the default SQLite directory
     db = await SQLite.openDatabaseAsync(DB_NAME);
 
     // Enable foreign keys
@@ -30,6 +32,7 @@ export const initDatabase = async (): Promise<void> => {
     console.log('Database initialized successfully');
   } catch (error) {
     console.error('Failed to initialize database:', error);
+    console.error('Error details:', JSON.stringify(error, null, 2));
     throw error;
   }
 };
