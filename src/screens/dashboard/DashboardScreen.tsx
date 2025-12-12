@@ -6,12 +6,15 @@
 import React from 'react';
 import {View, Text, StyleSheet, ScrollView} from 'react-native';
 import {useAuthStore} from '../../store/auth.store';
+import {DatabaseWarning} from '../../components/common/DatabaseWarning';
+import {isDatabaseAvailable} from '../../services/database';
 
 const DashboardScreen = () => {
   const {user} = useAuthStore();
 
   return (
     <ScrollView style={styles.container}>
+      {!isDatabaseAvailable && <DatabaseWarning />}
       <View style={styles.content}>
         <Text style={styles.welcome}>
           Καλώς ήρθατε, {user?.firstName} {user?.lastName}

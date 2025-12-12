@@ -11,5 +11,6 @@ export {
   transaction,
   backupDatabase,
   restoreDatabase,
+  isDatabaseAvailable,
 } from './database.service';
 
