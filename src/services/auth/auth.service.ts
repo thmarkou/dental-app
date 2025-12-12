@@ -5,32 +5,34 @@
 
 import {query, executeQuery} from '../database';
 import {v4 as uuidv4} from 'uuid';
-import bcrypt from 'bcryptjs';
 import {User, UserRole} from '../../types';
 
-// For React Native, we'll use a simpler approach
-// bcryptjs might need react-native-bcrypt or similar
-// For now, we'll use a simple hash (replace with proper bcrypt in production)
+// Password hashing for React Native
+// Note: bcryptjs doesn't work directly in React Native
+// For production, consider using react-native-bcrypt or a backend API
+// For now, using a simple hash (NOT SECURE - replace in production)
 
 /**
- * Hash password (simple implementation - replace with bcrypt in production)
+ * Hash password (simple implementation - replace with proper solution in production)
+ * TODO: Implement proper password hashing (react-native-bcrypt or backend API)
  */
 const hashPassword = async (password: string): Promise<string> => {
-  // TODO: Implement proper bcrypt hashing
-  // For now, simple hash (NOT SECURE - replace in production)
-  return password; // Placeholder
+  // Simple hash - REPLACE WITH PROPER HASHING IN PRODUCTION
+  // This is NOT secure and should be replaced
+  return `hashed_${password}`; // Placeholder
 };
 
 /**
  * Verify password
+ * TODO: Implement proper password verification
  */
 const verifyPassword = async (
   password: string,
   hash: string,
 ): Promise<boolean> => {
-  // TODO: Implement proper bcrypt verification
-  // For now, simple comparison (NOT SECURE - replace in production)
-  return password === hash; // Placeholder
+  // Simple comparison - REPLACE WITH PROPER VERIFICATION IN PRODUCTION
+  // This is NOT secure and should be replaced
+  return hash === `hashed_${password}`; // Placeholder
 };
 
 /**
