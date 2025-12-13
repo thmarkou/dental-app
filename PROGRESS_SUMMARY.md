@@ -1,5 +1,45 @@
 # Progress Summary - Dental Practice Management App
 
+## Ημερομηνία: 13 Δεκεμβρίου 2025
+
+### Σημερινές Αλλαγές (13 Δεκεμβρίου 2025)
+
+#### 1. UI/UX Improvements ✅
+- ✅ **Professional Login Screen**: Redesigned login screen with modern UI, better spacing, shadows, and professional styling
+- ✅ **Show/Hide Password**: Added password visibility toggle with eye icon
+- ✅ **Forgot Password**: Added forgot password link with alert functionality
+- ✅ **Dashboard Translation**: Converted all Greek text to English in DashboardScreen
+- ✅ **Bottom Tab Icons**: Added Material Icons to all bottom navigation tabs (Dashboard, Patients, Appointments, Treatments, Financial, Reports, Settings)
+- ✅ **Tab Labels**: Converted all tab labels from Greek to English
+
+#### 2. Sign Up Functionality ✅
+- ✅ **SignUpScreen**: Created complete sign up screen with:
+  - Username, Email, First Name, Last Name, Phone fields
+  - Password and Confirm Password with show/hide toggles
+  - Role selection (Receptionist, Assistant, Dentist)
+  - Form validation (email format, password strength, matching passwords)
+  - Back arrow navigation
+- ✅ **Auth Store**: Added `signup` function to auth store
+- ✅ **Navigation**: Added SignUp screen to navigation stack
+- ✅ **Login Link**: Added "Sign Up" link in LoginScreen and "Sign In" link in SignUpScreen
+
+#### 3. Internationalization Cleanup ✅
+- ✅ **Removed i18n**: Removed all i18n setup (i18next, react-i18next, expo-localization)
+- ✅ **English Only**: All screens now use hardcoded English text
+- ✅ **Translation Files**: Removed all translation JSON files
+- ✅ **Language Store**: Removed language store and provider
+
+#### 4. Bug Fixes ✅
+- ✅ **FontUtilsModule Error**: Fixed by adding expo-font plugin and rebuilding iOS project
+- ✅ **Navigation**: Fixed back arrow in SignUpScreen using useNavigation hook
+- ✅ **Spacing**: Adjusted back arrow position in SignUpScreen for better UX
+
+#### 5. Repository Updates ✅
+- ✅ All changes committed and pushed to GitHub
+- ✅ Clean working tree
+
+---
+
 ## Ημερομηνία: 13 Δεκεμβρίου 2024
 
 ## Τι Έχουμε Κάνει
