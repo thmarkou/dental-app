@@ -36,15 +36,16 @@
 #endif
 #else
   // Release mode: Use bundled JavaScript file
-  // Try main 2.jsbundle first (if Xcode created it), then fallback to main.jsbundle
-  NSURL *jsBundleURL = [[NSBundle mainBundle] URLForResource:@"main 2" withExtension:@"jsbundle"];
+  NSURL *jsBundleURL = [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
   if (!jsBundleURL) {
-    jsBundleURL = [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
+    // Try main 2.jsbundle as fallback (if Xcode created it with space)
+    jsBundleURL = [[NSBundle mainBundle] URLForResource:@"main 2" withExtension:@"jsbundle"];
   }
   if (jsBundleURL) {
     return jsBundleURL;
   }
-  // Fallback: This should not happen - bundle should always be present in Release builds
+  // This should not happen - bundle should always be present in Release builds
+  NSLog(@"ERROR: JavaScript bundle not found! Looking for: main.jsbundle or main 2.jsbundle");
   @throw [NSException exceptionWithName:@"BundleNotFound" 
                                   reason:@"JavaScript bundle not found in Release build. Make sure main.jsbundle is included in Copy Bundle Resources." 
                                 userInfo:nil];
