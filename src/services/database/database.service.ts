@@ -5,12 +5,7 @@
 
 // Using expo-sqlite instead of react-native-quick-sqlite for Expo compatibility
 // Note: expo-sqlite requires development build, not Expo Go
-let SQLite: any = null;
-try {
-  SQLite = require('expo-sqlite');
-} catch (error) {
-  console.warn('expo-sqlite not available - requires development build');
-}
+import * as SQLite from 'expo-sqlite';
 
 import {migrations} from './migrations';
 
