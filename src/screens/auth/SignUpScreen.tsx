@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 40,
+    paddingTop: 60,
     paddingBottom: 24,
   },
   header: {
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    marginBottom: 32,
+    marginBottom: 40,
     padding: 8,
   },
   titleContainer: {
