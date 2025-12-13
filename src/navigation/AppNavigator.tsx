@@ -8,6 +8,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useAuthStore} from '../store/auth.store';
+import {MaterialIcons} from '@expo/vector-icons';
 
 // Screens (to be created)
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -47,6 +48,11 @@ const MainTabs = () => {
         headerShown: true,
         tabBarActiveTintColor: '#007AFF',
         tabBarInactiveTintColor: '#8E8E93',
+        tabBarStyle: {
+          paddingBottom: 5,
+          paddingTop: 5,
+          height: 60,
+        },
       }}>
       <Tab.Screen
         name="Dashboard"
@@ -54,54 +60,75 @@ const MainTabs = () => {
         options={{
           title: 'Dashboard',
           tabBarLabel: 'Dashboard',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="dashboard" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
         name="Patients"
         component={PatientsScreen}
         options={{
-          title: 'Ασθενείς',
-          tabBarLabel: 'Ασθενείς',
+          title: 'Patients',
+          tabBarLabel: 'Patients',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="people" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
         name="Appointments"
         component={AppointmentsScreen}
         options={{
-          title: 'Ραντεβού',
-          tabBarLabel: 'Ραντεβού',
+          title: 'Appointments',
+          tabBarLabel: 'Appointments',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="event" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
         name="Treatments"
         component={TreatmentsScreen}
         options={{
-          title: 'Θεραπείες',
-          tabBarLabel: 'Θεραπείες',
+          title: 'Treatments',
+          tabBarLabel: 'Treatments',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="medical-services" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
         name="Financial"
         component={FinancialScreen}
         options={{
-          title: 'Οικονομικά',
-          tabBarLabel: 'Οικονομικά',
+          title: 'Financial',
+          tabBarLabel: 'Financial',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="account-balance-wallet" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
         name="Reports"
         component={ReportsScreen}
         options={{
-          title: 'Αναφορές',
-          tabBarLabel: 'Αναφορές',
+          title: 'Reports',
+          tabBarLabel: 'Reports',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="assessment" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
-          title: 'Ρυθμίσεις',
-          tabBarLabel: 'Ρυθμίσεις',
+          title: 'Settings',
+          tabBarLabel: 'Settings',
+          tabBarIcon: ({color, size}) => (
+            <MaterialIcons name="settings" size={size} color={color} />
+          ),
         }}
       />
     </Tab.Navigator>
