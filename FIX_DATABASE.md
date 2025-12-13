@@ -3,6 +3,7 @@
 ## Το Πρόβλημα
 
 Το `expo-sqlite` native module δεν είναι properly linked, οπότε βλέπετε το warning:
+
 ```
 ⚠️ Database not available. This usually means:
 1. Running in Expo Go (use development build instead)
@@ -13,6 +14,7 @@
 ## Λύση: Rebuild με Pods
 
 ### Βήμα 1: Clean Build
+
 ```bash
 cd /Users/fanis/AIProjects/cursor/dentalapp
 
@@ -23,6 +25,7 @@ rm -rf ios/Podfile.lock
 ```
 
 ### Βήμα 2: Reinstall Pods
+
 ```bash
 cd ios
 pod install
@@ -30,6 +33,7 @@ cd ..
 ```
 
 ### Βήμα 3: Rebuild App
+
 ```bash
 # Option A: Expo rebuild
 npx expo prebuild --clean
@@ -45,11 +49,13 @@ npx expo run:ios
 ## Ελέγχος ότι Λειτουργεί
 
 Μετά το rebuild, στο Xcode console θα πρέπει να δείτε:
+
 ```
 ✅ Database initialized successfully
 ```
 
 Αντί για:
+
 ```
 ⚠️ Database not available...
 ```
@@ -57,6 +63,7 @@ npx expo run:ios
 ## Αν Συνεχίζει το Πρόβλημα
 
 ### 1. Ελέγξτε ότι το Plugin είναι στο app.json
+
 ```json
 "plugins": [
   [
@@ -69,17 +76,20 @@ npx expo run:ios
 ```
 
 ### 2. Ελέγξτε ότι το Package είναι Installed
+
 ```bash
 npm list expo-sqlite
 ```
 
 ### 3. Ελέγξτε ότι το Pod είναι Installed
+
 ```bash
 cd ios
 pod list | grep -i sqlite
 ```
 
 ### 4. Full Clean Rebuild
+
 ```bash
 # Clean everything
 rm -rf node_modules
@@ -98,6 +108,7 @@ npx expo run:ios
 ## Debug Mode vs Release Mode
 
 **Σημαντικό:** Για development, χρησιμοποιήστε **Debug** mode:
+
 - Metro bundler connection
 - Native modules λειτουργούν καλύτερα
 - Hot reload
@@ -127,4 +138,3 @@ echo "✅ Done! Now run: npx expo run:ios"
 - Το `expo-sqlite` χρειάζεται **development build**, όχι Expo Go
 - Μετά το `prebuild`, χρειάζεται **pod install** για iOS
 - Το native module link γίνεται αυτόματα με `expo prebuild` + `pod install`
-

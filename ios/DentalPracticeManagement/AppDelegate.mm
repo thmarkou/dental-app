@@ -24,7 +24,9 @@
 - (NSURL *)bundleURL
 {
 #if DEBUG
-  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@".expo/.virtual-metro-entry"];
+  // For Expo development builds, use the default bundle root
+  // RCTBundleURLProvider will automatically find Metro bundler
+  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
 #else
   return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
 #endif
