@@ -20,8 +20,7 @@ open ios/DentalPracticeManagement.xcworkspace
 
 5. **Στο dialog που ανοίγει, επιλέξτε:**
    - ✅ **"Copy files to destination"** (όχι "Reference files in place")
-   - ✅ **"Create groups"** (όχι "Create folder references")
-   - ✅ **Target: DentalPracticeManagement** (checked)
+   - ✅ **Target: DentalPracticeManagement** (checked - αυτό είναι το σημαντικό!)
 
 6. **Click "Add"**
 
@@ -44,7 +43,7 @@ DentalPracticeManagement/
 
 - **"Copy files to destination"** = Το bundle θα αντιγραφεί στο Xcode project
 - **"Reference files in place"** = Μόνο reference (ΔΕΝ λειτουργεί για Release builds)
-- **"Create groups"** = Σωστή δομή στο Xcode project
+- **Target: DentalPracticeManagement** = Το bundle θα συμπεριληφθεί στο build (ΑΥΤΟ ΕΙΝΑΙ ΚΡΙΣΙΜΟ!)
 
 ## Επαλήθευση
 
