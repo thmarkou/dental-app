@@ -46,6 +46,8 @@
     <string>This app needs access to camera to take photos of dental conditions.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>This app needs access to photo library to select X-rays and images.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>This app needs access to local network to connect to Metro bundler for development.</string>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
