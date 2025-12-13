@@ -5,20 +5,16 @@
 
 import React from 'react';
 import {View, Text, TouchableOpacity, StyleSheet, Alert} from 'react-native';
-import {useTranslation} from 'react-i18next';
 import {useAuthStore} from '../../store/auth.store';
-import {useLanguageStore, Language} from '../../store/language.store';
 
 const SettingsScreen = () => {
-  const {t} = useTranslation();
   const {logout, user} = useAuthStore();
-  const {language, setLanguage} = useLanguageStore();
 
   const handleLogout = () => {
-    Alert.alert(t('common.logout'), t('settings.confirmLogout'), [
-      {text: t('common.cancel'), style: 'cancel'},
+    Alert.alert('Logout', 'Are you sure you want to log out?', [
+      {text: 'Cancel', style: 'cancel'},
       {
-        text: t('common.logout'),
+        text: 'Logout',
         style: 'destructive',
         onPress: async () => {
           await logout();
@@ -27,67 +23,29 @@ const SettingsScreen = () => {
     ]);
   };
 
-  const handleLanguageChange = (lang: Language) => {
-    setLanguage(lang);
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('settings.profile')}</Text>
+        <Text style={styles.sectionTitle}>Profile</Text>
         <View style={styles.infoRow}>
-          <Text style={styles.label}>{t('settings.name')}:</Text>
+          <Text style={styles.label}>Name:</Text>
           <Text style={styles.value}>
             {user?.firstName} {user?.lastName}
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.label}>{t('settings.email')}:</Text>
+          <Text style={styles.label}>Email:</Text>
           <Text style={styles.value}>{user?.email}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.label}>{t('settings.role')}:</Text>
+          <Text style={styles.label}>Role:</Text>
           <Text style={styles.value}>{user?.role}</Text>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('settings.language')}</Text>
-        <View style={styles.languageRow}>
-          <TouchableOpacity
-            style={[
-              styles.languageButton,
-              language === 'en' && styles.languageButtonActive,
-            ]}
-            onPress={() => handleLanguageChange('en')}>
-            <Text
-              style={[
-                styles.languageButtonText,
-                language === 'en' && styles.languageButtonTextActive,
-              ]}>
-              {t('settings.english')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.languageButton,
-              language === 'el' && styles.languageButtonActive,
-            ]}
-            onPress={() => handleLanguageChange('el')}>
-            <Text
-              style={[
-                styles.languageButtonText,
-                language === 'el' && styles.languageButtonTextActive,
-              ]}>
-              {t('settings.greek')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.section}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>{t('common.logout')}</Text>
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -142,32 +100,6 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  languageRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-  },
-  languageButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#dddddd',
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-  },
-  languageButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#007AFF',
-  },
-  languageButtonText: {
-    fontSize: 16,
-    color: '#666666',
-  },
-  languageButtonTextActive: {
-    color: '#ffffff',
     fontWeight: '600',
   },
 });

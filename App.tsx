@@ -9,20 +9,14 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
 import {initDatabase} from './src/services/database';
 import {useAuthStore} from './src/store/auth.store';
-import {useLanguageStore} from './src/store/language.store';
-import './src/i18n/config'; // Initialize i18n
 
 const App = (): React.JSX.Element => {
   const [isInitializing, setIsInitializing] = useState(true);
   const {checkAuth} = useAuthStore();
-  const {initializeLanguage} = useLanguageStore();
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Initialize language preference
-        await initializeLanguage();
-
         // Initialize database
         // Note: expo-sqlite requires development build
         // If running in Expo Go, database init will be skipped gracefully
@@ -40,7 +34,7 @@ const App = (): React.JSX.Element => {
     };
 
     initializeApp();
-  }, [checkAuth, initializeLanguage]);
+  }, [checkAuth]);
 
   if (isInitializing) {
     return (
