@@ -1,6 +1,6 @@
 /**
  * Login Screen
- * User authentication screen
+ * Professional authentication screen for dental practice management
  */
 
 import React, {useState} from 'react';
@@ -12,117 +12,250 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import {useAuthStore} from '../../store/auth.store';
 
 const LoginScreen = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [isUsernameFocused, setIsUsernameFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const {login, isLoading} = useAuthStore();
 
   const handleLogin = async () => {
-    if (!username || !password) {
+    if (!username.trim() || !password.trim()) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     try {
-      await login(username, password);
+      await login(username.trim(), password);
     } catch (error) {
-      Alert.alert('Error', 'Invalid username or password');
+      Alert.alert('Authentication Failed', 'Invalid username or password. Please try again.');
     }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Dental Practice Management</Text>
-        <Text style={styles.subtitle}>Login</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled">
+        <View style={styles.content}>
+          {/* Header Section */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <View style={styles.logoPlaceholder}>
+                <Text style={styles.logoText}>🦷</Text>
+              </View>
+            </View>
+            <Text style={styles.title}>Dental Practice</Text>
+            <Text style={styles.subtitle}>Management System</Text>
+            <Text style={styles.description}>
+              Sign in to access your practice management dashboard
+            </Text>
+          </View>
 
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          {/* Form Section */}
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Username</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  isUsernameFocused && styles.inputFocused,
+                ]}
+                placeholder="Enter your username"
+                placeholderTextColor="#999999"
+                value={username}
+                onChangeText={setUsername}
+                onFocus={() => setIsUsernameFocused(true)}
+                onBlur={() => setIsUsernameFocused(false)}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="username"
+                textContentType="username"
+                editable={!isLoading}
+              />
+            </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  isPasswordFocused && styles.inputFocused,
+                ]}
+                placeholder="Enter your password"
+                placeholderTextColor="#999999"
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="password"
+                textContentType="password"
+                editable={!isLoading}
+              />
+            </View>
 
-          <TouchableOpacity
-            style={styles.button}
-            onPress={handleLogin}
-            disabled={isLoading}>
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Login</Text>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}
+              activeOpacity={0.8}>
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Secure access to your practice data
+            </Text>
+          </View>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8f9fa',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 32,
+    paddingVertical: 48,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 48,
+  },
+  logoContainer: {
+    marginBottom: 24,
+  },
+  logoPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#007AFF',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logoText: {
+    fontSize: 40,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 32,
+    fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 10,
-    color: '#000000',
+    marginBottom: 8,
+    color: '#1a1a1a',
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 18,
+    fontWeight: '500',
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 12,
+    color: '#007AFF',
+  },
+  description: {
+    fontSize: 14,
+    textAlign: 'center',
     color: '#666666',
+    lineHeight: 20,
+    paddingHorizontal: 16,
   },
   form: {
     width: '100%',
   },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 8,
+    letterSpacing: 0.2,
+  },
   input: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#dddddd',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    marginBottom: 15,
+    height: 56,
+    borderWidth: 1.5,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
     fontSize: 16,
     backgroundColor: '#ffffff',
+    color: '#1a1a1a',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 1},
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  inputFocused: {
+    borderColor: '#007AFF',
+    borderWidth: 2,
+    shadowColor: '#007AFF',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   button: {
-    height: 50,
+    height: 56,
     backgroundColor: '#007AFF',
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
+    shadowColor: '#007AFF',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  footer: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#999999',
+    textAlign: 'center',
   },
 });
 

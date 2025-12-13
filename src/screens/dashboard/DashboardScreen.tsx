@@ -17,31 +17,31 @@ const DashboardScreen = () => {
       {!isDatabaseAvailable && <DatabaseWarning />}
       <View style={styles.content}>
         <Text style={styles.welcome}>
-          Καλώς ήρθατε, {user?.firstName} {user?.lastName}
+          Welcome, {user?.firstName} {user?.lastName}
         </Text>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Σήμερα</Text>
+          <Text style={styles.sectionTitle}>Today</Text>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Ραντεβού</Text>
+            <Text style={styles.cardTitle}>Appointments</Text>
             <Text style={styles.cardValue}>0</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Γρήγορη Προβολή</Text>
+          <Text style={styles.sectionTitle}>Quick Overview</Text>
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Ασθενείς</Text>
+              <Text style={styles.statLabel}>Patients</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Ραντεβού</Text>
+              <Text style={styles.statLabel}>Appointments</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>0</Text>
-              <Text style={styles.statLabel}>Θεραπείες</Text>
+              <Text style={styles.statLabel}>Treatments</Text>
             </View>
           </View>
         </View>
