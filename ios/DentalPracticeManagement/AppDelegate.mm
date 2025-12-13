@@ -3,10 +3,6 @@
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
 
-#if TARGET_IPHONE_SIMULATOR
-#import <TargetConditionals.h>
-#endif
-
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
@@ -28,15 +24,7 @@
 - (NSURL *)bundleURL
 {
 #if DEBUG
-  // For simulator, use localhost (no network permission needed)
-  // For real device, RCTBundleURLProvider will use network IP
-#if TARGET_IPHONE_SIMULATOR
-  return [NSURL URLWithString:@"http://localhost:8081/index.bundle?platform=ios&dev=true"];
-#else
-  // For real device, use RCTBundleURLProvider which handles network discovery
-  // Make sure NSLocalNetworkUsageDescription is set in Info.plist
-  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
-#endif
+  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@".expo/.virtual-metro-entry"];
 #else
   return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
 #endif
