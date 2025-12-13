@@ -3,6 +3,7 @@
 ## Το Πρόβλημα
 
 Το app δεν μπορεί να συνδεθεί στο Metro bundler:
+
 ```
 Error Domain=NSURLErrorDomain Code=-1009 "The Internet connection appears to be offline."
 Local network prohibited
@@ -13,6 +14,7 @@ Local network prohibited
 ### 1. Προσθήκη Local Network Permission ✅
 
 Προστέθηκε στο `Info.plist`:
+
 ```xml
 <key>NSLocalNetworkUsageDescription</key>
 <string>This app needs access to local network to connect to Metro bundler for development.</string>
@@ -21,6 +23,7 @@ Local network prohibited
 ### 2. Επαλήθευση NSAppTransportSecurity ✅
 
 Το `Info.plist` έχει ήδη:
+
 ```xml
 <key>NSAppTransportSecurity</key>
 <dict>
@@ -32,6 +35,7 @@ Local network prohibited
 ### 3. Rebuild στο Xcode
 
 Μετά την αλλαγή στο `Info.plist`:
+
 1. **Product** → **Clean Build Folder** (⇧⌘K)
 2. **Product** → **Build** (⌘B)
 3. **Product** → **Run** (⌘R)
@@ -39,10 +43,12 @@ Local network prohibited
 ### 4. Ελέγξτε Network Permissions
 
 **Στο iOS Device:**
+
 - Settings → Privacy & Security → Local Network
 - Βεβαιωθείτε ότι το app έχει permission
 
 **Στο Simulator:**
+
 - Δεν χρειάζεται permission (συνδέεται αυτόματα)
 
 ## Ελέγχος Metro Bundler
@@ -59,10 +65,12 @@ curl http://192.168.100.44:8081/status
 ### 1. Ελέγξτε Network Connection
 
 **Real Device:**
+
 - Device και Mac πρέπει να είναι στο **ίδιο WiFi network**
 - Ελέγξτε firewall settings στο Mac
 
 **Simulator:**
+
 - Simulator συνδέεται στο localhost (127.0.0.1)
 - Δεν χρειάζεται network permission
 
@@ -82,12 +90,14 @@ curl http://192.168.100.44:8081/status
 ### 3. Check Firewall
 
 **Mac System Settings:**
+
 - System Settings → Network → Firewall
 - Allow connections for Node/Metro
 
 ### 4. Manual IP Configuration
 
 Στο Xcode:
+
 1. **Edit Scheme** → **Run** → **Arguments**
 2. **Environment Variables:**
    - `REACT_NATIVE_PACKAGER_HOSTNAME` = `192.168.100.44` (Mac IP)
@@ -95,11 +105,13 @@ curl http://192.168.100.44:8081/status
 ## Success Indicators
 
 ✅ **Όταν λειτουργεί:**
+
 - Metro terminal δείχνει bundle requests
 - Xcode console: "Loading bundle from http://..."
 - App UI εμφανίζεται
 
 ❌ **Όταν δεν λειτουργεί:**
+
 - "Local network prohibited" error
 - "No bundle URL present"
 - Metro terminal δεν δείχνει requests
@@ -112,4 +124,3 @@ curl http://192.168.100.44:8081/status
 - [ ] Rebuild
 - [ ] Check device network permissions (Settings → Privacy → Local Network)
 - [ ] Device και Mac στο ίδιο WiFi
-
