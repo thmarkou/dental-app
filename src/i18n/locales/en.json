@@ -1,0 +1,55 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "login": "Login",
+    "logout": "Logout",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm"
+  },
+  "auth": {
+    "title": "Dental Practice Management",
+    "subtitle": "Sign In",
+    "username": "Username",
+    "password": "Password",
+    "loginButton": "Sign In",
+    "invalidCredentials": "Invalid username or password",
+    "fillAllFields": "Please fill in all fields"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome"
+  },
+  "patients": {
+    "title": "Patients",
+    "addPatient": "Add Patient",
+    "searchPatients": "Search patients..."
+  },
+  "appointments": {
+    "title": "Appointments",
+    "addAppointment": "Add Appointment"
+  },
+  "treatments": {
+    "title": "Treatments"
+  },
+  "financial": {
+    "title": "Financial"
+  },
+  "reports": {
+    "title": "Reports"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "english": "English",
+    "greek": "Greek"
+  }
+}
+

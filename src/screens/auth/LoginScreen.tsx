@@ -13,36 +13,38 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useAuthStore} from '../../store/auth.store';
 
 const LoginScreen = () => {
+  const {t} = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const {login, isLoading} = useAuthStore();
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert('Σφάλμα', 'Παρακαλώ συμπληρώστε όλα τα πεδία');
+      Alert.alert(t('common.error'), t('auth.fillAllFields'));
       return;
     }
 
     try {
       await login(username, password);
     } catch (error) {
-      Alert.alert('Σφάλμα', 'Λάθος όνομα χρήστη ή κωδικός');
+      Alert.alert(t('common.error'), t('auth.invalidCredentials'));
     }
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Dental Practice Management</Text>
-        <Text style={styles.subtitle}>Σύνδεση</Text>
+        <Text style={styles.title}>{t('auth.title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.subtitle')}</Text>
 
         <View style={styles.form}>
           <TextInput
             style={styles.input}
-            placeholder="Όνομα χρήστη"
+            placeholder={t('auth.username')}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
@@ -51,7 +53,7 @@ const LoginScreen = () => {
 
           <TextInput
             style={styles.input}
-            placeholder="Κωδικός"
+            placeholder={t('auth.password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -66,7 +68,7 @@ const LoginScreen = () => {
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Σύνδεση</Text>
+              <Text style={styles.buttonText}>{t('auth.loginButton')}</Text>
             )}
           </TouchableOpacity>
         </View>

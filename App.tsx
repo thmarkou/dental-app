@@ -9,6 +9,7 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
 import {initDatabase} from './src/services/database';
 import {useAuthStore} from './src/store/auth.store';
+import './src/i18n/config'; // Initialize i18n
 
 const App = (): React.JSX.Element => {
   const [isInitializing, setIsInitializing] = useState(true);

@@ -1,0 +1,55 @@
+{
+  "common": {
+    "welcome": "Καλώς ήρθατε",
+    "login": "Σύνδεση",
+    "logout": "Αποσύνδεση",
+    "cancel": "Ακύρωση",
+    "save": "Αποθήκευση",
+    "delete": "Διαγραφή",
+    "edit": "Επεξεργασία",
+    "add": "Προσθήκη",
+    "search": "Αναζήτηση",
+    "loading": "Φόρτωση...",
+    "error": "Σφάλμα",
+    "success": "Επιτυχία",
+    "confirm": "Επιβεβαίωση"
+  },
+  "auth": {
+    "title": "Διαχείριση Οδοντιατρείου",
+    "subtitle": "Σύνδεση",
+    "username": "Όνομα χρήστη",
+    "password": "Κωδικός",
+    "loginButton": "Σύνδεση",
+    "invalidCredentials": "Λάθος όνομα χρήστη ή κωδικός",
+    "fillAllFields": "Παρακαλώ συμπληρώστε όλα τα πεδία"
+  },
+  "dashboard": {
+    "title": "Πίνακας Ελέγχου",
+    "welcome": "Καλώς ήρθατε"
+  },
+  "patients": {
+    "title": "Ασθενείς",
+    "addPatient": "Προσθήκη Ασθενούς",
+    "searchPatients": "Αναζήτηση ασθενών..."
+  },
+  "appointments": {
+    "title": "Ραντεβού",
+    "addAppointment": "Προσθήκη Ραντεβού"
+  },
+  "treatments": {
+    "title": "Θεραπείες"
+  },
+  "financial": {
+    "title": "Οικονομικά"
+  },
+  "reports": {
+    "title": "Αναφορές"
+  },
+  "settings": {
+    "title": "Ρυθμίσεις",
+    "language": "Γλώσσα",
+    "english": "Αγγλικά",
+    "greek": "Ελληνικά"
+  }
+}
+
