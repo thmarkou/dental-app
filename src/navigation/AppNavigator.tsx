@@ -12,6 +12,7 @@ import {MaterialIcons} from '@expo/vector-icons';
 
 // Screens (to be created)
 import LoginScreen from '../screens/auth/LoginScreen';
+import SignUpScreen from '../screens/auth/SignUpScreen';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import PatientsScreen from '../screens/patients/PatientsScreen';
 import AppointmentsScreen from '../screens/appointments/AppointmentsScreen';
@@ -22,6 +23,7 @@ import SettingsScreen from '../screens/settings/SettingsScreen';
 
 export type RootStackParamList = {
   Login: undefined;
+  SignUp: undefined;
   Main: undefined;
 };
 
@@ -145,7 +147,10 @@ const AppNavigator = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{headerShown: false}}>
         {!isAuthenticated ? (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="SignUp" component={SignUpScreen} />
+          </>
         ) : (
           <Stack.Screen name="Main" component={MainTabs} />
         )}

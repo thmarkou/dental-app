@@ -19,7 +19,11 @@ import {
 import {MaterialIcons} from '@expo/vector-icons';
 import {useAuthStore} from '../../store/auth.store';
 
-const LoginScreen = () => {
+interface LoginScreenProps {
+  navigation: any;
+}
+
+const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -152,6 +156,16 @@ const LoginScreen = () => {
               ) : (
                 <Text style={styles.buttonText}>Sign In</Text>
               )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Sign Up Link */}
+          <View style={styles.signUpContainer}>
+            <Text style={styles.signUpText}>Don't have an account? </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('SignUp')}
+              activeOpacity={0.7}>
+              <Text style={styles.signUpLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>
 
