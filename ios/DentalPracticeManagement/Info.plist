@@ -72,5 +72,7 @@
     <string>Light</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
+    <key>UIApplicationSupportsMultipleScenes</key>
+    <false/>
   </dict>
 </plist>
