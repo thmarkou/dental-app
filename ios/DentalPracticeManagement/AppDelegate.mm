@@ -26,7 +26,17 @@
 #if DEBUG
   return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@".expo/.virtual-metro-entry"];
 #else
-  return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
+  // Release mode: Use bundled JavaScript file
+  // Try main 2.jsbundle first (if Xcode created it), then fallback to main.jsbundle
+  NSURL *jsBundleURL = [[NSBundle mainBundle] URLForResource:@"main 2" withExtension:@"jsbundle"];
+  if (!jsBundleURL) {
+    jsBundleURL = [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
+  }
+  if (jsBundleURL) {
+    return jsBundleURL;
+  }
+  // Fallback: Try to use Metro if bundle not found (should not happen in production)
+  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
 #endif
 }
 
