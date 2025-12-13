@@ -24,7 +24,16 @@
 - (NSURL *)bundleURL
 {
 #if DEBUG
-  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@".expo/.virtual-metro-entry"];
+  // Debug mode: Use Metro bundler
+  // For simulator, use localhost (no network permission needed)
+  // For real device, RCTBundleURLProvider will use network IP
+#if TARGET_IPHONE_SIMULATOR
+  return [NSURL URLWithString:@"http://localhost:8081/index.bundle?platform=ios&dev=true"];
+#else
+  // For real device, use RCTBundleURLProvider which handles network discovery
+  // Make sure NSLocalNetworkUsageDescription is set in Info.plist
+  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
+#endif
 #else
   // Release mode: Use bundled JavaScript file
   // Try main 2.jsbundle first (if Xcode created it), then fallback to main.jsbundle
@@ -35,8 +44,10 @@
   if (jsBundleURL) {
     return jsBundleURL;
   }
-  // Fallback: Try to use Metro if bundle not found (should not happen in production)
-  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
+  // Fallback: This should not happen - bundle should always be present in Release builds
+  @throw [NSException exceptionWithName:@"BundleNotFound" 
+                                  reason:@"JavaScript bundle not found in Release build. Make sure main.jsbundle is included in Copy Bundle Resources." 
+                                userInfo:nil];
 #endif
 }
 
