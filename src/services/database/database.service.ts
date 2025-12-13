@@ -25,16 +25,27 @@ export let isDatabaseAvailable = false;
  */
 export const initDatabase = async (): Promise<void> => {
   try {
-    // Check if SQLite is available (requires development build)
-    if (!SQLite || typeof SQLite.openDatabaseAsync !== 'function') {
-      console.warn('SQLite not available - requires development build');
+    // Check if SQLite module is available
+    if (!SQLite) {
+      console.warn('SQLite module not available');
+      isDatabaseAvailable = false;
       return;
     }
 
+    // Check if openDatabaseAsync function exists
+    if (typeof SQLite.openDatabaseAsync !== 'function') {
+      console.warn('SQLite.openDatabaseAsync not available');
+      isDatabaseAvailable = false;
+      return;
+    }
+
+    console.log('Attempting to open database...');
+    
     // Open database connection using expo-sqlite
     // expo-sqlite v16+ API: openDatabaseAsync(name, options?)
-    // The database will be created in the default SQLite directory
     db = await SQLite.openDatabaseAsync(DB_NAME);
+    
+    console.log('Database opened successfully');
 
     // Enable foreign keys
     await db.execAsync('PRAGMA foreign_keys = ON;');
@@ -43,22 +54,40 @@ export const initDatabase = async (): Promise<void> => {
     await runMigrations();
 
     isDatabaseAvailable = true;
-    console.log('Database initialized successfully');
+    console.log('✅ Database initialized successfully');
   } catch (error: any) {
-    // If error is about directory not being available, it means we're in Expo Go
-    if (error?.message?.includes('directory') || error?.message?.includes('null')) {
+    // Log the full error to understand what's happening
+    const errorMessage = error?.message || String(error);
+    const errorStack = error?.stack || '';
+    
+    console.error('❌ Database initialization error:', errorMessage);
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: errorStack,
+      error: error,
+    });
+    
+    // Check for specific error types
+    if (
+      errorMessage.includes('Cannot find native module') ||
+      errorMessage.includes('ExpoSQLite') ||
+      errorMessage.includes('directory') ||
+      errorMessage.includes('null') ||
+      errorMessage.includes('not available')
+    ) {
       console.warn(
-        'Database initialization skipped - expo-sqlite requires development build.\n' +
-        'Run: npx expo run:ios or npx expo run:android\n' +
-        'Or create development build: npx expo prebuild && npx expo run:ios'
+        '⚠️ Database not available. This usually means:\n' +
+        '1. Running in Expo Go (use development build instead)\n' +
+        '2. Native module not properly linked\n' +
+        '3. Need to rebuild: npx expo run:ios'
       );
       isDatabaseAvailable = false;
-      // Don't throw - allow app to continue without database for now
       return;
     }
+    
+    // For any other error, still mark as unavailable but log it
     isDatabaseAvailable = false;
-    console.error('Failed to initialize database:', error);
-    // Don't throw - allow app to continue
+    console.error('Unexpected database error:', error);
   }
 };
 
