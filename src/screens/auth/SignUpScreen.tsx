@@ -17,14 +17,12 @@ import {
   ScrollView,
 } from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
+import {useNavigation} from '@react-navigation/native';
 import {useAuthStore} from '../../store/auth.store';
 import {UserRole} from '../../types';
 
-interface SignUpScreenProps {
-  navigation: any;
-}
-
-const SignUpScreen: React.FC<SignUpScreenProps> = ({navigation}) => {
+const SignUpScreen = () => {
+  const navigation = useNavigation();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
