@@ -47,9 +47,14 @@
   },
   "settings": {
     "title": "Settings",
+    "profile": "Profile",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
     "language": "Language",
     "english": "English",
-    "greek": "Greek"
+    "greek": "Greek",
+    "confirmLogout": "Are you sure you want to logout?"
   }
 }
 
