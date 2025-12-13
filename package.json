@@ -16,7 +16,7 @@
     "build:android": "eas build --platform android"
   },
   "dependencies": {
-    "@expo/vector-icons": "^15.0.3",
+    "@expo/vector-icons": "^14.0.3",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-navigation/bottom-tabs": "^6.5.11",
     "@react-navigation/native": "^6.1.9",
@@ -25,6 +25,7 @@
     "date-fns": "^3.0.6",
     "expo": "~51.0.0",
     "expo-file-system": "~17.0.1",
+    "expo-font": "~12.0.10",
     "expo-status-bar": "~1.12.1",
     "react": "18.2.0",
     "react-native": "0.74.5",

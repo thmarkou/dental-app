@@ -36,7 +36,9 @@
       ]
     },
     "web": {},
-    "plugins": [],
+    "plugins": [
+      "expo-font"
+    ],
     "extra": {
       "eas": {
         "projectId": "your-project-id"
