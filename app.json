@@ -35,14 +35,7 @@
       ]
     },
     "web": {},
-    "plugins": [
-      [
-        "expo-sqlite",
-        {
-          "enableFTS": true
-        }
-      ]
-    ],
+    "plugins": [],
     "extra": {
       "eas": {
         "projectId": "your-project-id"
