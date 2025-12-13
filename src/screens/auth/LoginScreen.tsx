@@ -338,8 +338,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
+  signUpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  signUpText: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  signUpLink: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
   footer: {
-    marginTop: 32,
+    marginTop: 16,
     alignItems: 'center',
   },
   footerText: {
