@@ -16,6 +16,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.dentalapp.practice",
       "buildNumber": "1.0.0",
+      "deploymentTarget": "13.4",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to camera to take photos of dental conditions.",
         "NSPhotoLibraryUsageDescription": "This app needs access to photo library to select X-rays and images."
