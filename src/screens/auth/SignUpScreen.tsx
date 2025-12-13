@@ -356,18 +356,19 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingVertical: 24,
+    paddingTop: 40,
+    paddingBottom: 24,
   },
   header: {
     marginBottom: 32,
   },
   backButton: {
     alignSelf: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 32,
     padding: 8,
   },
   titleContainer: {
-    marginTop: 8,
+    marginTop: 0,
   },
   title: {
     fontSize: 32,
