@@ -134,7 +134,9 @@ const SignUpScreen = () => {
               activeOpacity={0.7}>
               <MaterialIcons name="arrow-back" size={24} color="#007AFF" />
             </TouchableOpacity>
-            <Text style={styles.title}>Create Account</Text>
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>Create Account</Text>
+            </View>
             <Text style={styles.subtitle}>Sign up for a new account</Text>
           </View>
 
@@ -361,8 +363,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 24,
     padding: 8,
+  },
+  titleContainer: {
+    marginTop: 8,
   },
   title: {
     fontSize: 32,
