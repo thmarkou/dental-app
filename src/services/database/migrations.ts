@@ -108,5 +108,39 @@ export const migrations: Migration[] = [
       database.execute('CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);');
     },
   },
+  {
+    version: 3,
+    up: (database) => {
+      // Create default admin user
+      // Password: admin123 (hashed with simple hash: hashed_admin123)
+      const now = new Date().toISOString();
+      
+      // Check if admin user already exists
+      const existingAdmin = database.execute(
+        'SELECT id FROM users WHERE username = ?',
+        ['admin']
+      );
+      
+      if (existingAdmin.rows?._array?.length === 0) {
+        database.execute(
+          `INSERT INTO users (id, username, email, password_hash, role, first_name, last_name, is_active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            '00000000-0000-0000-0000-000000000001', // Fixed UUID for admin
+            'admin',
+            'admin@dentalpractice.gr',
+            'hashed_admin123', // Password: admin123
+            'admin',
+            'Admin',
+            'User',
+            1,
+            now,
+            now,
+          ]
+        );
+        console.log('✅ Default admin user created');
+      }
+    },
+  },
   // Add more migrations as needed
 ];
