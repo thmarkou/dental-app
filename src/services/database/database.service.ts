@@ -143,7 +143,7 @@ const runMigrations = async (): Promise<void> => {
       console.log(`Running migration ${migration.version}...`);
       database.execute('BEGIN TRANSACTION;');
       try {
-        await migration.up(database);
+        migration.up(database);
         database.execute(
           'INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?);',
           [migration.version, new Date().toISOString()],
