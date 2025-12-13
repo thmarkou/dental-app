@@ -13,12 +13,6 @@
   // They will be passed down to the ViewController used by React Native.
   self.initialProps = @{};
 
-  // Suppress UIScene lifecycle warning for now
-  // Expo handles scene management internally
-  if (@available(iOS 13.0, *)) {
-    // Scene-based lifecycle is handled by Expo
-  }
-
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
 }
 
