@@ -142,5 +142,17 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 4,
+    up: (database) => {
+      // Add patient photo column if it doesn't exist
+      try {
+        database.execute('ALTER TABLE patients ADD COLUMN photo_uri TEXT;');
+      } catch (error) {
+        // Ignore error if column already exists
+        console.log('photo_uri column already exists or could not be added');
+      }
+    },
+  },
   // Add more migrations as needed
 ];

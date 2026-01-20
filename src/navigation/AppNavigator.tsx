@@ -10,7 +10,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useAuthStore} from '../store/auth.store';
 import {MaterialIcons} from '@expo/vector-icons';
 
-// Screens (to be created)
+// Screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
@@ -21,10 +21,30 @@ import FinancialScreen from '../screens/financial/FinancialScreen';
 import ReportsScreen from '../screens/reports/ReportsScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 
+// Patient screens
+import PatientDetailScreen from '../screens/patients/PatientDetailScreen';
+import AddEditPatientScreen from '../screens/patients/AddEditPatientScreen';
+
+// Appointment screens
+import AppointmentDetailScreen from '../screens/appointments/AppointmentDetailScreen';
+import AddEditAppointmentScreen from '../screens/appointments/AddEditAppointmentScreen';
+
 export type RootStackParamList = {
   Login: undefined;
   SignUp: undefined;
   Main: undefined;
+};
+
+export type PatientsStackParamList = {
+  PatientsList: undefined;
+  PatientDetail: {patientId: string};
+  AddEditPatient: {mode: 'add' | 'edit'; patientId?: string};
+};
+
+export type AppointmentsStackParamList = {
+  AppointmentsList: undefined;
+  AppointmentDetail: {appointmentId: string};
+  AddEditAppointment: {mode: 'add' | 'edit'; appointmentId?: string};
 };
 
 export type MainTabParamList = {
@@ -39,6 +59,76 @@ export type MainTabParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const PatientsStack = createNativeStackNavigator<PatientsStackParamList>();
+const AppointmentsStack = createNativeStackNavigator<AppointmentsStackParamList>();
+
+/**
+ * Patients Stack Navigator (nested in Patients tab)
+ */
+const PatientsStackNavigator = () => {
+  return (
+    <PatientsStack.Navigator
+      screenOptions={{
+        headerShown: true,
+      }}>
+      <PatientsStack.Screen
+        name="PatientsList"
+        component={PatientsScreen}
+        options={{
+          title: 'Patients',
+        }}
+      />
+      <PatientsStack.Screen
+        name="PatientDetail"
+        component={PatientDetailScreen}
+        options={{
+          title: 'Patient Details',
+        }}
+      />
+      <PatientsStack.Screen
+        name="AddEditPatient"
+        component={AddEditPatientScreen}
+        options={({route}) => ({
+          title: route.params.mode === 'add' ? 'Add Patient' : 'Edit Patient',
+        })}
+      />
+    </PatientsStack.Navigator>
+  );
+};
+
+/**
+ * Appointments Stack Navigator (nested in Appointments tab)
+ */
+const AppointmentsStackNavigator = () => {
+  return (
+    <AppointmentsStack.Navigator
+      screenOptions={{
+        headerShown: true,
+      }}>
+      <AppointmentsStack.Screen
+        name="AppointmentsList"
+        component={AppointmentsScreen}
+        options={{
+          title: 'Appointments',
+        }}
+      />
+      <AppointmentsStack.Screen
+        name="AppointmentDetail"
+        component={AppointmentDetailScreen}
+        options={{
+          title: 'Appointment Details',
+        }}
+      />
+      <AppointmentsStack.Screen
+        name="AddEditAppointment"
+        component={AddEditAppointmentScreen}
+        options={({route}) => ({
+          title: route.params.mode === 'add' ? 'Add Appointment' : 'Edit Appointment',
+        })}
+      />
+    </AppointmentsStack.Navigator>
+  );
+};
 
 /**
  * Main Tab Navigator (shown after login)
@@ -47,7 +137,7 @@ const MainTabs = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerShown: true,
+        headerShown: false,
         tabBarActiveTintColor: '#007AFF',
         tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
@@ -62,6 +152,7 @@ const MainTabs = () => {
         options={{
           title: 'Dashboard',
           tabBarLabel: 'Dashboard',
+          headerShown: true,
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="dashboard" size={size} color={color} />
           ),
@@ -69,7 +160,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Patients"
-        component={PatientsScreen}
+        component={PatientsStackNavigator}
         options={{
           title: 'Patients',
           tabBarLabel: 'Patients',
@@ -80,7 +171,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Appointments"
-        component={AppointmentsScreen}
+        component={AppointmentsStackNavigator}
         options={{
           title: 'Appointments',
           tabBarLabel: 'Appointments',

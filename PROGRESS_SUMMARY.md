@@ -1,5 +1,41 @@
 # Progress Summary - Dental Practice Management App
 
+## Ημερομηνία: 20 Ιανουαρίου 2026
+
+### Σημερινές Αλλαγές (20 Ιανουαρίου 2026)
+
+#### 1. Appointment Management ✅
+- ✅ Appointment service (CRUD, check-in/check-out, cancel)
+- ✅ Appointments list with date navigation and status badges
+- ✅ Add/Edit Appointment form
+- ✅ Appointment Detail screen
+- ✅ Nested navigation for Appointments
+
+#### 2. Patient Management Improvements ✅
+- ✅ Patient DOB format switched to DD-MM-YYYY (UI + validation)
+- ✅ Timezone-safe DOB storage and retrieval
+- ✅ Patient edit now updates all fields (DOB, gender, AMKA, occupation, etc.)
+- ✅ Refresh on focus for Patients and Patient Detail
+
+#### 3. Patient Photos ✅
+- ✅ Photo selection via expo-image-picker
+- ✅ DB migration: `photo_uri` field
+- ✅ Photo shown in Patient list and detail
+- ✅ Add/Edit patient supports add/change/remove photo
+
+#### 4. Dashboard Stats ✅
+- ✅ Live counts for Patients and Appointments
+- ✅ Today’s appointments from DB
+
+#### 5. UUID & Native Fixes ✅
+- ✅ Custom UUID generator (no native crypto dependency)
+- ✅ iOS deployment target raised to 15.1 for Image Picker
+
+#### 6. Documentation ✅
+- ✅ Device setup and signing troubleshooting docs
+
+---
+
 ## Ημερομηνία: 13 Δεκεμβρίου 2025
 
 ### Σημερινές Αλλαγές (13 Δεκεμβρίου 2025)

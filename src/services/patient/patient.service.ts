@@ -4,8 +4,15 @@
  */
 
 import {query, executeQuery} from '../database';
-import {v4 as uuidv4} from 'uuid';
+import {uuidv4} from '../../utils/uuid';
 import {Patient, Address, EmergencyContact, InsuranceInfo} from '../../types';
+
+const formatDateForDb = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 /**
  * Create a new patient
@@ -16,34 +23,56 @@ export const createPatient = async (
   const patientId = uuidv4();
   const now = new Date().toISOString();
 
-  await executeQuery(
-    `INSERT INTO patients (
-      id, first_name, last_name, date_of_birth, gender, amka, phone, email,
-      address_street, address_city, address_postal_code, address_country,
-      emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
-      occupation, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      patientId,
-      patientData.firstName,
-      patientData.lastName,
-      patientData.dateOfBirth.toISOString(),
-      patientData.gender || null,
-      patientData.amka || null,
-      patientData.phone,
-      patientData.email || null,
-      patientData.address?.street || null,
-      patientData.address?.city || null,
-      patientData.address?.postalCode || null,
-      patientData.address?.country || 'Greece',
-      patientData.emergencyContact?.name || null,
-      patientData.emergencyContact?.relationship || null,
-      patientData.emergencyContact?.phone || null,
-      patientData.occupation || null,
-      now,
-      now,
-    ],
-  );
+  // Format date of birth as YYYY-MM-DD (local date, no timezone shift)
+  const dateOfBirthStr = formatDateForDb(patientData.dateOfBirth);
+  
+  // Ensure gender is valid or null
+  const genderValue = patientData.gender && 
+    ['male', 'female', 'other'].includes(patientData.gender) 
+    ? patientData.gender 
+    : null;
+
+  try {
+    await executeQuery(
+      `INSERT INTO patients (
+        id, first_name, last_name, date_of_birth, gender, amka, phone, email,
+        photo_uri, address_street, address_city, address_postal_code, address_country,
+        emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
+        occupation, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        patientId,
+        patientData.firstName,
+        patientData.lastName,
+        dateOfBirthStr,
+        genderValue,
+        patientData.amka || null,
+        patientData.phone,
+        patientData.email || null,
+        patientData.photoUri || null,
+        patientData.address?.street || null,
+        patientData.address?.city || null,
+        patientData.address?.postalCode || null,
+        patientData.address?.country || 'Greece',
+        patientData.emergencyContact?.name || null,
+        patientData.emergencyContact?.relationship || null,
+        patientData.emergencyContact?.phone || null,
+        patientData.occupation || null,
+        now,
+        now,
+      ],
+    );
+  } catch (error: any) {
+    console.error('Error creating patient:', error);
+    // Provide more specific error message
+    if (error?.message?.includes('UNIQUE constraint')) {
+      throw new Error('A patient with this phone number or email already exists');
+    }
+    if (error?.message?.includes('NOT NULL constraint')) {
+      throw new Error('Required fields are missing');
+    }
+    throw new Error(`Failed to create patient: ${error?.message || 'Unknown error'}`);
+  }
 
   return {
     ...patientData,
@@ -131,6 +160,23 @@ export const updatePatient = async (
     updates.push('last_name = ?');
     values.push(patientData.lastName);
   }
+  if (patientData.dateOfBirth !== undefined) {
+    const dateOfBirthStr = formatDateForDb(patientData.dateOfBirth);
+    updates.push('date_of_birth = ?');
+    values.push(dateOfBirthStr);
+  }
+  if (patientData.gender !== undefined) {
+    const genderValue =
+      patientData.gender && ['male', 'female', 'other'].includes(patientData.gender)
+        ? patientData.gender
+        : null;
+    updates.push('gender = ?');
+    values.push(genderValue);
+  }
+  if (patientData.amka !== undefined) {
+    updates.push('amka = ?');
+    values.push(patientData.amka || null);
+  }
   if (patientData.phone !== undefined) {
     updates.push('phone = ?');
     values.push(patientData.phone);
@@ -138,6 +184,14 @@ export const updatePatient = async (
   if (patientData.email !== undefined) {
     updates.push('email = ?');
     values.push(patientData.email);
+  }
+  if (patientData.photoUri !== undefined) {
+    updates.push('photo_uri = ?');
+    values.push(patientData.photoUri || null);
+  }
+  if (patientData.occupation !== undefined) {
+    updates.push('occupation = ?');
+    values.push(patientData.occupation || null);
   }
   if (patientData.address) {
     if (patientData.address.street !== undefined) {
@@ -152,11 +206,19 @@ export const updatePatient = async (
       updates.push('address_postal_code = ?');
       values.push(patientData.address.postalCode);
     }
+    if (patientData.address.country !== undefined) {
+      updates.push('address_country = ?');
+      values.push(patientData.address.country || 'Greece');
+    }
   }
   if (patientData.emergencyContact) {
     if (patientData.emergencyContact.name !== undefined) {
       updates.push('emergency_contact_name = ?');
       values.push(patientData.emergencyContact.name);
+    }
+    if (patientData.emergencyContact.relationship !== undefined) {
+      updates.push('emergency_contact_relationship = ?');
+      values.push(patientData.emergencyContact.relationship);
     }
     if (patientData.emergencyContact.phone !== undefined) {
       updates.push('emergency_contact_phone = ?');
@@ -218,15 +280,20 @@ const mapPatientFromDb = (row: any): Patient => {
         }
       : undefined;
 
+  const [year, month, day] = String(row.date_of_birth)
+    .split('-')
+    .map((value: string) => Number(value));
+
   return {
     id: row.id,
     firstName: row.first_name,
     lastName: row.last_name,
-    dateOfBirth: new Date(row.date_of_birth),
+    dateOfBirth: new Date(year, month - 1, day),
     gender: row.gender || undefined,
     amka: row.amka || undefined,
     phone: row.phone,
     email: row.email || undefined,
+    photoUri: row.photo_uri || undefined,
     address,
     emergencyContact,
     occupation: row.occupation || undefined,

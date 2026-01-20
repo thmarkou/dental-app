@@ -3,14 +3,57 @@
  * Main dashboard showing overview and quick stats
  */
 
-import React from 'react';
+import React, {useCallback, useState} from 'react';
 import {View, Text, StyleSheet, ScrollView} from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import {useAuthStore} from '../../store/auth.store';
 import {DatabaseWarning} from '../../components/common/DatabaseWarning';
-import {isDatabaseAvailable} from '../../services/database';
+import {isDatabaseAvailable, query} from '../../services/database';
 
 const DashboardScreen = () => {
   const {user} = useAuthStore();
+  const [stats, setStats] = useState({
+    patients: 0,
+    appointments: 0,
+    treatments: 0,
+    todayAppointments: 0,
+  });
+
+  const loadStats = useCallback(async () => {
+    if (!isDatabaseAvailable) {
+      return;
+    }
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const patientsResult = await query('SELECT COUNT(*) as count FROM patients');
+      const appointmentsResult = await query(
+        'SELECT COUNT(*) as count FROM appointments',
+      );
+      const todayAppointmentsResult = await query(
+        'SELECT COUNT(*) as count FROM appointments WHERE date = ?',
+        [today],
+      );
+
+      const getCount = (rows: any[]) => Number(rows?.[0]?.count ?? 0);
+
+      setStats({
+        patients: getCount(patientsResult),
+        appointments: getCount(appointmentsResult),
+        treatments: 0, // Treatments table not implemented yet
+        todayAppointments: getCount(todayAppointmentsResult),
+      });
+    } catch (error) {
+      console.error('Failed to load dashboard stats:', error);
+    }
+  }, []);
+
+  // Refresh stats when screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      loadStats();
+    }, [loadStats]),
+  );
 
   return (
     <ScrollView style={styles.container}>
@@ -24,7 +67,7 @@ const DashboardScreen = () => {
           <Text style={styles.sectionTitle}>Today</Text>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Appointments</Text>
-            <Text style={styles.cardValue}>0</Text>
+            <Text style={styles.cardValue}>{stats.todayAppointments}</Text>
           </View>
         </View>
 
@@ -32,15 +75,15 @@ const DashboardScreen = () => {
           <Text style={styles.sectionTitle}>Quick Overview</Text>
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statValue}>{stats.patients}</Text>
               <Text style={styles.statLabel}>Patients</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statValue}>{stats.appointments}</Text>
               <Text style={styles.statLabel}>Appointments</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statValue}>{stats.treatments}</Text>
               <Text style={styles.statLabel}>Treatments</Text>
             </View>
           </View>

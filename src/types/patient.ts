@@ -11,6 +11,7 @@ export interface Patient {
   amka?: string;
   phone: string;
   email?: string;
+  photoUri?: string;
   address?: Address;
   emergencyContact?: EmergencyContact;
   occupation?: string;

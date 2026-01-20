@@ -4,7 +4,7 @@
  */
 
 import {query, executeQuery} from '../database';
-import {v4 as uuidv4} from 'uuid';
+import {uuidv4} from '../../utils/uuid';
 import {User, UserRole} from '../../types';
 
 // Password hashing for React Native
