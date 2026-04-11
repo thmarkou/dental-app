@@ -1,5 +1,37 @@
 # Progress Summary - Dental Practice Management App
 
+## Ημερομηνία: 11 Απριλίου 2026
+
+### Σημερινές Αλλαγές (11 Απριλίου 2026)
+
+#### 1. Οδοντόγραμμα (Patient Chart) — διαδικασίες & χάρτης χρωμάτων ✅
+- **`TOOTH_SITE_PROCEDURE_VALUES`**: ακριβώς 8 ετικέτες (αγγλικά + ελληνικά σε παρένθεση) για το modal επιλογής θεραπείας ανά δόντι.
+- **Αντιστοίχιση → `dental_chart.condition`**: Caries/Filling → Filling (μπλε), Root Canal & Post & Core → Root Canal (πορτοκαλί), Extraction → Missing (γκρι), Crown → Crown (μωβ), ξεχωριστή κατάσταση **`Bridge`**, Implant → Implant (steel blue), Gingivectomy → Caries (κόκκινο περίγραμμα).
+- **`TOOTH_CONDITIONS.BRIDGE`**: αποθήκευση τιμής `Bridge` στη βάση· το παλιό «Crown / Bridge» παραμένει **Crown** για συμβατότητα.
+
+#### 2. Λεζάντα (Legend) = καθρέφτης του modal ✅
+- **`OdontogramLegend`**: 8 γραμμές με τα **ίδια πλήρη strings** όπως στο modal, χρώμα ανά γραμμή όπως στον χάρτη.
+- Swatches με **`StyleSheet`** (όχι μόνο NativeWind σε μικρά views), ώστε να φαίνονται σταθερά τα χρώματα.
+- **`ScrollView`** + πλέγμα δύο στηλών όπου χρειάζεται χώρος.
+
+#### 3. Modal δοντιού ✅
+- Όλες οι 8 διαδικασίες σε **`ScrollView`** με επαρκές `maxHeight` ώστε να μην «κόβονται» οι επιλογές.
+- Κατάσταση «Healthy» αντί για «Cleaning» σε κενό chart / accessibility όπου ισχύει.
+
+#### 4. Γεωμετρία αψίδων (`ArcOdontogram`) ✅
+- Σύσφιξη απόστασης άνω/κάτω αψίδας (μικρότερο ύψος canvas, προσαρμοσμένα `upperCy` / `lowerCy` / `b`) για ενιαία εικόνα στόματος.
+
+#### 5. Χρώμα γέφυρας (Bridge) ✅
+- **Διακριτό από τη στέφανη (Crown)**: σμαραγδί **#059669** (περίγραμμα / ημιδιαφανές fill) — όχι το ίδιο με μωβ, μπλε, πορτοκαλί, steel blue, κόκκινο ή γκρι.
+
+#### 6. Αρχεία που άλλαξαν (κύρια) ✅
+- `src/services/clinical/treatment.service.ts` — procedures, `conditionFromTreatmentType`, `coerceToothCondition`, `BRIDGE` στο chart set.
+- `src/components/clinical/odontogramShared.tsx` — legend, `conditionVisualClasses`, swatches.
+- `src/components/clinical/ArcOdontogram.tsx` — διάταξη / ύψος canvas.
+- `src/screens/clinical/PatientChartScreen.tsx` — modal, διαστάσεις λίστας, μικρότερα margins στο «General visit».
+
+---
+
 ## Ημερομηνία: 10 Απριλίου 2026
 
 ### Σημερινές Αλλαγές (10 Απριλίου 2026)

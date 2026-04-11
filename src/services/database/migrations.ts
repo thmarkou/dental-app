@@ -331,4 +331,32 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 10,
+    up: (database) => {
+      database.execute(`
+        UPDATE dental_chart SET condition = CASE TRIM(condition)
+          WHEN 'HEALTHY' THEN 'Cleaning'
+          WHEN 'CARIES' THEN 'Caries'
+          WHEN 'FILLING' THEN 'Filling'
+          WHEN 'ENDO' THEN 'Root Canal'
+          WHEN 'CROWN' THEN 'Crown'
+          WHEN 'BRIDGE' THEN 'Bridge'
+          WHEN 'MISSING' THEN 'Missing'
+          WHEN 'FILLED' THEN 'Filling'
+          WHEN 'MISSING_TOOTH' THEN 'Missing'
+          WHEN 'ROOT_CANAL_TREATED' THEN 'Root Canal'
+          ELSE condition
+        END
+      `);
+    },
+  },
+  {
+    version: 11,
+    up: (database) => {
+      database.execute(
+        `DELETE FROM dental_chart WHERE TRIM(condition) = 'Cleaning'`,
+      );
+    },
+  },
 ];

@@ -10,19 +10,149 @@
 import {getDatabase} from '../database';
 import {uuidv4} from '../../utils/uuid';
 
-/** Canonical odontogram condition values stored in dental_chart.condition */
+/**
+ * dental_chart.condition values — identical to menu/legend wording (no aliases).
+ * Menu "Extraction" maps to MISSING here (chart/legend show Missing).
+ */
 export const TOOTH_CONDITIONS = {
-  HEALTHY: 'HEALTHY',
-  CARIES: 'CARIES',
-  FILLING: 'FILLING',
-  MISSING: 'MISSING',
-  CROWN: 'CROWN',
-  ENDO: 'ENDO',
-  BRIDGE: 'BRIDGE',
+  CLEANING: 'Cleaning',
+  CARIES: 'Caries',
+  FILLING: 'Filling',
+  ROOT_CANAL: 'Root Canal',
+  CROWN: 'Crown',
+  BRIDGE: 'Bridge',
+  IMPLANT: 'Implant',
+  MISSING: 'Missing',
 } as const;
 
 export type ToothCondition =
   (typeof TOOTH_CONDITIONS)[keyof typeof TOOTH_CONDITIONS];
+
+/** Stored procedure_type values for per-tooth (site) treatments — exact order, no extras. */
+export const TOOTH_SITE_PROCEDURE_VALUES = [
+  'Caries / Filling (\u03A3\u03C6\u03C1\u03AC\u03B3\u03B9\u03C3\u03BC\u03B1)',
+  'Root Canal (\u0395\u03BD\u03B4\u03BF\u03B4\u03BF\u03BD\u03C4\u03B9\u03BA\u03AE \u0398\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B1)',
+  'Extraction (\u0395\u03BE\u03B1\u03B3\u03C9\u03B3\u03AE)',
+  'Crown (\u03A3\u03C4\u03B5\u03C6\u03AC\u03BD\u03B7)',
+  'Bridge (\u0393\u03AD\u03C6\u03C5\u03C1\u03B1)',
+  'Implant (\u0395\u03BC\u03C6\u03CD\u03C4\u03B5\u03C5\u03BC\u03B1)',
+  'Post & Core (\u0386\u03BE\u03BF\u03BD\u03B1\u03C2)',
+  'Gingivectomy (\u039F\u03C5\u03BB\u03B5\u03BA\u03C4\u03BF\u03BC\u03AE)',
+] as const;
+
+/** Full-mouth / non–tooth-specific procedures — never written to dental_chart. */
+export const GENERAL_PROCEDURE_VALUES = [
+  'Cleaning / Scaling (\u039A\u03B1\u03B8\u03B1\u03C1\u03B9\u03C3\u03BC\u03CC\u03C2 / \u0391\u03C0\u03BF\u03C4\u03C1\u03CD\u03B3\u03C9\u03C3\u03B7)',
+  'Consultation / Exam (\u039A\u03BB\u03B9\u03BD\u03B9\u03BA\u03AE \u0395\u03BE\u03AD\u03C4\u03B1\u03C3\u03B7 / \u03A3\u03C7\u03AD\u03B4\u03B9\u03BF \u0398\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B1\u03C2)',
+  'Panoramic X-Ray (\u03A0\u03B1\u03BD\u03BF\u03C1\u03B1\u03BC\u03B9\u03BA\u03AE)',
+  'Teeth Whitening (\u039B\u03B5\u03CD\u03BA\u03B1\u03BD\u03C3\u03B7)',
+  'Night Guard (\u039D\u03AC\u03C1\u03B8\u03B7\u03BA\u03B1\u03C2 \u0392\u03C1\u03C5\u03B3\u03BC\u03BF\u03CD)',
+  'Periodontal Treatment (\u0398\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B1 \u03A0\u03B5\u03C1\u03B9\u03BF\u03B4\u03BF\u03BD\u03C4\u03AF\u03C4\u03B9\u03B4\u03B1\u03C2 - Full Mouth)',
+  'Fluoridation (\u03A6\u03B8\u03BF\u03C1\u03AF\u03C9\u03C3\u03B7)',
+  'Emergency Visit (\u0388\u03BA\u03C4\u03B1\u03BA\u03C4\u03BF \u03A0\u03B5\u03C1\u03B9\u03C3\u03C4\u03B1\u03C4\u03B9\u03BA\u03CC)',
+] as const;
+
+export const TOOTH_SITE_PROCEDURE_SET = new Set<string>(TOOTH_SITE_PROCEDURE_VALUES);
+export const GENERAL_PROCEDURE_SET = new Set<string>(GENERAL_PROCEDURE_VALUES);
+
+/** Legacy single-tooth labels still found in older rows */
+const LEGACY_SITE_PROCEDURE_VALUES = [
+  'Caries',
+  'Filling',
+  'Root Canal',
+  'Crown',
+  'Bridge',
+  'Extraction',
+  'Crown / Bridge',
+  'Crown / Bridge (\u03A3\u03C4\u03B5\u03C6\u03AC\u03BD\u03B7 / \u0393\u03AD\u03C6\u03C5\u03C1\u03B1)',
+  'Gingivectomy',
+  'Gingivectomy (\u039F\u03C5\u03BB\u03B5\u03BA\u03C4\u03BF\u03BC\u03AE - \u03B1\u03BD\u03AC \u03B4\u03CC\u03BD\u03C4\u03B9)',
+  'Post & Core',
+  'Post & Core (\u0386\u03BE\u03BF\u03BD\u03B1\u03C2)',
+] as const;
+
+/** SQL IN-list: procedures that may drive dental_chart for a tooth */
+function sqlQuotedSiteProcedureInList(): string {
+  const all = [
+    ...TOOTH_SITE_PROCEDURE_VALUES,
+    ...LEGACY_SITE_PROCEDURE_VALUES,
+  ];
+  return all.map((s) => `'${String(s).replace(/'/g, "''")}'`).join(', ');
+}
+
+/** English / bilingual prefix before optional " (Greek…)" */
+export function procedureDisplayBase(procedureType: string): string {
+  const t = procedureType.trim();
+  const idx = t.indexOf(' (');
+  if (idx === -1) {
+    return t;
+  }
+  return t.slice(0, idx).trim();
+}
+
+const GENERAL_BASE_LABELS = new Set(
+  GENERAL_PROCEDURE_VALUES.map((v) => procedureDisplayBase(v)),
+);
+
+/** True if this procedure should never set dental_chart (general visit). */
+export function isGeneralProcedureType(
+  procedureType: string | null | undefined,
+): boolean {
+  if (procedureType == null || String(procedureType).trim() === '') {
+    return false;
+  }
+  const t = String(procedureType).trim();
+  if (GENERAL_PROCEDURE_SET.has(t)) {
+    return true;
+  }
+  const base = procedureDisplayBase(t);
+  if (GENERAL_BASE_LABELS.has(base)) {
+    return true;
+  }
+  if (base === 'Cleaning' || t === 'Cleaning') {
+    return true;
+  }
+  return false;
+}
+
+/** Per-tooth chart storage: site-specific conditions only (not full-mouth Cleaning). */
+const CHART_SITE_CONDITION_SET = new Set<string>([
+  TOOTH_CONDITIONS.CARIES,
+  TOOTH_CONDITIONS.FILLING,
+  TOOTH_CONDITIONS.ROOT_CANAL,
+  TOOTH_CONDITIONS.CROWN,
+  TOOTH_CONDITIONS.BRIDGE,
+  TOOTH_CONDITIONS.IMPLANT,
+  TOOTH_CONDITIONS.MISSING,
+]);
+
+const ALL_DISPLAY_CONDITIONS = new Set<string>(Object.values(TOOTH_CONDITIONS));
+
+/** Default chart cell when unknown or empty (should not occur after DB migration). */
+export function coerceToothCondition(
+  raw: string | null | undefined,
+): ToothCondition {
+  if (raw == null || String(raw).trim() === '') {
+    return TOOTH_CONDITIONS.CLEANING;
+  }
+  const t = String(raw).trim();
+  if (t === 'Crown / Bridge') {
+    return TOOTH_CONDITIONS.CROWN;
+  }
+  if (t === 'BRIDGE') {
+    return TOOTH_CONDITIONS.BRIDGE;
+  }
+  if (t === 'Gingivectomy') {
+    return TOOTH_CONDITIONS.CARIES;
+  }
+  if (t === 'Post & Core') {
+    return TOOTH_CONDITIONS.ROOT_CANAL;
+  }
+  if (ALL_DISPLAY_CONDITIONS.has(t)) {
+    return t as ToothCondition;
+  }
+  return TOOTH_CONDITIONS.CLEANING;
+}
 
 export interface RecordTreatmentInput {
   patientId: string;
@@ -44,6 +174,72 @@ export interface RecordTreatmentInput {
   chartConditionOverride?: ToothCondition | null;
 }
 
+/** Fields that may be updated on an existing treatment row */
+export interface UpdateTreatmentInput {
+  patientId: string;
+  treatmentType: string;
+  notes: string | null;
+  cost: number | null;
+}
+
+type SqlExecResult = {
+  rows?: {_array?: Record<string, unknown>[]};
+};
+
+type SqlTx = {
+  execute: (sql: string, params?: unknown[]) => SqlExecResult;
+};
+
+/**
+ * Sets dental_chart for one tooth from the newest treatment row for that tooth,
+ * or removes the chart row if there are no treatments left.
+ */
+function syncDentalChartToLatestTreatmentForTooth(
+  tx: SqlTx,
+  patientId: string,
+  toothNumber: number,
+  updatedAt: string,
+): void {
+  const siteInList = sqlQuotedSiteProcedureInList();
+  const latest = tx.execute(
+    `SELECT procedure_type FROM treatments
+     WHERE patient_id = ? AND tooth_number = ?
+       AND procedure_type IS NOT NULL
+       AND TRIM(procedure_type) != ''
+       AND procedure_type IN (${siteInList})
+     ORDER BY datetime(created_at) DESC, created_at DESC
+     LIMIT 1`,
+    [patientId, toothNumber],
+  );
+  const row = (latest.rows?._array as Record<string, unknown>[] | undefined)?.[0];
+  if (!row) {
+    tx.execute(
+      `DELETE FROM dental_chart WHERE patient_id = ? AND tooth_number = ?`,
+      [patientId, toothNumber],
+    );
+    return;
+  }
+  const procedureType =
+    row.procedure_type != null ? String(row.procedure_type) : '';
+  const chartCondition = conditionFromTreatmentType(procedureType, undefined);
+  if (chartCondition === null) {
+    tx.execute(
+      `DELETE FROM dental_chart WHERE patient_id = ? AND tooth_number = ?`,
+      [patientId, toothNumber],
+    );
+    return;
+  }
+  const chartId = uuidv4();
+  tx.execute(
+    `INSERT INTO dental_chart (id, patient_id, tooth_number, condition, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(patient_id, tooth_number) DO UPDATE SET
+       condition = excluded.condition,
+       updated_at = excluded.updated_at`,
+    [chartId, patientId, toothNumber, chartCondition, updatedAt],
+  );
+}
+
 export interface TreatmentRow {
   id: string;
   patientId: string;
@@ -62,7 +258,7 @@ export interface DentalChartRow {
   id: string;
   patientId: string;
   toothNumber: number;
-  /** Stored value should match TOOTH_CONDITIONS; legacy rows may differ until updated */
+  /** Stored value matches TOOTH_CONDITIONS string literals */
   condition: string;
   updatedAt: string;
 }
@@ -76,65 +272,72 @@ export interface ClinicalHistoryRow extends TreatmentRow {
   appointmentStatus: string | null;
 }
 
-const normalizeTreatmentTypeKey = (value: string): string =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '_');
-
-/**
- * Maps normalized treatment type keys to TOOTH_CONDITIONS.
- * Covers common synonyms (Greek/English UI can pass user-facing labels).
- */
-const TREATMENT_TYPE_TO_CONDITION: Record<string, ToothCondition> = {
-  // Extraction
-  extraction: TOOTH_CONDITIONS.MISSING,
-  extract: TOOTH_CONDITIONS.MISSING,
-  // Fillings
-  filling: TOOTH_CONDITIONS.FILLING,
-  composite_filling: TOOTH_CONDITIONS.FILLING,
-  amalgam_filling: TOOTH_CONDITIONS.FILLING,
-  // Endodontics
-  root_canal: TOOTH_CONDITIONS.ENDO,
-  endo: TOOTH_CONDITIONS.ENDO,
-  rct: TOOTH_CONDITIONS.ENDO,
-  // Crown & bridge
-  crown: TOOTH_CONDITIONS.CROWN,
-  bridge: TOOTH_CONDITIONS.BRIDGE,
-  // Caries / diagnosis-style entries
-  caries: TOOTH_CONDITIONS.CARIES,
-  cavity: TOOTH_CONDITIONS.CARIES,
-  decay: TOOTH_CONDITIONS.CARIES,
-  // Healthy / preventive
-  healthy: TOOTH_CONDITIONS.HEALTHY,
-  cleaning: TOOTH_CONDITIONS.HEALTHY,
-  hygiene: TOOTH_CONDITIONS.HEALTHY,
-  prophylaxis: TOOTH_CONDITIONS.HEALTHY,
-  checkup: TOOTH_CONDITIONS.HEALTHY,
-  check_up: TOOTH_CONDITIONS.HEALTHY,
-  examination: TOOTH_CONDITIONS.HEALTHY,
-  initial_consultation: TOOTH_CONDITIONS.HEALTHY,
-};
-
 function conditionFromTreatmentType(
   treatmentType: string,
   override: ToothCondition | null | undefined,
 ): ToothCondition | null {
   if (override != null && String(override).trim() !== '') {
-    return override;
+    const o = String(override).trim();
+    if (o === TOOTH_CONDITIONS.CLEANING) {
+      return null;
+    }
+    return o as ToothCondition;
   }
-  const key = normalizeTreatmentTypeKey(treatmentType);
-  return TREATMENT_TYPE_TO_CONDITION[key] ?? null;
+  const t = treatmentType.trim();
+  if (isGeneralProcedureType(t)) {
+    return null;
+  }
+  if (t === TOOTH_CONDITIONS.CLEANING) {
+    return null;
+  }
+
+  const base = procedureDisplayBase(t);
+
+  const siteByBase: Record<string, ToothCondition> = {
+    'Caries / Filling': TOOTH_CONDITIONS.FILLING,
+    'Root Canal': TOOTH_CONDITIONS.ROOT_CANAL,
+    Extraction: TOOTH_CONDITIONS.MISSING,
+    Crown: TOOTH_CONDITIONS.CROWN,
+    Bridge: TOOTH_CONDITIONS.BRIDGE,
+    Implant: TOOTH_CONDITIONS.IMPLANT,
+    'Post & Core': TOOTH_CONDITIONS.ROOT_CANAL,
+    Gingivectomy: TOOTH_CONDITIONS.CARIES,
+    'Crown / Bridge': TOOTH_CONDITIONS.CROWN,
+    Caries: TOOTH_CONDITIONS.CARIES,
+    Filling: TOOTH_CONDITIONS.FILLING,
+  };
+  const fromBase = siteByBase[base];
+  if (fromBase != null) {
+    return fromBase;
+  }
+
+  if (CHART_SITE_CONDITION_SET.has(t)) {
+    return t as ToothCondition;
+  }
+  return null;
 }
 
-/** True if stored chart value means the tooth is not present (supports legacy lowercase). */
+/** True if stored chart value means the tooth is not present. */
 function isMissingStoredCondition(condition: string): boolean {
-  const c = condition.trim().toUpperCase();
+  const c = condition.trim();
   return (
     c === TOOTH_CONDITIONS.MISSING ||
     c === 'MISSING' ||
     c === 'MISSING_TOOTH'
   );
+}
+
+function normalizeToothNumberColumn(
+  value: unknown,
+): number | null {
+  if (value == null || value === '') {
+    return null;
+  }
+  const n = Number(value);
+  if (Number.isNaN(n) || n === 0) {
+    return null;
+  }
+  return n;
 }
 
 function mapTreatmentRow(row: Record<string, unknown>): TreatmentRow {
@@ -143,8 +346,7 @@ function mapTreatmentRow(row: Record<string, unknown>): TreatmentRow {
     patientId: String(row.patient_id),
     appointmentId:
       row.appointment_id != null ? String(row.appointment_id) : null,
-    toothNumber:
-      row.tooth_number != null ? Number(row.tooth_number) : null,
+    toothNumber: normalizeToothNumberColumn(row.tooth_number),
     surface: row.surface != null ? String(row.surface) : null,
     serviceId: row.service_id != null ? String(row.service_id) : null,
     cost: row.cost != null ? Number(row.cost) : null,
@@ -260,6 +462,93 @@ export const addTreatment = (
   data: RecordTreatmentInput,
 ): Promise<TreatmentRow> => recordTreatment(data);
 
+/**
+ * Updates an existing treatment and resyncs dental_chart from the newest treatment for that tooth.
+ */
+export const updateTreatment = async (
+  id: string,
+  data: UpdateTreatmentInput,
+): Promise<TreatmentRow> => {
+  const db = getDatabase();
+  const updatedAt = new Date().toISOString();
+  await db.transaction(async (tx) => {
+    const existing = tx.execute(
+      `SELECT tooth_number FROM treatments WHERE id = ? AND patient_id = ?`,
+      [id, data.patientId],
+    );
+    const row = (existing.rows?._array as Record<string, unknown>[] | undefined)?.[0];
+    if (!row) {
+      throw new Error('Treatment not found');
+    }
+    const toothNumber =
+      row.tooth_number != null ? Number(row.tooth_number) : null;
+    tx.execute(
+      `UPDATE treatments SET procedure_type = ?, notes = ?, cost = ?
+       WHERE id = ? AND patient_id = ?`,
+      [
+        data.treatmentType,
+        data.notes ?? null,
+        data.cost ?? null,
+        id,
+        data.patientId,
+      ],
+    );
+    if (toothNumber !== null) {
+      syncDentalChartToLatestTreatmentForTooth(
+        tx,
+        data.patientId,
+        toothNumber,
+        updatedAt,
+      );
+    }
+  });
+  const result = db.execute(
+    `SELECT id, patient_id, appointment_id, tooth_number, surface, service_id, cost, notes, created_at, procedure_type
+     FROM treatments WHERE id = ?`,
+    [id],
+  );
+  const out = (result.rows?._array as Record<string, unknown>[] | undefined)?.[0];
+  if (!out) {
+    throw new Error('Treatment not found after update');
+  }
+  return mapTreatmentRow(out);
+};
+
+/**
+ * Deletes a treatment row and resyncs dental_chart (or removes the tooth row if none left).
+ */
+export const deleteTreatment = async (
+  id: string,
+  patientId: string,
+): Promise<void> => {
+  const db = getDatabase();
+  const updatedAt = new Date().toISOString();
+  await db.transaction(async (tx) => {
+    const existing = tx.execute(
+      `SELECT tooth_number FROM treatments WHERE id = ? AND patient_id = ?`,
+      [id, patientId],
+    );
+    const row = (existing.rows?._array as Record<string, unknown>[] | undefined)?.[0];
+    if (!row) {
+      throw new Error('Treatment not found');
+    }
+    const toothNumber =
+      row.tooth_number != null ? Number(row.tooth_number) : null;
+    tx.execute(`DELETE FROM treatments WHERE id = ? AND patient_id = ?`, [
+      id,
+      patientId,
+    ]);
+    if (toothNumber !== null) {
+      syncDentalChartToLatestTreatmentForTooth(
+        tx,
+        patientId,
+        toothNumber,
+        updatedAt,
+      );
+    }
+  });
+};
+
 /** All chart rows for a patient (odontogram state), ordered by tooth number. */
 export const getPatientChart = async (
   patientId: string,
@@ -307,6 +596,21 @@ export const getPatientHistory = async (
   );
   const rows = result.rows?._array ?? [];
   return rows.map((row: Record<string, unknown>) => mapClinicalHistoryRow(row));
+};
+
+/** Single treatment row by id (scoped to patient). */
+export const getTreatmentById = async (
+  id: string,
+  patientId: string,
+): Promise<TreatmentRow | null> => {
+  const db = getDatabase();
+  const result = db.execute(
+    `SELECT id, patient_id, appointment_id, tooth_number, surface, service_id, cost, notes, created_at, procedure_type
+     FROM treatments WHERE id = ? AND patient_id = ?`,
+    [id, patientId],
+  );
+  const row = (result.rows?._array as Record<string, unknown>[] | undefined)?.[0];
+  return row ? mapTreatmentRow(row) : null;
 };
 
 /**

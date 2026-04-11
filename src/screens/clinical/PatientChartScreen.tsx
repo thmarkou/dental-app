@@ -2,7 +2,7 @@
  * Patient dental chart (odontogram) with treatment recording modal.
  */
 
-import React, {useCallback, useLayoutEffect, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -16,64 +16,118 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import {MaterialIcons} from '@expo/vector-icons';
 import {useFocusEffect, useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {PatientsStackParamList} from '../../navigation/navigation.types';
-import {Odontogram, OdontogramLegend, normalizeToothCondition} from '../../components/clinical/Odontogram';
+import {ArcOdontogram} from '../../components/clinical/ArcOdontogram';
+import {OdontogramLegend} from '../../components/clinical/odontogramShared';
 import {
   getPatientChart,
+  getPatientHistory,
+  getTreatmentById,
   recordTreatment,
+  updateTreatment,
+  deleteTreatment,
   isToothPresent,
+  coerceToothCondition,
+  TOOTH_CONDITIONS,
+  TOOTH_SITE_PROCEDURE_VALUES,
+  GENERAL_PROCEDURE_VALUES,
+  isGeneralProcedureType,
   type DentalChartRow,
+  type ClinicalHistoryRow,
+  type TreatmentRow,
 } from '../../services/clinical/treatment.service';
 import {getPatientById} from '../../services/patient';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 
 type Nav = NativeStackNavigationProp<PatientsStackParamList, 'PatientChart'>;
 
-const TREATMENT_OPTIONS: {label: string; value: string}[] = [
-  {label: 'Filling', value: 'Filling'},
-  {label: 'Extraction', value: 'Extraction'},
-  {label: 'Root Canal', value: 'Root Canal'},
-  {label: 'Crown', value: 'Crown'},
-  {label: 'Bridge', value: 'Bridge'},
-  {label: 'Caries (chart)', value: 'Caries'},
-  {label: 'Cleaning / Healthy', value: 'Cleaning'},
-];
+const TOOTH_TREATMENT_OPTIONS = TOOTH_SITE_PROCEDURE_VALUES.map((value) => ({
+  label: value,
+  value,
+}));
+
+const GENERAL_TREATMENT_OPTIONS = GENERAL_PROCEDURE_VALUES.map((value) => ({
+  label: value,
+  value,
+}));
+
+const TOOTH_TREATMENT_VALUES = new Set<string>(TOOTH_SITE_PROCEDURE_VALUES);
+const TOOTH_TREATMENT_DEFAULT = TOOTH_SITE_PROCEDURE_VALUES[0];
+const GENERAL_TREATMENT_DEFAULT = GENERAL_PROCEDURE_VALUES[0];
+
+function findLatestSiteTreatmentForTooth(
+  treatments: ClinicalHistoryRow[],
+  toothNumber: number,
+): ClinicalHistoryRow | null {
+  let best: ClinicalHistoryRow | null = null;
+  for (const t of treatments) {
+    if (t.toothNumber !== toothNumber) {
+      continue;
+    }
+    if (isGeneralProcedureType(t.procedureType)) {
+      continue;
+    }
+    if (!best || t.createdAt > best.createdAt) {
+      best = t;
+    }
+  }
+  return best;
+}
 
 const PatientChartScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute();
-  const {patientId} = route.params as {patientId: string};
+  const {patientId, openTreatmentId} = route.params as {
+    patientId: string;
+    openTreatmentId?: string;
+  };
   const {width} = useWindowDimensions();
+
+  const [modalMode, setModalMode] = useState<'tooth' | 'general'>('tooth');
 
   const [patientName, setPatientName] = useState<string>('');
   const [chartRows, setChartRows] = useState<DentalChartRow[]>([]);
+  const [patientTreatments, setPatientTreatments] = useState<ClinicalHistoryRow[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
-  const [selectedTreatment, setSelectedTreatment] = useState<string>('Filling');
+  const [editingTreatmentId, setEditingTreatmentId] = useState<string | null>(
+    null,
+  );
+  const [selectedTreatment, setSelectedTreatment] =
+    useState<string>(TOOTH_TREATMENT_DEFAULT);
   const [notes, setNotes] = useState('');
   const [costText, setCostText] = useState('');
   const [saving, setSaving] = useState(false);
   const [toothPresent, setToothPresent] = useState(true);
 
-  const loadChart = useCallback(async () => {
-    const rows = await getPatientChart(patientId);
+  const refreshClinicalData = useCallback(async () => {
+    const [rows, history] = await Promise.all([
+      getPatientChart(patientId),
+      getPatientHistory(patientId),
+    ]);
     setChartRows(rows);
+    setPatientTreatments(history);
   }, [patientId]);
 
   const loadAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [patient, rows] = await Promise.all([
+      const [patient, rows, history] = await Promise.all([
         getPatientById(patientId),
         getPatientChart(patientId),
+        getPatientHistory(patientId),
       ]);
       if (patient) {
         setPatientName(`${patient.firstName} ${patient.lastName}`);
       }
       setChartRows(rows);
+      setPatientTreatments(history);
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Could not load dental chart.');
@@ -88,6 +142,67 @@ const PatientChartScreen: React.FC = () => {
     }, [loadAll]),
   );
 
+  useEffect(() => {
+    if (!openTreatmentId) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const t = await getTreatmentById(openTreatmentId, patientId);
+      if (cancelled) {
+        return;
+      }
+      if (!t) {
+        navigation.setParams({patientId, openTreatmentId: undefined});
+        return;
+      }
+      if (t.toothNumber != null) {
+        await applyToothTreatmentToModal(t);
+      } else {
+        applyGeneralTreatmentToModal(t);
+      }
+      navigation.setParams({patientId, openTreatmentId: undefined});
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openTreatmentId, patientId, navigation]);
+
+  const applyGeneralTreatmentToModal = (t: TreatmentRow) => {
+    setModalMode('general');
+    setSelectedTooth(null);
+    setEditingTreatmentId(t.id);
+    const proc = t.procedureType?.trim() ?? '';
+    setSelectedTreatment(
+      proc !== '' && isGeneralProcedureType(proc) ? proc : GENERAL_TREATMENT_DEFAULT,
+    );
+    setNotes(t.notes ?? '');
+    setCostText(
+      t.cost != null && !Number.isNaN(t.cost) ? String(t.cost) : '',
+    );
+    setModalVisible(true);
+  };
+
+  const applyToothTreatmentToModal = async (t: TreatmentRow) => {
+    if (t.toothNumber == null) {
+      return;
+    }
+    setModalMode('tooth');
+    setSelectedTooth(t.toothNumber);
+    setEditingTreatmentId(t.id);
+    const proc = t.procedureType?.trim() || TOOTH_TREATMENT_DEFAULT;
+    setSelectedTreatment(
+      TOOTH_TREATMENT_VALUES.has(proc) ? proc : TOOTH_TREATMENT_DEFAULT,
+    );
+    setNotes(t.notes ?? '');
+    setCostText(
+      t.cost != null && !Number.isNaN(t.cost) ? String(t.cost) : '',
+    );
+    setModalVisible(true);
+    const present = await isToothPresent(patientId, t.toothNumber);
+    setToothPresent(present);
+  };
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -101,11 +216,38 @@ const PatientChartScreen: React.FC = () => {
     });
   }, [navigation, patientId]);
 
-  const openToothModal = async (toothNumber: number) => {
-    setSelectedTooth(toothNumber);
-    setSelectedTreatment('Filling');
+  const openGeneralTreatmentModal = () => {
+    setModalMode('general');
+    setSelectedTooth(null);
+    setEditingTreatmentId(null);
+    setSelectedTreatment(GENERAL_TREATMENT_DEFAULT);
     setNotes('');
     setCostText('');
+    setModalVisible(true);
+  };
+
+  const openToothModal = async (toothNumber: number) => {
+    setModalMode('tooth');
+    setSelectedTooth(toothNumber);
+    const latest = findLatestSiteTreatmentForTooth(patientTreatments, toothNumber);
+    if (latest) {
+      setEditingTreatmentId(latest.id);
+      const proc = latest.procedureType?.trim() || TOOTH_TREATMENT_DEFAULT;
+      setSelectedTreatment(
+        TOOTH_TREATMENT_VALUES.has(proc) ? proc : TOOTH_TREATMENT_DEFAULT,
+      );
+      setNotes(latest.notes ?? '');
+      setCostText(
+        latest.cost != null && !Number.isNaN(latest.cost)
+          ? String(latest.cost)
+          : '',
+      );
+    } else {
+      setEditingTreatmentId(null);
+      setSelectedTreatment(TOOTH_TREATMENT_DEFAULT);
+      setNotes('');
+      setCostText('');
+    }
     setModalVisible(true);
     const present = await isToothPresent(patientId, toothNumber);
     setToothPresent(present);
@@ -114,19 +256,20 @@ const PatientChartScreen: React.FC = () => {
   const closeModal = () => {
     setModalVisible(false);
     setSelectedTooth(null);
+    setEditingTreatmentId(null);
   };
 
   const currentConditionLabel =
     selectedTooth == null
       ? '—'
-      : normalizeToothCondition(
-          chartRows.find((r) => r.toothNumber === selectedTooth)?.condition,
-        );
+      : (() => {
+          const coerced = coerceToothCondition(
+            chartRows.find((r) => r.toothNumber === selectedTooth)?.condition,
+          );
+          return coerced === TOOTH_CONDITIONS.CLEANING ? 'Healthy' : coerced;
+        })();
 
   const submitTreatment = async () => {
-    if (selectedTooth == null) {
-      return;
-    }
     const cost =
       costText.trim() === '' ? null : Number.parseFloat(costText.replace(',', '.'));
     if (costText.trim() !== '' && (cost == null || Number.isNaN(cost))) {
@@ -134,21 +277,134 @@ const PatientChartScreen: React.FC = () => {
       return;
     }
 
+    if (modalMode === 'tooth' && selectedTooth == null) {
+      return;
+    }
+
     try {
       setSaving(true);
-      await recordTreatment({
-        patientId,
-        toothNumber: selectedTooth,
-        treatmentType: selectedTreatment,
-        notes: notes.trim() === '' ? null : notes.trim(),
-        cost,
-      });
-      await loadChart();
+      if (modalMode === 'general') {
+        if (editingTreatmentId) {
+          await updateTreatment(editingTreatmentId, {
+            patientId,
+            treatmentType: selectedTreatment,
+            notes: notes.trim() === '' ? null : notes.trim(),
+            cost,
+          });
+        } else {
+          await recordTreatment({
+            patientId,
+            toothNumber: null,
+            treatmentType: selectedTreatment,
+            notes: notes.trim() === '' ? null : notes.trim(),
+            cost,
+          });
+        }
+      } else if (selectedTooth != null) {
+        if (editingTreatmentId) {
+          await updateTreatment(editingTreatmentId, {
+            patientId,
+            treatmentType: selectedTreatment,
+            notes: notes.trim() === '' ? null : notes.trim(),
+            cost,
+          });
+        } else {
+          await recordTreatment({
+            patientId,
+            toothNumber: selectedTooth,
+            treatmentType: selectedTreatment,
+            notes: notes.trim() === '' ? null : notes.trim(),
+            cost,
+          });
+        }
+      }
+      await refreshClinicalData();
       closeModal();
-      Alert.alert('Saved', 'Treatment recorded and chart updated.');
+      Alert.alert(
+        'Saved',
+        modalMode === 'general'
+          ? 'General treatment saved.'
+          : editingTreatmentId
+            ? 'Treatment updated and chart refreshed.'
+            : 'Treatment recorded and chart updated.',
+      );
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Could not save treatment. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteTreatment = () => {
+    if (!editingTreatmentId) {
+      return;
+    }
+    if (modalMode === 'tooth' && selectedTooth == null) {
+      return;
+    }
+    Alert.alert(
+      'Delete treatment',
+      modalMode === 'general'
+        ? 'Remove this general treatment record?'
+        : 'Remove this treatment entry? The chart will follow the newest remaining site-specific record for this tooth, or clear if none.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => void runDeleteTreatment(),
+        },
+      ],
+    );
+  };
+
+  const runDeleteTreatment = async () => {
+    if (!editingTreatmentId) {
+      return;
+    }
+    const tooth = selectedTooth;
+    const mode = modalMode;
+    try {
+      setSaving(true);
+      await deleteTreatment(editingTreatmentId, patientId);
+      const [rows, history] = await Promise.all([
+        getPatientChart(patientId),
+        getPatientHistory(patientId),
+      ]);
+      setChartRows(rows);
+      setPatientTreatments(history);
+
+      if (mode === 'general') {
+        closeModal();
+        Alert.alert('Deleted', 'Treatment removed.');
+      } else if (tooth != null) {
+        const nextLatest = findLatestSiteTreatmentForTooth(history, tooth);
+        if (nextLatest) {
+          setEditingTreatmentId(nextLatest.id);
+          const proc = nextLatest.procedureType?.trim() || TOOTH_TREATMENT_DEFAULT;
+          setSelectedTreatment(
+            TOOTH_TREATMENT_VALUES.has(proc) ? proc : TOOTH_TREATMENT_DEFAULT,
+          );
+          setNotes(nextLatest.notes ?? '');
+          setCostText(
+            nextLatest.cost != null && !Number.isNaN(nextLatest.cost)
+              ? String(nextLatest.cost)
+              : '',
+          );
+        } else {
+          setEditingTreatmentId(null);
+          setSelectedTreatment(TOOTH_TREATMENT_DEFAULT);
+          setNotes('');
+          setCostText('');
+        }
+        const present = await isToothPresent(patientId, tooth);
+        setToothPresent(present);
+        Alert.alert('Deleted', 'Treatment removed. Chart updated.');
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Could not delete treatment. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -178,12 +434,26 @@ const PatientChartScreen: React.FC = () => {
           paddingHorizontal: width >= 900 ? 32 : 12,
         }}
         keyboardShouldPersistTaps="handled">
-        <View className="pt-3">
+        <View className="pt-2">
           <Text className="text-center text-lg font-bold text-slate-900">{patientName}</Text>
           <Text className="mt-1 text-center text-sm text-slate-500">FDI notation • Tap a tooth</Text>
         </View>
 
-        <Odontogram
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="General visit: add full-mouth or non-tooth treatment"
+          onPress={openGeneralTreatmentModal}
+          className="mx-auto mt-2 w-full max-w-md flex-row items-center justify-center gap-2 rounded-2xl border-2 border-emerald-600 bg-emerald-600 px-4 py-3 shadow-md active:bg-emerald-700">
+          <MaterialIcons name="add-circle-outline" size={28} color="#ecfdf5" />
+          <View className="flex-1">
+            <Text className="text-base font-bold text-emerald-50">General visit</Text>
+            <Text className="mt-0.5 text-xs text-emerald-100">
+              Cleaning, exam, X-ray, whitening, and other non–tooth-specific care
+            </Text>
+          </View>
+        </Pressable>
+
+        <ArcOdontogram
           chartRows={chartRows}
           onToothPress={openToothModal}
           comfortableLayout={width >= 720}
@@ -208,43 +478,95 @@ const PatientChartScreen: React.FC = () => {
             className="max-h-[90%] rounded-t-2xl bg-white px-4 pb-8 pt-4"
             onPress={(e) => e.stopPropagation()}>
             <View className="mb-4 h-1 w-12 self-center rounded-full bg-slate-300" />
-            <Text className="text-lg font-bold text-slate-900">Tooth {selectedTooth}</Text>
-            <Text className="mt-1 text-sm text-slate-600">
-              Current status:{' '}
-              <Text className="font-semibold text-slate-800">{currentConditionLabel}</Text>
-            </Text>
-
-            {!toothPresent && (
-              <View className="mt-3 rounded-lg bg-amber-50 px-3 py-2">
-                <Text className="text-sm text-amber-900">
-                  This tooth is marked missing. You can still add a record if you are correcting
-                  the chart.
+            {modalMode === 'general' ? (
+              <>
+                <Text className="text-lg font-bold text-slate-900">General visit</Text>
+                <Text className="mt-2 text-sm text-slate-600">
+                  Not assigned to a single tooth. Choose the procedure below.
                 </Text>
-              </View>
+              </>
+            ) : (
+              <>
+                <Text className="text-lg font-bold text-slate-900">Tooth {selectedTooth}</Text>
+                <Text className="mt-1 text-sm text-slate-600">
+                  Current status:{' '}
+                  <Text className="font-semibold text-slate-800">{currentConditionLabel}</Text>
+                </Text>
+
+                {!toothPresent && (
+                  <View className="mt-3 rounded-lg bg-amber-50 px-3 py-2">
+                    <Text className="text-sm text-amber-900">
+                      This tooth is marked missing. You can still add a record if you are correcting
+                      the chart.
+                    </Text>
+                  </View>
+                )}
+              </>
             )}
 
-            <Text className="mb-2 mt-4 text-sm font-semibold text-slate-700">New treatment</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
-              <View className="flex-row flex-wrap gap-2">
-                {TREATMENT_OPTIONS.map((opt) => (
-                  <Pressable
-                    key={opt.value}
-                    onPress={() => setSelectedTreatment(opt.value)}
-                    className={`rounded-full border-2 px-3 py-2 ${
-                      selectedTreatment === opt.value
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-slate-200 bg-slate-50'
-                    }`}>
-                    <Text
-                      className={`text-xs font-medium ${
-                        selectedTreatment === opt.value ? 'text-blue-800' : 'text-slate-700'
+            <Text className="mb-2 mt-4 text-sm font-semibold text-slate-700">
+              {modalMode === 'general'
+                ? editingTreatmentId
+                  ? 'Edit general treatment'
+                  : 'New general treatment'
+                : editingTreatmentId
+                  ? 'Edit treatment'
+                  : 'New treatment'}
+            </Text>
+            {modalMode === 'tooth' ? (
+              <ScrollView
+                className="mb-4"
+                style={{maxHeight: 400}}
+                contentContainerStyle={{paddingBottom: 8, flexGrow: 0}}
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator>
+                <View className="gap-2">
+                  {TOOTH_TREATMENT_OPTIONS.map((opt) => (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => setSelectedTreatment(opt.value)}
+                      className={`w-full rounded-xl border-2 px-3 py-2.5 ${
+                        selectedTreatment === opt.value
+                          ? 'border-blue-600 bg-blue-50'
+                          : 'border-slate-200 bg-slate-50'
                       }`}>
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
+                      <Text
+                        className={`text-xs font-medium leading-snug ${
+                          selectedTreatment === opt.value ? 'text-blue-800' : 'text-slate-700'
+                        }`}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            ) : (
+              <ScrollView
+                className="mb-4 max-h-64"
+                nestedScrollEnabled
+                showsVerticalScrollIndicator>
+                <View className="flex-row flex-wrap gap-2">
+                  {GENERAL_TREATMENT_OPTIONS.map((opt) => (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => setSelectedTreatment(opt.value)}
+                      className={`max-w-[320px] rounded-xl border-2 px-3 py-2 ${
+                        selectedTreatment === opt.value
+                          ? 'border-emerald-600 bg-emerald-50'
+                          : 'border-slate-200 bg-slate-50'
+                      }`}>
+                      <Text
+                        className={`text-xs font-medium leading-snug ${
+                          selectedTreatment === opt.value ? 'text-emerald-900' : 'text-slate-700'
+                        }`}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
 
             <Text className="mb-1 text-xs font-medium text-slate-600">Notes (UTF-8 / Greek OK)</Text>
             <TextInput
@@ -265,6 +587,15 @@ const PatientChartScreen: React.FC = () => {
               value={costText}
               onChangeText={setCostText}
             />
+
+            {editingTreatmentId ? (
+              <Pressable
+                onPress={handleDeleteTreatment}
+                disabled={saving}
+                className="mb-3 items-center rounded-xl border-2 border-red-200 bg-red-50 py-3 active:bg-red-100 disabled:opacity-50">
+                <Text className="font-semibold text-red-700">Delete treatment</Text>
+              </Pressable>
+            ) : null}
 
             <View className="flex-row gap-3">
               <Pressable

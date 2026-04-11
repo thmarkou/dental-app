@@ -3,8 +3,17 @@
  */
 
 import React, {useCallback, useState} from 'react';
-import {View, Text, FlatList, ActivityIndicator, useWindowDimensions} from 'react-native';
-import {useFocusEffect, useRoute} from '@react-navigation/native';
+import {
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  Pressable,
+  useWindowDimensions,
+} from 'react-native';
+import {useFocusEffect, useNavigation, useRoute} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {PatientsStackParamList} from '../../navigation/navigation.types';
 import {
   getPatientHistory,
   type ClinicalHistoryRow,
@@ -12,7 +21,10 @@ import {
 import {getPatientById} from '../../services/patient';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 
+type Nav = NativeStackNavigationProp<PatientsStackParamList, 'PatientTreatmentHistory'>;
+
 const PatientTreatmentHistoryScreen: React.FC = () => {
+  const navigation = useNavigation<Nav>();
   const route = useRoute();
   const {patientId} = route.params as {patientId: string};
   const {width} = useWindowDimensions();
@@ -50,7 +62,7 @@ const PatientTreatmentHistoryScreen: React.FC = () => {
   const formatWhen = (iso: string) => {
     try {
       const d = new Date(iso);
-      return new Intl.DateTimeFormat('en-US', {
+      return new Intl.DateTimeFormat('el-GR', {
         dateStyle: 'medium',
         timeStyle: 'short',
       }).format(d);
@@ -60,15 +72,51 @@ const PatientTreatmentHistoryScreen: React.FC = () => {
   };
 
   const renderItem = ({item}: {item: ClinicalHistoryRow}) => (
-    <View className="mb-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint="Opens dental chart to edit this treatment"
+      onPress={() =>
+        navigation.navigate('PatientChart', {patientId, openTreatmentId: item.id})
+      }
+      className="mb-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm active:bg-slate-50">
       <Text className="text-xs font-medium text-slate-500">{formatWhen(item.createdAt)}</Text>
-      <Text className="mt-1 text-base font-semibold text-slate-900">
-        {item.toothNumber != null ? `Tooth ${item.toothNumber}` : 'General'}
-        {item.cost != null ? ` • €${item.cost.toFixed(2)}` : ''}
+
+      <Text className="mt-2 text-base font-semibold leading-snug text-slate-900">
+        {item.procedureType ?? '—'}
       </Text>
+
+      <View className="mt-2 flex-row flex-wrap items-center gap-x-3 gap-y-1">
+        {item.toothNumber != null ? (
+          <Text className="text-sm font-medium text-slate-700">
+            Tooth <Text className="font-bold text-slate-900">{item.toothNumber}</Text>
+          </Text>
+        ) : (
+          <View className="rounded-md bg-slate-200 px-2 py-1">
+            <Text className="text-xs font-semibold uppercase tracking-wide text-slate-800">
+              General
+            </Text>
+          </View>
+        )}
+        <Text className="text-sm text-slate-700">
+          Cost:{' '}
+          <Text className="font-semibold text-slate-900">
+            {item.cost != null ? `€${item.cost.toFixed(2)}` : '—'}
+          </Text>
+        </Text>
+      </View>
+
       {item.notes ? (
-        <Text className="mt-2 text-sm text-slate-700">{item.notes}</Text>
-      ) : null}
+        <Text
+          className="mt-3 text-sm leading-relaxed text-slate-800"
+          numberOfLines={3}>
+          {item.notes}
+        </Text>
+      ) : (
+        <Text className="mt-3 text-sm italic text-slate-400">No notes</Text>
+      )}
+
+      <Text className="mt-2 text-xs text-slate-400">Tap to edit or delete</Text>
+
       {item.appointmentDate ? (
         <Text className="mt-2 text-xs text-slate-500">
           Appointment: {item.appointmentDate}
@@ -77,7 +125,7 @@ const PatientTreatmentHistoryScreen: React.FC = () => {
           {item.appointmentStatus ? ` (${item.appointmentStatus})` : ''}
         </Text>
       ) : null}
-    </View>
+    </Pressable>
   );
 
   if (loading) {
