@@ -18,11 +18,14 @@ import {
 
 /** Reference canvas (design px). Taller canvas gives top/bottom margin for labels. */
 export const ARC_ODONTOGRAM_BASE_WIDTH = 400;
-export const ARC_ODONTOGRAM_BASE_HEIGHT = 268;
+export const ARC_ODONTOGRAM_BASE_HEIGHT = 282;
+
+/** Design px reserved for FDI label row (above upper / below lower teeth). */
+const LABEL_ROW_DESIGN = 12;
 
 /** Easier tap targets; gap is enforced along the arch tangent. */
 const CELL_BASE_W = 34;
-const CELL_BASE_H = 40;
+const CELL_BASE_H = 44;
 
 const TOOTH_GAP_DESIGN = 3;
 const MIN_CENTER_DIST = CELL_BASE_W + TOOTH_GAP_DESIGN;
@@ -390,15 +393,19 @@ export const ArcOdontogram: React.FC<OdontogramProps> = ({
             const condition: ToothCondition =
               lookup.get(tooth) ?? TOOTH_CONDITIONS.CLEANING;
             const lowerArch = tooth >= 31 && tooth <= 48;
+            const labelRow = LABEL_ROW_DESIGN * scale;
+            const slotH = cellH + labelRow;
             return (
               <View
                 key={tooth}
                 style={{
                   position: 'absolute',
                   left: pos.left * scale,
-                  top: pos.top * scale,
+                  top: lowerArch
+                    ? pos.top * scale
+                    : (pos.top - LABEL_ROW_DESIGN) * scale,
                   width: cellW,
-                  height: cellH,
+                  height: slotH,
                   zIndex: lowerArch ? 25 : 20,
                   elevation: lowerArch ? 6 : 4,
                 }}
@@ -410,6 +417,7 @@ export const ArcOdontogram: React.FC<OdontogramProps> = ({
                   onPress={onToothPress}
                   width={cellW}
                   height={cellH}
+                  labelPosition={lowerArch ? 'below' : 'above'}
                 />
               </View>
             );

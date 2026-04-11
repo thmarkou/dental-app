@@ -19,9 +19,11 @@ export const TOOTH_CONDITIONS = {
   CARIES: 'Caries',
   FILLING: 'Filling',
   ROOT_CANAL: 'Root Canal',
+  POST_CORE: 'Post & Core',
   CROWN: 'Crown',
   BRIDGE: 'Bridge',
   IMPLANT: 'Implant',
+  GINGIVECTOMY: 'Gingivectomy',
   MISSING: 'Missing',
 } as const;
 
@@ -120,9 +122,11 @@ const CHART_SITE_CONDITION_SET = new Set<string>([
   TOOTH_CONDITIONS.CARIES,
   TOOTH_CONDITIONS.FILLING,
   TOOTH_CONDITIONS.ROOT_CANAL,
+  TOOTH_CONDITIONS.POST_CORE,
   TOOTH_CONDITIONS.CROWN,
   TOOTH_CONDITIONS.BRIDGE,
   TOOTH_CONDITIONS.IMPLANT,
+  TOOTH_CONDITIONS.GINGIVECTOMY,
   TOOTH_CONDITIONS.MISSING,
 ]);
 
@@ -143,10 +147,10 @@ export function coerceToothCondition(
     return TOOTH_CONDITIONS.BRIDGE;
   }
   if (t === 'Gingivectomy') {
-    return TOOTH_CONDITIONS.CARIES;
+    return TOOTH_CONDITIONS.GINGIVECTOMY;
   }
-  if (t === 'Post & Core') {
-    return TOOTH_CONDITIONS.ROOT_CANAL;
+  if (t === 'POST_CORE' || t === 'POST CORE') {
+    return TOOTH_CONDITIONS.POST_CORE;
   }
   if (ALL_DISPLAY_CONDITIONS.has(t)) {
     return t as ToothCondition;
@@ -300,8 +304,8 @@ function conditionFromTreatmentType(
     Crown: TOOTH_CONDITIONS.CROWN,
     Bridge: TOOTH_CONDITIONS.BRIDGE,
     Implant: TOOTH_CONDITIONS.IMPLANT,
-    'Post & Core': TOOTH_CONDITIONS.ROOT_CANAL,
-    Gingivectomy: TOOTH_CONDITIONS.CARIES,
+    'Post & Core': TOOTH_CONDITIONS.POST_CORE,
+    Gingivectomy: TOOTH_CONDITIONS.GINGIVECTOMY,
     'Crown / Bridge': TOOTH_CONDITIONS.CROWN,
     Caries: TOOTH_CONDITIONS.CARIES,
     Filling: TOOTH_CONDITIONS.FILLING,
