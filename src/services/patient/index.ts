@@ -11,3 +11,5 @@ export {
   deletePatient,
 } from './patient.service';
 
+export type {Patient} from '../../types/patient';
+

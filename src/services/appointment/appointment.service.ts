@@ -5,7 +5,47 @@
 
 import {query, executeQuery} from '../database';
 import {uuidv4} from '../../utils/uuid';
-import {Appointment, AppointmentType, AppointmentStatus} from '../../types';
+import {
+  Appointment,
+  AppointmentType,
+  AppointmentStatus,
+  AppointmentWithPatient,
+  PendingCheckoutRow,
+} from '../../types';
+import {getPatientBalance} from '../financial/payment.service';
+
+export interface UpdateAppointmentStatusOptions {
+  recordCheckIn?: boolean;
+  recordCheckOut?: boolean;
+}
+
+/**
+ * Update status with optional check-in / check-out timestamps (clinic flow).
+ */
+export const updateAppointmentStatus = async (
+  appointmentId: string,
+  status: AppointmentStatus,
+  options?: UpdateAppointmentStatusOptions,
+): Promise<Appointment> => {
+  const patch: Partial<
+    Omit<Appointment, 'id' | 'createdAt' | 'createdBy' | 'updatedAt'>
+  > = {status};
+
+  if (options?.recordCheckIn) {
+    patch.checkInTime = new Date();
+  }
+  if (options?.recordCheckOut) {
+    patch.checkOutTime = new Date();
+  }
+
+  return updateAppointment(appointmentId, patch);
+};
+
+export const startTreatmentAppointment = async (
+  appointmentId: string,
+): Promise<Appointment> => {
+  return updateAppointmentStatus(appointmentId, 'in_progress');
+};
 
 /**
  * Create a new appointment
@@ -127,6 +167,51 @@ export const getAppointmentsByDate = async (date: Date): Promise<Appointment[]> 
   );
 
   return appointments.map(mapAppointmentFromDb);
+};
+
+/**
+ * Today's appointments with patient names (daily flow board).
+ */
+export const getAppointmentsByDateWithPatient = async (
+  date: Date,
+): Promise<AppointmentWithPatient[]> => {
+  const dateStr = date.toISOString().split('T')[0];
+  const rows = await query(
+    `SELECT a.*, p.first_name AS patient_first_name, p.last_name AS patient_last_name
+     FROM appointments a
+     INNER JOIN patients p ON p.id = a.patient_id
+     WHERE a.date = ?
+     ORDER BY a.start_time ASC`,
+    [dateStr],
+  );
+  return rows.map(mapAppointmentWithPatientFromDb);
+};
+
+/**
+ * Visits completed on this calendar day where the patient account still has a balance due.
+ */
+export const getCompletedTodayPendingPayment = async (
+  date: Date,
+): Promise<PendingCheckoutRow[]> => {
+  const dateStr = date.toISOString().split('T')[0];
+  const rows = await query(
+    `SELECT a.*, p.first_name AS patient_first_name, p.last_name AS patient_last_name
+     FROM appointments a
+     INNER JOIN patients p ON p.id = a.patient_id
+     WHERE a.date = ? AND a.status = 'completed'
+     ORDER BY COALESCE(a.check_out_time, a.updated_at) ASC, a.start_time ASC`,
+    [dateStr],
+  );
+
+  const result: PendingCheckoutRow[] = [];
+  for (const row of rows) {
+    const appointment = mapAppointmentWithPatientFromDb(row);
+    const balance = getPatientBalance(appointment.patientId);
+    if (balance > 0.005) {
+      result.push({appointment, balance});
+    }
+  }
+  return result;
 };
 
 /**
@@ -274,10 +359,8 @@ export const deleteAppointment = async (appointmentId: string): Promise<void> =>
 export const checkInAppointment = async (
   appointmentId: string,
 ): Promise<Appointment> => {
-  const checkInTime = new Date();
-  return await updateAppointment(appointmentId, {
-    checkInTime,
-    status: 'confirmed',
+  return updateAppointmentStatus(appointmentId, 'checked_in', {
+    recordCheckIn: true,
   });
 };
 
@@ -287,10 +370,8 @@ export const checkInAppointment = async (
 export const checkOutAppointment = async (
   appointmentId: string,
 ): Promise<Appointment> => {
-  const checkOutTime = new Date();
-  return await updateAppointment(appointmentId, {
-    checkOutTime,
-    status: 'completed',
+  return updateAppointmentStatus(appointmentId, 'completed', {
+    recordCheckOut: true,
   });
 };
 
@@ -304,7 +385,7 @@ export const cancelAppointment = async (
   return await updateAppointment(appointmentId, {
     status: 'cancelled',
     cancelledAt: new Date(),
-    cancellationReason: reason || null,
+    cancellationReason: reason?.trim() ? reason.trim() : undefined,
   });
 };
 
@@ -333,6 +414,14 @@ const mapAppointmentFromDb = (row: any): Appointment => {
     createdAt: new Date(row.created_at),
     createdBy: row.created_by,
     updatedAt: new Date(row.updated_at),
+  };
+};
+
+const mapAppointmentWithPatientFromDb = (row: any): AppointmentWithPatient => {
+  return {
+    ...mapAppointmentFromDb(row),
+    patientFirstName: row.patient_first_name,
+    patientLastName: row.patient_last_name,
   };
 };
 

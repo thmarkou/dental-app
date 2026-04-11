@@ -13,12 +13,12 @@ import {MaterialIcons} from '@expo/vector-icons';
 // Screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
-import DashboardScreen from '../screens/dashboard/DashboardScreen';
+import OverviewScreen from '../screens/dashboard/OverviewScreen';
+import DailyFlowScreen from '../screens/dashboard/DailyFlowScreen';
 import PatientsScreen from '../screens/patients/PatientsScreen';
 import AppointmentsScreen from '../screens/appointments/AppointmentsScreen';
-import TreatmentsScreen from '../screens/treatments/TreatmentsScreen';
-import FinancialScreen from '../screens/financial/FinancialScreen';
-import ReportsScreen from '../screens/reports/ReportsScreen';
+import GlobalTransactionsScreen from '../screens/financial/GlobalTransactionsScreen';
+import ReportsScreen from '../screens/admin/ReportsScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 
 // Patient screens
@@ -29,38 +29,90 @@ import AddEditPatientScreen from '../screens/patients/AddEditPatientScreen';
 import AppointmentDetailScreen from '../screens/appointments/AppointmentDetailScreen';
 import AddEditAppointmentScreen from '../screens/appointments/AddEditAppointmentScreen';
 
-export type RootStackParamList = {
-  Login: undefined;
-  SignUp: undefined;
-  Main: undefined;
-};
+import PatientChartScreen from '../screens/clinical/PatientChartScreen';
+import PatientTreatmentHistoryScreen from '../screens/clinical/PatientTreatmentHistoryScreen';
+import PatientLedgerScreen from '../screens/patients/PatientLedgerScreen';
 
-export type PatientsStackParamList = {
-  PatientsList: undefined;
-  PatientDetail: {patientId: string};
-  AddEditPatient: {mode: 'add' | 'edit'; patientId?: string};
-};
+export type {
+  RootStackParamList,
+  PatientsStackParamList,
+  AppointmentsStackParamList,
+  DashboardStackParamList,
+  FinancialStackParamList,
+  ReportsStackParamList,
+  SettingsStackParamList,
+  MainTabParamList,
+} from './navigation.types';
 
-export type AppointmentsStackParamList = {
-  AppointmentsList: undefined;
-  AppointmentDetail: {appointmentId: string};
-  AddEditAppointment: {mode: 'add' | 'edit'; appointmentId?: string};
-};
-
-export type MainTabParamList = {
-  Dashboard: undefined;
-  Patients: undefined;
-  Appointments: undefined;
-  Treatments: undefined;
-  Financial: undefined;
-  Reports: undefined;
-  Settings: undefined;
-};
+import type {
+  RootStackParamList,
+  PatientsStackParamList,
+  AppointmentsStackParamList,
+  DashboardStackParamList,
+  FinancialStackParamList,
+  ReportsStackParamList,
+  SettingsStackParamList,
+  MainTabParamList,
+} from './navigation.types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
+const ClinicStack = createNativeStackNavigator<DashboardStackParamList>();
 const PatientsStack = createNativeStackNavigator<PatientsStackParamList>();
 const AppointmentsStack = createNativeStackNavigator<AppointmentsStackParamList>();
+const FinancialStack = createNativeStackNavigator<FinancialStackParamList>();
+const ReportsStack = createNativeStackNavigator<ReportsStackParamList>();
+const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
+
+const DashboardStackNavigator = () => {
+  return (
+    <DashboardStack.Navigator
+      screenOptions={{
+        headerShown: true,
+      }}>
+      <DashboardStack.Screen
+        name="DailyFlow"
+        component={DailyFlowScreen}
+        options={{
+          title: 'Today · Clinic flow',
+        }}
+      />
+      <DashboardStack.Screen
+        name="Overview"
+        component={OverviewScreen}
+        options={{
+          title: 'Overview',
+        }}
+      />
+    </DashboardStack.Navigator>
+  );
+};
+
+/** Clinic tab: same DailyFlow + Overview as dashboard. */
+const ClinicStackNavigator = () => {
+  return (
+    <ClinicStack.Navigator
+      screenOptions={{
+        headerShown: true,
+      }}>
+      <ClinicStack.Screen
+        name="DailyFlow"
+        component={DailyFlowScreen}
+        options={{
+          title: 'Clinic · Daily flow',
+        }}
+      />
+      <ClinicStack.Screen
+        name="Overview"
+        component={OverviewScreen}
+        options={{
+          title: 'Overview',
+        }}
+      />
+    </ClinicStack.Navigator>
+  );
+};
 
 /**
  * Patients Stack Navigator (nested in Patients tab)
@@ -91,6 +143,27 @@ const PatientsStackNavigator = () => {
         options={({route}) => ({
           title: route.params.mode === 'add' ? 'Add Patient' : 'Edit Patient',
         })}
+      />
+      <PatientsStack.Screen
+        name="PatientChart"
+        component={PatientChartScreen}
+        options={{
+          title: 'Dental Chart',
+        }}
+      />
+      <PatientsStack.Screen
+        name="PatientTreatmentHistory"
+        component={PatientTreatmentHistoryScreen}
+        options={{
+          title: 'Treatment History',
+        }}
+      />
+      <PatientsStack.Screen
+        name="PatientLedger"
+        component={PatientLedgerScreen}
+        options={{
+          title: 'Account & payments',
+        }}
       />
     </PatientsStack.Navigator>
   );
@@ -130,6 +203,30 @@ const AppointmentsStackNavigator = () => {
   );
 };
 
+/** Cash register tab — custom in-screen header only. */
+const FinancialStackNavigator = () => (
+  <FinancialStack.Navigator screenOptions={{headerShown: false}}>
+    <FinancialStack.Screen
+      name="GlobalTransactions"
+      component={GlobalTransactionsScreen}
+    />
+  </FinancialStack.Navigator>
+);
+
+/** Reports — in-screen title; no native header. */
+const ReportsStackNavigator = () => (
+  <ReportsStack.Navigator screenOptions={{headerShown: false}}>
+    <ReportsStack.Screen name="ReportsHome" component={ReportsScreen} />
+  </ReportsStack.Navigator>
+);
+
+/** Settings — in-screen layout; no native header (same safe area as Cash / Reports). */
+const SettingsStackNavigator = () => (
+  <SettingsStack.Navigator screenOptions={{headerShown: false}}>
+    <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} />
+  </SettingsStack.Navigator>
+);
+
 /**
  * Main Tab Navigator (shown after login)
  */
@@ -140,6 +237,7 @@ const MainTabs = () => {
         headerShown: false,
         tabBarActiveTintColor: '#007AFF',
         tabBarInactiveTintColor: '#8E8E93',
+        tabBarLabelStyle: {fontSize: 10},
         tabBarStyle: {
           paddingBottom: 5,
           paddingTop: 5,
@@ -148,13 +246,13 @@ const MainTabs = () => {
       }}>
       <Tab.Screen
         name="Dashboard"
-        component={DashboardScreen}
+        component={DashboardStackNavigator}
         options={{
           title: 'Dashboard',
-          tabBarLabel: 'Dashboard',
-          headerShown: true,
+          tabBarLabel: 'Today',
+          headerShown: false,
           tabBarIcon: ({color, size}) => (
-            <MaterialIcons name="dashboard" size={size} color={color} />
+            <MaterialIcons name="event" size={size} color={color} />
           ),
         }}
       />
@@ -182,10 +280,10 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Treatments"
-        component={TreatmentsScreen}
+        component={ClinicStackNavigator}
         options={{
-          title: 'Treatments',
-          tabBarLabel: 'Treatments',
+          title: 'Clinic',
+          tabBarLabel: 'Clinic',
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="medical-services" size={size} color={color} />
           ),
@@ -193,10 +291,10 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Financial"
-        component={FinancialScreen}
+        component={FinancialStackNavigator}
         options={{
-          title: 'Financial',
-          tabBarLabel: 'Financial',
+          title: 'Cash register',
+          tabBarLabel: 'Cash',
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="account-balance-wallet" size={size} color={color} />
           ),
@@ -204,7 +302,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Reports"
-        component={ReportsScreen}
+        component={ReportsStackNavigator}
         options={{
           title: 'Reports',
           tabBarLabel: 'Reports',
@@ -215,7 +313,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Settings"
-        component={SettingsScreen}
+        component={SettingsStackNavigator}
         options={{
           title: 'Settings',
           tabBarLabel: 'Settings',

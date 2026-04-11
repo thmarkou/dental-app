@@ -22,6 +22,7 @@ import {getAllPatients, searchPatients, deletePatient} from '../../services/pati
 import Input from '../../components/common/Input';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 
 const PatientsScreen = () => {
   const navigation = useNavigation<any>();
@@ -222,6 +223,7 @@ const PatientsScreen = () => {
   };
 
   return (
+    <ScreenSafeArea variant="content">
     <View style={styles.container}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -276,6 +278,7 @@ const PatientsScreen = () => {
         </View>
       )}
     </View>
+    </ScreenSafeArea>
   );
 };
 

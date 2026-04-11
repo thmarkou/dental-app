@@ -15,6 +15,7 @@ import {
   Platform,
   TouchableOpacity,
   Image,
+  Switch,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {MaterialIcons} from '@expo/vector-icons';
@@ -28,6 +29,21 @@ import {
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {DatePickerField} from '../../components/common/DatePickerField';
+
+function defaultDateOfBirth(): Date {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 18);
+  d.setHours(12, 0, 0, 0);
+  return d;
+}
+
+function endOfToday(): Date {
+  const t = new Date();
+  t.setHours(23, 59, 59, 999);
+  return t;
+}
 
 const AddEditPatientScreen = () => {
   const navigation = useNavigation();
@@ -41,13 +57,17 @@ const AddEditPatientScreen = () => {
   // Form fields
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [dobDate, setDobDate] = useState<Date>(() => defaultDateOfBirth());
   const [gender, setGender] = useState<'male' | 'female' | 'other' | ''>('');
   const [amka, setAmka] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [occupation, setOccupation] = useState('');
   const [photoUri, setPhotoUri] = useState('');
+  const [afm, setAfm] = useState('');
+  const [doy, setDoy] = useState('');
+  const [gdprConsent, setGdprConsent] = useState(false);
+  const [gdprConsentDate, setGdprConsentDate] = useState<Date | null>(null);
 
   // Address fields
   const [addressStreet, setAddressStreet] = useState('');
@@ -81,18 +101,17 @@ const AddEditPatientScreen = () => {
       // Populate form fields
       setFirstName(patient.firstName);
       setLastName(patient.lastName);
-      // Format date as DD-MM-YYYY for display
-      const dob = patient.dateOfBirth;
-      const day = String(dob.getDate()).padStart(2, '0');
-      const month = String(dob.getMonth() + 1).padStart(2, '0');
-      const year = dob.getFullYear();
-      setDateOfBirth(`${day}-${month}-${year}`);
+      setDobDate(patient.dateOfBirth);
       setGender(patient.gender || '');
       setAmka(patient.amka || '');
       setPhone(patient.phone);
       setEmail(patient.email || '');
       setOccupation(patient.occupation || '');
       setPhotoUri(patient.photoUri || '');
+      setAfm(patient.afm ?? '');
+      setDoy(patient.doy ?? '');
+      setGdprConsent(patient.gdprConsent === true);
+      setGdprConsentDate(patient.gdprDate ?? null);
 
       if (patient.address) {
         setAddressStreet(patient.address.street);
@@ -155,30 +174,8 @@ const AddEditPatientScreen = () => {
       newErrors.lastName = 'Last name is required';
     }
 
-    if (!dateOfBirth) {
-      newErrors.dateOfBirth = 'Date of birth is required';
-    } else {
-      // Validate DD-MM-YYYY format
-      const dateRegex = /^(\d{2})-(\d{2})-(\d{4})$/;
-      if (!dateRegex.test(dateOfBirth)) {
-        newErrors.dateOfBirth = 'Date must be in DD-MM-YYYY format';
-      } else {
-        const [day, month, year] = dateOfBirth.split('-').map(Number);
-        const dob = new Date(year, month - 1, day);
-        const today = new Date();
-        today.setHours(23, 59, 59, 999); // End of today
-        
-        // Validate date is valid
-        if (
-          dob.getDate() !== day ||
-          dob.getMonth() !== month - 1 ||
-          dob.getFullYear() !== year
-        ) {
-          newErrors.dateOfBirth = 'Invalid date';
-        } else if (dob > today) {
-          newErrors.dateOfBirth = 'Date of birth cannot be in the future';
-        }
-      }
+    if (dobDate > endOfToday()) {
+      newErrors.dateOfBirth = 'Date of birth cannot be in the future';
     }
 
     if (!phone.trim()) {
@@ -189,6 +186,11 @@ const AddEditPatientScreen = () => {
 
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = 'Invalid email format';
+    }
+
+    const afmTrim = afm.trim();
+    if (afmTrim && !/^\d{9}$/.test(afmTrim)) {
+      newErrors.afm = 'AFM must be exactly 9 digits.';
     }
 
     setErrors(newErrors);
@@ -205,27 +207,6 @@ const AddEditPatientScreen = () => {
     try {
       setSaving(true);
 
-      // Parse DD-MM-YYYY format
-      const dateRegex = /^(\d{2})-(\d{2})-(\d{4})$/;
-      if (!dateRegex.test(dateOfBirth)) {
-        Alert.alert('Validation Error', 'Date must be in DD-MM-YYYY format');
-        return;
-      }
-      
-      const [day, month, year] = dateOfBirth.split('-').map(Number);
-      const dobDate = new Date(year, month - 1, day);
-      
-      // Validate date is valid
-      if (
-        isNaN(dobDate.getTime()) ||
-        dobDate.getDate() !== day ||
-        dobDate.getMonth() !== month - 1 ||
-        dobDate.getFullYear() !== year
-      ) {
-        Alert.alert('Validation Error', 'Invalid date');
-        return;
-      }
-
       // Ensure gender is valid or undefined
       const genderValue = gender && 
         ['male', 'female', 'other'].includes(gender)
@@ -235,9 +216,17 @@ const AddEditPatientScreen = () => {
       const patientData: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'> = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        dateOfBirth: dobDate,
-        gender: genderValue,
+        dateOfBirth: new Date(
+          dobDate.getFullYear(),
+          dobDate.getMonth(),
+          dobDate.getDate(),
+        ),
+        gender: genderValue ?? 'other',
         amka: amka.trim() || undefined,
+        afm: afm.trim() || undefined,
+        doy: doy.trim() || undefined,
+        gdprConsent,
+        gdprDate: gdprConsent ? (gdprConsentDate ?? new Date()) : null,
         phone: phone.trim(),
         email: email.trim() || undefined,
         occupation: occupation.trim() || undefined,
@@ -284,17 +273,21 @@ const AddEditPatientScreen = () => {
 
   if (loading) {
     return (
+      <ScreenSafeArea variant="content">
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Loading patient data...</Text>
       </View>
+      </ScreenSafeArea>
     );
   }
 
   return (
+    <ScreenSafeArea variant="content">
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -342,12 +335,13 @@ const AddEditPatientScreen = () => {
             placeholder="Enter last name"
           />
 
-          <Input
-            label="Date of Birth *"
-            value={dateOfBirth}
-            onChangeText={setDateOfBirth}
+          <DatePickerField
+            label="Date of birth *"
+            value={dobDate}
+            onChange={setDobDate}
             error={errors.dateOfBirth}
-            placeholder="DD-MM-YYYY"
+            maximumDate={endOfToday()}
+            minimumDate={new Date(1900, 0, 1)}
           />
 
           <View style={styles.genderContainer}>
@@ -382,6 +376,24 @@ const AddEditPatientScreen = () => {
           />
 
           <Input
+            label="AFM (9 digits)"
+            value={afm}
+            onChangeText={(t) => setAfm(t.replace(/\D/g, '').slice(0, 9))}
+            error={errors.afm}
+            placeholder="123456789"
+            keyboardType="number-pad"
+            maxLength={9}
+          />
+
+          <Input
+            label="Tax office (DOY)"
+            value={doy}
+            onChangeText={setDoy}
+            placeholder="e.g. Athens"
+            autoCapitalize="characters"
+          />
+
+          <Input
             label="Phone *"
             value={phone}
             onChangeText={setPhone}
@@ -406,6 +418,29 @@ const AddEditPatientScreen = () => {
             onChangeText={setOccupation}
             placeholder="Enter occupation"
           />
+
+          <View style={styles.gdprRow}>
+            <View style={styles.gdprTextCol}>
+              <Text style={styles.label}>GDPR consent</Text>
+              <Text style={styles.gdprHint}>
+                Record that the patient has agreed to processing of personal health data (GDPR).
+              </Text>
+            </View>
+            <Switch
+              value={gdprConsent}
+              onValueChange={(v) => {
+                setGdprConsent(v);
+                if (v && gdprConsentDate == null) {
+                  setGdprConsentDate(new Date());
+                }
+                if (!v) {
+                  setGdprConsentDate(null);
+                }
+              }}
+              trackColor={{false: '#cbd5e1', true: '#93c5fd'}}
+              thumbColor={gdprConsent ? '#1d4ed8' : '#f1f5f9'}
+            />
+          </View>
         </Card>
 
         <Card style={styles.card}>
@@ -477,6 +512,7 @@ const AddEditPatientScreen = () => {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </ScreenSafeArea>
   );
 };
 
@@ -582,6 +618,23 @@ const styles = StyleSheet.create({
   genderOptionTextSelected: {
     color: '#007AFF',
     fontWeight: '600',
+  },
+  gdprRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 12,
+  },
+  gdprTextCol: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  gdprHint: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 6,
+    lineHeight: 18,
   },
   buttonContainer: {
     marginTop: 8,

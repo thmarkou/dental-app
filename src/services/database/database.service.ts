@@ -9,6 +9,9 @@ import {migrations} from './migrations';
 import * as FileSystem from 'expo-file-system';
 
 // Database configuration
+// react-native-quick-sqlite `location: 'default'` resolves to:
+// - iOS: app sandbox Documents (persists; suitable for backups)
+// - Android: internal app storage (not SD card; private to the app)
 const DB_NAME = 'dentalapp';
 
 // Initialize database connection
@@ -141,17 +144,24 @@ const runMigrations = async (): Promise<void> => {
   for (const migration of migrations) {
     if (migration.version > currentVersion) {
       console.log(`Running migration ${migration.version}...`);
-      database.execute('BEGIN TRANSACTION;');
+      const runStandalone = migration.skipOuterTransaction === true;
+      if (!runStandalone) {
+        database.execute('BEGIN TRANSACTION;');
+      }
       try {
         migration.up(database);
         database.execute(
           'INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?);',
           [migration.version, new Date().toISOString()],
         );
-        database.execute('COMMIT;');
+        if (!runStandalone) {
+          database.execute('COMMIT;');
+        }
         console.log(`✅ Migration ${migration.version} completed`);
       } catch (error) {
-        database.execute('ROLLBACK;');
+        if (!runStandalone) {
+          database.execute('ROLLBACK;');
+        }
         console.error(`❌ Migration ${migration.version} failed:`, error);
         throw error;
       }

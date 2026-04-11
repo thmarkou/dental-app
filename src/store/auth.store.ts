@@ -6,17 +6,9 @@
 import {create} from 'zustand';
 import {persist, createJSONStorage} from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {UserRole} from '../types';
+import {UserRole, type User} from '../types';
 
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: UserRole;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-}
+export type {User};
 
 interface AuthState {
   user: User | null;

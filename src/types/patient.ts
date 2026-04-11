@@ -9,12 +9,19 @@ export interface Patient {
   dateOfBirth: Date;
   gender: 'male' | 'female' | 'other';
   amka?: string;
+  /** Greek tax ID (AFM) — invoicing / myDATA */
+  afm?: string;
+  /** Tax office (DOY) */
+  doy?: string;
   phone: string;
   email?: string;
   photoUri?: string;
   address?: Address;
   emergencyContact?: EmergencyContact;
   occupation?: string;
+  /** GDPR consent recorded (Module J) */
+  gdprConsent?: boolean;
+  gdprDate?: Date | null;
   insurance?: InsuranceInfo;
   medicalHistory?: MedicalHistory;
   dentalHistory?: DentalHistory;

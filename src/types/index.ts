@@ -5,6 +5,17 @@
 // User Roles
 export type UserRole = 'admin' | 'dentist' | 'assistant' | 'receptionist';
 
+/** Authenticated app user (aligned with auth store / DB). */
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+}
+
 // Appointment Types
 export type AppointmentType =
   | 'initial_consultation'
@@ -19,6 +30,8 @@ export type AppointmentType =
 export type AppointmentStatus =
   | 'scheduled'
   | 'confirmed'
+  | 'checked_in'
+  | 'in_progress'
   | 'completed'
   | 'cancelled'
   | 'no_show';

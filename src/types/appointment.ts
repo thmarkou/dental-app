@@ -27,6 +27,18 @@ export interface Appointment {
   updatedAt: Date;
 }
 
+/** Appointment row joined with patient name (daily flow, lists). */
+export interface AppointmentWithPatient extends Appointment {
+  patientFirstName: string;
+  patientLastName: string;
+}
+
+/** Completed visit today where the patient still owes money. */
+export interface PendingCheckoutRow {
+  appointment: AppointmentWithPatient;
+  balance: number;
+}
+
 export interface RecurringAppointmentSeries {
   id: string;
   patientId: string;

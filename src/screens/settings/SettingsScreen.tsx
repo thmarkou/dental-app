@@ -1,14 +1,60 @@
 /**
- * Settings Screen
- * App settings and user management
+ * Settings — profile, system backup/export, and weekly backup reminder.
  */
 
-import React from 'react';
-import {View, Text, TouchableOpacity, StyleSheet, Alert} from 'react-native';
+import React, {useCallback, useState} from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  Switch,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
+import {MaterialIcons} from '@expo/vector-icons';
 import {useAuthStore} from '../../store/auth.store';
+import {exportDatabase, generateExcelReport} from '../../services/system/backup.service';
+import {
+  getBackupReminderEnabled,
+  setBackupReminderEnabled,
+} from '../../services/system/backupReminder.service';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 
 const SettingsScreen = () => {
+  const {width} = useWindowDimensions();
+  const isWide = width >= 840;
+
   const {logout, user} = useAuthStore();
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [csvBusy, setCsvBusy] = useState(false);
+  const [reminderOn, setReminderOn] = useState(false);
+  const [reminderLoading, setReminderLoading] = useState(true);
+
+  const loadReminder = useCallback(async () => {
+    try {
+      setReminderLoading(true);
+      if (Platform.OS === 'web') {
+        setReminderOn(false);
+        return;
+      }
+      const on = await getBackupReminderEnabled();
+      setReminderOn(on);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setReminderLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadReminder();
+    }, [loadReminder]),
+  );
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to log out?', [
@@ -23,86 +69,169 @@ const SettingsScreen = () => {
     ]);
   };
 
+  const runBackup = async () => {
+    try {
+      setBackupBusy(true);
+      await exportDatabase();
+    } catch (e) {
+      console.error(e);
+      Alert.alert(
+        'Backup failed',
+        e instanceof Error ? e.message : 'Could not export the database.',
+      );
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const runCsvExport = async () => {
+    try {
+      setCsvBusy(true);
+      await generateExcelReport();
+    } catch (e) {
+      console.error(e);
+      Alert.alert(
+        'Export failed',
+        e instanceof Error ? e.message : 'Could not create the CSV file.',
+      );
+    } finally {
+      setCsvBusy(false);
+    }
+  };
+
+  const onToggleReminder = async (value: boolean) => {
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        'Not available',
+        'Local notifications are not supported on web. Use the mobile app for reminders.',
+      );
+      return;
+    }
+    try {
+      await setBackupReminderEnabled(value);
+      setReminderOn(value);
+      if (value) {
+        Alert.alert(
+          'Reminder on',
+          'A weekly backup reminder is scheduled (Mondays at 09:00, device local time).',
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert(
+        'Notifications',
+        e instanceof Error ? e.message : 'Could not update reminder settings.',
+      );
+      await loadReminder();
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Profile</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Name:</Text>
-          <Text style={styles.value}>
-            {user?.firstName} {user?.lastName}
+    <ScreenSafeArea variant="full">
+      <ScrollView
+        className="flex-1 bg-slate-50"
+        contentContainerStyle={{
+          paddingBottom: 32,
+          paddingHorizontal: isWide ? 12 : 8,
+        }}>
+        <View className="px-2 py-3">
+          <Text className="text-2xl font-bold text-slate-900">Settings</Text>
+          <Text className="mt-1 text-sm text-slate-600">
+            Profile, backups, and sign out
           </Text>
         </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Email:</Text>
-          <Text style={styles.value}>{user?.email}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Role:</Text>
-          <Text style={styles.value}>{user?.role}</Text>
-        </View>
-      </View>
 
-      <View style={styles.section}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+        <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <Text className="text-base font-semibold text-slate-900">Profile</Text>
+          <View className="mt-4 border-t border-slate-100 pt-3">
+            <View className="flex-row justify-between py-2">
+              <Text className="text-slate-500">Name</Text>
+              <Text className="max-w-[60%] text-right font-medium text-slate-900">
+                {user?.firstName} {user?.lastName}
+              </Text>
+            </View>
+            <View className="flex-row justify-between py-2">
+              <Text className="text-slate-500">Email</Text>
+              <Text className="max-w-[60%] text-right font-medium text-slate-900">
+                {user?.email}
+              </Text>
+            </View>
+            <View className="flex-row justify-between py-2">
+              <Text className="text-slate-500">Role</Text>
+              <Text className="font-medium capitalize text-slate-900">{user?.role}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <Text className="text-base font-semibold text-slate-900">System</Text>
+          <Text className="mt-1 text-sm text-slate-600">
+            Export a full copy of your data or a monthly payment report for your accountant.
+          </Text>
+
+          <Pressable
+            onPress={runBackup}
+            disabled={backupBusy}
+            className="mt-4 flex-row items-center justify-center rounded-xl bg-slate-900 py-3.5 active:bg-slate-800 disabled:opacity-50">
+            {backupBusy ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <MaterialIcons name="save-alt" size={22} color="#fff" />
+                <Text className="ml-2 text-base font-semibold text-white">
+                  Backup Data Now
+                </Text>
+              </>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={runCsvExport}
+            disabled={csvBusy}
+            className="mt-3 flex-row items-center justify-center rounded-xl border border-slate-200 bg-slate-50 py-3.5 active:bg-slate-100 disabled:opacity-50">
+            {csvBusy ? (
+              <ActivityIndicator color="#0f172a" />
+            ) : (
+              <>
+                <MaterialIcons name="table-chart" size={22} color="#0f172a" />
+                <Text className="ml-2 text-base font-semibold text-slate-900">
+                  Export Monthly CSV for Accountant
+                </Text>
+              </>
+            )}
+          </Pressable>
+
+          <View className="mt-5 flex-row items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3">
+            <View className="mr-3 flex-1">
+              <Text className="text-sm font-medium text-slate-900">
+                Automatic Backup Reminder
+              </Text>
+              <Text className="mt-0.5 text-xs text-slate-600">
+                Weekly notification (mobile only) to run a manual backup.
+              </Text>
+            </View>
+            {reminderLoading ? (
+              <ActivityIndicator size="small" color="#64748b" />
+            ) : (
+              <Switch
+                value={reminderOn}
+                onValueChange={onToggleReminder}
+                disabled={Platform.OS === 'web'}
+                trackColor={{false: '#cbd5e1', true: '#93c5fd'}}
+                thumbColor={reminderOn ? '#1d4ed8' : '#f1f5f9'}
+              />
+            )}
+          </View>
+        </View>
+
+        <Pressable
+          onPress={handleLogout}
+          className="rounded-2xl border border-red-200 bg-red-50 py-3.5 active:bg-red-100">
+          <Text className="text-center text-base font-semibold text-red-700">Logout</Text>
+        </Pressable>
+      </ScrollView>
+    </ScreenSafeArea>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-  },
-  section: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
-    color: '#000000',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  label: {
-    fontSize: 16,
-    color: '#666666',
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#000000',
-  },
-  logoutButton: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
-  },
-  logoutButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
-
 export default SettingsScreen;
-

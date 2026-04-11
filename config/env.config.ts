@@ -101,20 +101,20 @@ const loadEnvConfig = (): EnvConfig => {
   // TODO: Replace with actual environment variable loading
   // For React Native, use: import Config from 'react-native-config';
   
-  const getEnv = (key: string, defaultValue: string = ''): string => {
+  const getEnv = (_key: string, defaultValue: string = ''): string => {
     // This will be replaced with actual env loading
     // For now, return default or throw if required
     return defaultValue;
   };
   
-  const getEnvBool = (key: string, defaultValue: boolean = false): boolean => {
-    const value = getEnv(key);
+  const getEnvBool = (_key: string, _defaultValue: boolean = false): boolean => {
+    const value = getEnv(_key);
     return value === 'true' || value === '1';
   };
   
-  const getEnvNumber = (key: string, defaultValue: number = 0): number => {
-    const value = getEnv(key);
-    return value ? parseInt(value, 10) : defaultValue;
+  const getEnvNumber = (_key: string, _defaultValue: number = 0): number => {
+    const value = getEnv(_key);
+    return value ? parseInt(value, 10) : _defaultValue;
   };
   
   return {

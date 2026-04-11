@@ -28,6 +28,12 @@ import {useAuthStore} from '../../store/auth.store';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {DatePickerField} from '../../components/common/DatePickerField';
+
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
 
 const AddEditAppointmentScreen = () => {
   const navigation = useNavigation();
@@ -45,7 +51,9 @@ const AddEditAppointmentScreen = () => {
   // Form fields
   const [patientId, setPatientId] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [date, setDate] = useState('');
+  const [appointmentDate, setAppointmentDate] = useState<Date>(() =>
+    startOfDay(new Date()),
+  );
   const [startTime, setStartTime] = useState('');
   const [duration, setDuration] = useState('30');
   const [type, setType] = useState<AppointmentType>('regular_checkup');
@@ -62,9 +70,7 @@ const AddEditAppointmentScreen = () => {
     if (mode === 'edit' && appointmentId) {
       loadAppointment();
     } else {
-      // Set default date to today
-      const today = new Date();
-      setDate(today.toISOString().split('T')[0]);
+      setAppointmentDate(startOfDay(new Date()));
       setStartTime('09:00');
     }
   }, [mode, appointmentId]);
@@ -100,7 +106,7 @@ const AddEditAppointmentScreen = () => {
 
       // Populate form fields
       setPatientId(appointment.patientId);
-      setDate(appointment.date.toISOString().split('T')[0]);
+      setAppointmentDate(startOfDay(appointment.date));
       setStartTime(
         appointment.startTime.toTimeString().split(' ')[0].substring(0, 5),
       );
@@ -125,13 +131,10 @@ const AddEditAppointmentScreen = () => {
       newErrors.patientId = 'Patient is required';
     }
 
-    if (!date) {
-      newErrors.date = 'Date is required';
-    } else {
-      const selectedDate = new Date(date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (selectedDate < today) {
+    if (mode === 'add') {
+      const sel = startOfDay(appointmentDate);
+      const today = startOfDay(new Date());
+      if (sel < today) {
         newErrors.date = 'Date cannot be in the past';
       }
     }
@@ -165,26 +168,27 @@ const AddEditAppointmentScreen = () => {
 
       // Calculate start and end times
       const [hours, minutes] = startTime.split(':').map(Number);
-      const appointmentDate = new Date(date);
-      appointmentDate.setHours(hours, minutes, 0, 0);
+      const dayBase = startOfDay(appointmentDate);
+      dayBase.setHours(hours, minutes, 0, 0);
 
-      const startTimeDate = new Date(appointmentDate);
-      const endTimeDate = new Date(appointmentDate);
-      endTimeDate.setMinutes(endTimeDate.getMinutes() + parseInt(duration));
+      const startTimeDate = new Date(dayBase);
+      const endTimeDate = new Date(dayBase);
+      endTimeDate.setMinutes(endTimeDate.getMinutes() + parseInt(duration, 10));
 
       const appointmentData: Omit<
         Appointment,
         'id' | 'createdAt' | 'updatedAt' | 'reminderSent' | 'reminderSentAt'
       > = {
         patientId,
-        date: new Date(date),
+        date: startOfDay(appointmentDate),
         startTime: startTimeDate,
         endTime: endTimeDate,
-        duration: parseInt(duration),
+        duration: parseInt(duration, 10),
         type,
         status,
         doctorId: user.id,
         notes: notes.trim() || undefined,
+        createdBy: user.id,
       };
 
       if (mode === 'add') {
@@ -193,7 +197,8 @@ const AddEditAppointmentScreen = () => {
           {text: 'OK', onPress: () => navigation.goBack()},
         ]);
       } else {
-        await updateAppointment(appointmentId, appointmentData);
+        const {createdBy: _createdBy, ...appointmentUpdate} = appointmentData;
+        await updateAppointment(appointmentId, appointmentUpdate);
         Alert.alert('Success', 'Appointment updated successfully', [
           {text: 'OK', onPress: () => navigation.goBack()},
         ]);
@@ -218,10 +223,12 @@ const AddEditAppointmentScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading appointment data...</Text>
-      </View>
+      <ScreenSafeArea variant="content">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading appointment data...</Text>
+        </View>
+      </ScreenSafeArea>
     );
   }
 
@@ -238,15 +245,19 @@ const AddEditAppointmentScreen = () => {
   const appointmentStatuses: AppointmentStatus[] = [
     'scheduled',
     'confirmed',
+    'checked_in',
+    'in_progress',
     'completed',
     'cancelled',
     'no_show',
   ];
 
   return (
+    <ScreenSafeArea variant="content">
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -308,12 +319,12 @@ const AddEditAppointmentScreen = () => {
             )}
           </View>
 
-          <Input
+          <DatePickerField
             label="Date *"
-            value={date}
-            onChangeText={setDate}
+            value={appointmentDate}
+            onChange={(d) => setAppointmentDate(startOfDay(d))}
             error={errors.date}
-            placeholder="YYYY-MM-DD"
+            minimumDate={mode === 'add' ? startOfDay(new Date()) : undefined}
           />
 
           <Input
@@ -406,6 +417,7 @@ const AddEditAppointmentScreen = () => {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </ScreenSafeArea>
   );
 };
 

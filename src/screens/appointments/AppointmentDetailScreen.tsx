@@ -11,7 +11,6 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  TouchableOpacity,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {MaterialIcons} from '@expo/vector-icons';
@@ -22,10 +21,12 @@ import {
   checkInAppointment,
   checkOutAppointment,
   cancelAppointment,
+  startTreatmentAppointment,
 } from '../../services/appointment';
 import {getPatientById, Patient} from '../../services/patient';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 
 const AppointmentDetailScreen = () => {
   const navigation = useNavigation<any>();
@@ -118,6 +119,21 @@ const AppointmentDetailScreen = () => {
     }
   };
 
+  const handleStartTreatment = async () => {
+    if (!appointment) return;
+    try {
+      setProcessing(true);
+      await startTreatmentAppointment(appointmentId);
+      Alert.alert('Success', 'Treatment started');
+      loadAppointment();
+    } catch (error) {
+      console.error('Error starting treatment:', error);
+      Alert.alert('Error', 'Could not start treatment.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleCheckOut = async () => {
     if (!appointment) return;
 
@@ -185,6 +201,10 @@ const AppointmentDetailScreen = () => {
         return '#007AFF';
       case 'confirmed':
         return '#34C759';
+      case 'checked_in':
+        return '#5856D6';
+      case 'in_progress':
+        return '#FF9500';
       case 'completed':
         return '#8E8E93';
       case 'cancelled':
@@ -205,28 +225,33 @@ const AppointmentDetailScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading appointment data...</Text>
-      </View>
+      <ScreenSafeArea variant="content">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading appointment data...</Text>
+        </View>
+      </ScreenSafeArea>
     );
   }
 
   if (!appointment) {
     return (
-      <View style={styles.loadingContainer}>
-        <MaterialIcons name="error-outline" size={64} color="#FF3B30" />
-        <Text style={styles.errorText}>Appointment not found</Text>
-        <Button
-          title="Go Back"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        />
-      </View>
+      <ScreenSafeArea variant="content">
+        <View style={styles.loadingContainer}>
+          <MaterialIcons name="error-outline" size={64} color="#FF3B30" />
+          <Text style={styles.errorText}>Appointment not found</Text>
+          <Button
+            title="Go Back"
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          />
+        </View>
+      </ScreenSafeArea>
     );
   }
 
   return (
+    <ScreenSafeArea variant="content">
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
@@ -345,7 +370,8 @@ const AppointmentDetailScreen = () => {
 
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
-          {appointment.status === 'scheduled' && !appointment.checkInTime && (
+          {(appointment.status === 'scheduled' ||
+            appointment.status === 'confirmed') && (
             <Button
               title="Check In"
               onPress={handleCheckIn}
@@ -356,18 +382,27 @@ const AppointmentDetailScreen = () => {
             />
           )}
 
-          {appointment.status === 'confirmed' &&
-            appointment.checkInTime &&
-            !appointment.checkOutTime && (
-              <Button
-                title="Check Out"
-                onPress={handleCheckOut}
-                variant="primary"
-                loading={processing}
-                disabled={processing}
-                style={styles.actionButton}
-              />
-            )}
+          {appointment.status === 'checked_in' && !appointment.checkOutTime && (
+            <Button
+              title="Start Treatment"
+              onPress={handleStartTreatment}
+              variant="primary"
+              loading={processing}
+              disabled={processing}
+              style={styles.actionButton}
+            />
+          )}
+
+          {appointment.status === 'in_progress' && !appointment.checkOutTime && (
+            <Button
+              title="Complete Visit"
+              onPress={handleCheckOut}
+              variant="primary"
+              loading={processing}
+              disabled={processing}
+              style={styles.actionButton}
+            />
+          )}
 
           {appointment.status !== 'cancelled' &&
             appointment.status !== 'completed' && (
@@ -397,6 +432,7 @@ const AppointmentDetailScreen = () => {
         </View>
       </ScrollView>
     </View>
+    </ScreenSafeArea>
   );
 };
 

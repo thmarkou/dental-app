@@ -18,10 +18,15 @@ import {
 } from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RootStackParamList} from '../../navigation/navigation.types';
 import {useAuthStore} from '../../store/auth.store';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+
+type LoginNav = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
 const LoginScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<LoginNav>();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -58,9 +63,11 @@ const LoginScreen = () => {
   };
 
   return (
+    <ScreenSafeArea variant="full">
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled">
@@ -176,6 +183,7 @@ const LoginScreen = () => {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </ScreenSafeArea>
   );
 };
 

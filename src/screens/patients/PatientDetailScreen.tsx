@@ -18,8 +18,11 @@ import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native'
 import {MaterialIcons} from '@expo/vector-icons';
 import {Patient} from '../../types/patient';
 import {getPatientById, deletePatient} from '../../services/patient';
+import {updateGDPRConsent} from '../../services/clinical/document.service';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
+import BalanceBadge from '../../components/financial/BalanceBadge';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 
 const PatientDetailScreen = () => {
   const navigation = useNavigation<any>();
@@ -61,6 +64,29 @@ const PatientDetailScreen = () => {
 
   const handleEdit = () => {
     navigation.navigate('AddEditPatient', {mode: 'edit', patientId});
+  };
+
+  const handleSignGDPRConsent = () => {
+    Alert.alert(
+      'GDPR consent',
+      'Confirm that the patient (or legal representative) has signed the privacy consent form.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Record consent',
+          onPress: async () => {
+            try {
+              await updateGDPRConsent(patientId, true);
+              await loadPatient();
+              Alert.alert('Saved', 'GDPR consent has been recorded.');
+            } catch (e) {
+              console.error(e);
+              Alert.alert('Error', 'Could not update consent.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleDelete = () => {
@@ -110,15 +136,18 @@ const PatientDetailScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <ScreenSafeArea variant="content">
+        <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Loading patient data...</Text>
       </View>
+      </ScreenSafeArea>
     );
   }
 
   if (!patient) {
     return (
+      <ScreenSafeArea variant="content">
       <View style={styles.loadingContainer}>
         <MaterialIcons name="error-outline" size={64} color="#FF3B30" />
         <Text style={styles.errorText}>Patient not found</Text>
@@ -128,12 +157,14 @@ const PatientDetailScreen = () => {
           style={styles.backButton}
         />
       </View>
+      </ScreenSafeArea>
     );
   }
 
   const age = calculateAge(patient.dateOfBirth);
 
   return (
+    <ScreenSafeArea variant="content">
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
@@ -156,9 +187,31 @@ const PatientDetailScreen = () => {
               <Text style={styles.patientDetails}>
                 {age} years old • {patient.gender || 'N/A'}
               </Text>
+              <View style={styles.balanceBadgeWrap}>
+                <BalanceBadge patientId={patientId} />
+              </View>
             </View>
           </View>
         </Card>
+
+        {patient.gdprConsent !== true || patient.gdprDate == null ? (
+          <View style={styles.gdprBanner}>
+            <MaterialIcons name="warning-amber" size={28} color="#B45309" />
+            <View style={styles.gdprBannerText}>
+              <Text style={styles.gdprBannerTitle}>GDPR consent required</Text>
+              <Text style={styles.gdprBannerBody}>
+                No valid consent on file. Obtain and record signed consent before sensitive
+                processing.
+              </Text>
+              <TouchableOpacity
+                style={styles.gdprButton}
+                onPress={handleSignGDPRConsent}
+                activeOpacity={0.8}>
+                <Text style={styles.gdprButtonText}>Sign consent</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
         {/* Personal Information */}
         <Card style={styles.card}>
@@ -180,6 +233,13 @@ const PatientDetailScreen = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>AMKA</Text>
               <Text style={styles.infoValue}>{patient.amka}</Text>
+            </View>
+          )}
+
+          {patient.afm && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>AFM</Text>
+              <Text style={styles.infoValue}>{patient.afm}</Text>
             </View>
           )}
 
@@ -281,9 +341,21 @@ const PatientDetailScreen = () => {
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
           <Button
+            title="Dental Chart"
+            onPress={() => navigation.navigate('PatientChart', {patientId})}
+            variant="primary"
+            style={styles.editButton}
+          />
+          <Button
+            title="Account & payments"
+            onPress={() => navigation.navigate('PatientLedger', {patientId})}
+            variant="outline"
+            style={styles.editButton}
+          />
+          <Button
             title="Edit Patient"
             onPress={handleEdit}
-            variant="primary"
+            variant="outline"
             style={styles.editButton}
           />
           <Button
@@ -295,6 +367,7 @@ const PatientDetailScreen = () => {
         </View>
       </ScrollView>
     </View>
+    </ScreenSafeArea>
   );
 };
 
@@ -361,6 +434,47 @@ const styles = StyleSheet.create({
   patientDetails: {
     fontSize: 16,
     color: '#666666',
+  },
+  balanceBadgeWrap: {
+    marginTop: 10,
+  },
+  gdprBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    gap: 12,
+  },
+  gdprBannerText: {
+    flex: 1,
+  },
+  gdprBannerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  gdprBannerBody: {
+    fontSize: 14,
+    color: '#78350F',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  gdprButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#D97706',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  gdprButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
   },
   card: {
     marginBottom: 16,

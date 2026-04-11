@@ -1,0 +1,117 @@
+/**
+ * Home overview — revenue, receivables, today’s schedule.
+ */
+
+import React, {useCallback, useState} from 'react';
+import {View, Text, ScrollView} from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
+import {useAuthStore} from '../../store/auth.store';
+import {DatabaseWarning} from '../../components/common/DatabaseWarning';
+import {isDatabaseAvailable} from '../../services/database';
+import {
+  currentYearMonthLocal,
+  getMonthlyRevenueEur,
+  getTotalOutstandingReceivables,
+  getAppointmentsCountForDate,
+} from '../../services/financial/payment.service';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+
+function todayLocalYmd(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+const formatEur = (n: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+  }).format(n);
+
+const OverviewScreen: React.FC = () => {
+  const {user} = useAuthStore();
+  const [monthRevenue, setMonthRevenue] = useState(0);
+  const [pendingTotal, setPendingTotal] = useState(0);
+  const [todayAppts, setTodayAppts] = useState(0);
+  const [monthLabel, setMonthLabel] = useState('');
+
+  const load = useCallback(() => {
+    if (!isDatabaseAvailable) {
+      return;
+    }
+    try {
+      const ym = currentYearMonthLocal();
+      const [yy, mm] = ym.split('-').map(Number);
+      setMonthLabel(
+        new Intl.DateTimeFormat('en-US', {
+          month: 'long',
+          year: 'numeric',
+        }).format(new Date(yy, mm - 1, 1)),
+      );
+      setMonthRevenue(getMonthlyRevenueEur(ym));
+      setPendingTotal(getTotalOutstandingReceivables());
+      setTodayAppts(getAppointmentsCountForDate(todayLocalYmd()));
+    } catch (e) {
+      console.error('Overview load failed:', e);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  return (
+    <ScreenSafeArea variant="content">
+    <ScrollView className="flex-1 bg-slate-50">
+      {!isDatabaseAvailable ? <DatabaseWarning /> : null}
+      <View className="p-5 pb-10">
+        <Text className="text-2xl font-bold text-slate-900">
+          Welcome, {user?.firstName} {user?.lastName}
+        </Text>
+        <Text className="mt-2 text-sm text-slate-600">
+          Practice summary — {monthLabel}
+        </Text>
+
+        <View className="mt-6 gap-4">
+          <View className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Text className="text-sm font-medium text-slate-500">
+              Total revenue (month)
+            </Text>
+            <Text className="mt-2 text-3xl font-bold text-blue-600">
+              {formatEur(monthRevenue)}
+            </Text>
+          </View>
+
+          <View className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Text className="text-sm font-medium text-slate-500">
+              Outstanding balances (total)
+            </Text>
+            <Text className="mt-2 text-3xl font-bold text-amber-700">
+              {formatEur(pendingTotal)}
+            </Text>
+            <Text className="mt-2 text-xs text-slate-500">
+              Charges minus payments, summed across patients with a positive balance.
+            </Text>
+          </View>
+
+          <View className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Text className="text-sm font-medium text-slate-500">
+              Appointments today
+            </Text>
+            <Text className="mt-2 text-3xl font-bold text-emerald-700">
+              {todayAppts}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+    </ScreenSafeArea>
+  );
+};
+
+export default OverviewScreen;

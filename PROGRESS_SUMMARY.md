@@ -1,5 +1,41 @@
 # Progress Summary - Dental Practice Management App
 
+## Ημερομηνία: 10 Απριλίου 2026
+
+### Σημερινές Αλλαγές (10 Απριλίου 2026)
+
+#### 1. Babel / NativeWind ✅
+- Διόρθωση `babel.config.js`: το NativeWind τρέχει ως preset (όχι plugin), με προσαρμοσμένο preset που αφαιρεί το `react-native-worklets/plugin` (συμβατό με Reanimated 3 / Expo 51).
+
+#### 2. Εγγενή modules (iOS) ✅
+- `expo-sharing` / `ExpoSharing`: ενημέρωση pods (`npx pod-install`) ώστε να συνδέεται το native module· απαιτείται πλήρες rebuild του app.
+- `@react-native-community/datetimepicker` (`RNDateTimePicker`): η ίδια διαδικασία (pods + rebuild)· το Metro μόνο του δεν φορτώνει νέο native code.
+
+#### 3. Κύριες καρτέλες πλοήγησης ✅
+- Καρτέλα Clinic: `DailyFlowScreen` αντί για placeholder «Coming Soon».
+- Καρτέλα Cash register / οικονομικά: νέα `GlobalTransactionsScreen` (ημερήσια σύνολα + πρόσφατες πληρωμές όλων των ασθενών) με `getRecentPaymentsWithPatient` / `getDailyTotal`.
+- Διαγραφή placeholder οθονών `TreatmentsScreen`, `FinancialScreen`.
+- `AppNavigator`: stacks για Financial / Reports / Settings με `headerShown: false` όπου χρειάζεται, ετικέτες καρτελών στα αγγλικά.
+
+#### 4. Ευθυγράμμιση UI & safe area ✅
+- `ScreenSafeArea variant="full"` και ομοιόμορφα paddings (`ScrollView`, οριζόντια) σε `GlobalTransactionsScreen`, `ReportsScreen`, `SettingsScreen` ώστε να ταιριάζουν με Daily Flow / Patient Chart (π.χ. iPhone 14 Pro Max).
+
+#### 5. Ασθενείς — bugfix SQLite ✅
+- `createPatient`: διόρθωση `INSERT` — 23 στήλες / 23 τιμές (`?`) (διόρθωση σφάλματος «22 values for 23 columns»).
+
+#### 6. Γλώσσα UI & ημερομηνίες ✅
+- Κοινή γλώσσα UI: αγγλικά σε σχετικές οθόνες· `Intl` (`en-US`) όπου ενημερώθηκε.
+- Επιλογή ημερομηνίας: επαναχρησιμοποιήσιμο `DatePickerField` + ενσωμάτωση σε Add/Edit Patient, Add/Edit Appointment, λίστα ραντεβού (iOS modal / Android dialog).
+
+#### 7. Λοιπά σημεία ✅
+- `PatientDetailScreen`: κουμπί Dental Chart ως primary, Edit ως outline.
+- Τύποι πλοήγησης: `FinancialStackParamList`, `ReportsStackParamList`, `SettingsStackParamList`.
+
+#### 8. iOS build / υπογραφή ✅
+- Στο `ios/DentalPracticeManagement.xcodeproj/project.pbxproj` προστέθηκε `DEVELOPMENT_TEAM` και στο **Debug** (υπήρχε μόνο στο Release), ώστε το `npx expo run:ios --device` να μην αποτυγχάνει με «requires a development team».
+
+---
+
 ## Ημερομηνία: 20 Ιανουαρίου 2026
 
 ### Σημερινές Αλλαγές (20 Ιανουαρίου 2026)
@@ -33,6 +69,9 @@
 
 #### 6. Documentation ✅
 - ✅ Device setup and signing troubleshooting docs
+
+#### 7. Pending Requirement 📝
+- 📝 Add backup/restore for records (SQLite data)
 
 ---
 

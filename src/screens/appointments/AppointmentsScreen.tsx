@@ -13,28 +13,47 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Platform,
+  Modal,
+  Pressable,
 } from 'react-native';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {MaterialIcons} from '@expo/vector-icons';
 import {Appointment} from '../../types/appointment';
-import {
-  getAppointmentsByDate,
-  getAppointmentsByDateRange,
-  deleteAppointment,
-} from '../../services/appointment';
+import {getAppointmentsByDate, deleteAppointment} from '../../services/appointment';
 import {getPatientById, Patient} from '../../services/patient';
-import {useAuthStore} from '../../store/auth.store';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
 
 const AppointmentsScreen = () => {
   const navigation = useNavigation<any>();
-  const {user} = useAuthStore();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Record<string, Patient>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [datePickerDraft, setDatePickerDraft] = useState(() => startOfDay(new Date()));
+
+  const openDatePicker = () => {
+    setDatePickerDraft(startOfDay(selectedDate));
+    setDatePickerOpen(true);
+  };
+
+  const onAndroidDateChange = (event: DateTimePickerEvent, d?: Date) => {
+    setDatePickerOpen(false);
+    if (event.type === 'set' && d) {
+      setSelectedDate(startOfDay(d));
+    }
+  };
 
   // Load appointments
   const loadAppointments = useCallback(async () => {
@@ -180,6 +199,10 @@ const AppointmentsScreen = () => {
         return '#007AFF';
       case 'confirmed':
         return '#34C759';
+      case 'checked_in':
+        return '#5856D6';
+      case 'in_progress':
+        return '#FF9500';
       case 'completed':
         return '#8E8E93';
       case 'cancelled':
@@ -275,6 +298,7 @@ const AppointmentsScreen = () => {
   };
 
   return (
+    <ScreenSafeArea variant="content">
     <View style={styles.container}>
       {/* Date Selector */}
       <View style={styles.dateSelector}>
@@ -284,16 +308,22 @@ const AppointmentsScreen = () => {
           <MaterialIcons name="chevron-left" size={24} color="#007AFF" />
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleToday} style={styles.dateDisplay}>
-          <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
-          <Text style={styles.dateSubtext}>
-            {new Intl.DateTimeFormat('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            }).format(selectedDate)}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.dateCenterWrap}>
+          <TouchableOpacity onPress={openDatePicker} style={styles.dateDisplay}>
+            <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
+            <Text style={styles.dateSubtext}>
+              {new Intl.DateTimeFormat('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              }).format(selectedDate)}
+            </Text>
+            <Text style={styles.dateTapHint}>Tap to change</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleToday} style={styles.todayBtn}>
+            <Text style={styles.todayBtnText}>Today</Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity onPress={handleNextDay} style={styles.dateButton}>
           <MaterialIcons name="chevron-right" size={24} color="#007AFF" />
@@ -326,7 +356,51 @@ const AppointmentsScreen = () => {
           </TouchableOpacity>
         </View>
       )}
+
+      {Platform.OS === 'android' && datePickerOpen && (
+        <DateTimePicker
+          value={datePickerDraft}
+          mode="date"
+          display="default"
+          onChange={onAndroidDateChange}
+        />
+      )}
+
+      {Platform.OS === 'ios' && (
+        <Modal visible={datePickerOpen} transparent animationType="slide">
+          <Pressable style={styles.modalBackdrop} onPress={() => setDatePickerOpen(false)}>
+            <Pressable style={styles.pickerSheet} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.pickerHeader}>
+                <TouchableOpacity onPress={() => setDatePickerOpen(false)}>
+                  <Text style={styles.pickerHeaderBtn}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedDate(startOfDay(datePickerDraft));
+                    setDatePickerOpen(false);
+                  }}>
+                  <Text style={[styles.pickerHeaderBtn, styles.pickerHeaderBtnPrimary]}>
+                    Done
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={datePickerDraft}
+                mode="date"
+                display="spinner"
+                themeVariant="light"
+                onChange={(_, d) => {
+                  if (d) {
+                    setDatePickerDraft(d);
+                  }
+                }}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </View>
+    </ScreenSafeArea>
   );
 };
 
@@ -348,10 +422,55 @@ const styles = StyleSheet.create({
   dateButton: {
     padding: 8,
   },
+  dateCenterWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   dateDisplay: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 8,
+  },
+  dateTapHint: {
+    fontSize: 11,
+    color: '#007AFF',
+    marginTop: 4,
+  },
+  todayBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  todayBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  pickerSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 24,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#ddd',
+  },
+  pickerHeaderBtn: {
+    fontSize: 17,
+    color: '#007AFF',
+  },
+  pickerHeaderBtnPrimary: {
+    fontWeight: '600',
   },
   dateText: {
     fontSize: 18,

@@ -3,12 +3,19 @@
  * Main App Component
  */
 
+import './global.css';
 import React, {useEffect, useState} from 'react';
-import {StatusBar, View, ActivityIndicator, StyleSheet} from 'react-native';
+import {View, ActivityIndicator, StyleSheet, Platform} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {StatusBar} from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import {initDatabase} from './src/services/database';
+import {registerNotificationPresentationHandler} from './src/services/system/backupReminder.service';
 import {useAuthStore} from './src/store/auth.store';
+
+if (Platform.OS !== 'web') {
+  registerNotificationPresentationHandler();
+}
 
 const App = (): React.JSX.Element => {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -46,7 +53,7 @@ const App = (): React.JSX.Element => {
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar style="dark" backgroundColor="#ffffff" />
       <AppNavigator />
     </SafeAreaProvider>
   );

@@ -18,11 +18,16 @@ import {
 } from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {RootStackParamList} from '../../navigation/navigation.types';
 import {useAuthStore} from '../../store/auth.store';
 import {UserRole} from '../../types';
+import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+
+type SignUpNav = NativeStackNavigationProp<RootStackParamList, 'SignUp'>;
 
 const SignUpScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<SignUpNav>();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -118,9 +123,11 @@ const SignUpScreen = () => {
   ];
 
   return (
+    <ScreenSafeArea variant="full">
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -342,6 +349,7 @@ const SignUpScreen = () => {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </ScreenSafeArea>
   );
 };
 

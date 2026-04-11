@@ -5,7 +5,7 @@
 
 import {query, executeQuery} from '../database';
 import {uuidv4} from '../../utils/uuid';
-import {Patient, Address, EmergencyContact, InsuranceInfo} from '../../types';
+import {Patient, Address, EmergencyContact} from '../../types';
 
 const formatDateForDb = (date: Date): string => {
   const year = date.getFullYear();
@@ -32,14 +32,22 @@ export const createPatient = async (
     ? patientData.gender 
     : null;
 
+  const gdprConsentFlag = patientData.gdprConsent === true ? 1 : 0;
+  const gdprDateIso: string | null =
+    patientData.gdprConsent === true
+      ? patientData.gdprDate != null
+        ? new Date(patientData.gdprDate).toISOString()
+        : now
+      : null;
+
   try {
     await executeQuery(
       `INSERT INTO patients (
-        id, first_name, last_name, date_of_birth, gender, amka, phone, email,
+        id, first_name, last_name, date_of_birth, gender, amka, afm, doy, phone, email,
         photo_uri, address_street, address_city, address_postal_code, address_country,
         emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
-        occupation, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        occupation, gdpr_consent, gdpr_date, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         patientId,
         patientData.firstName,
@@ -47,6 +55,8 @@ export const createPatient = async (
         dateOfBirthStr,
         genderValue,
         patientData.amka || null,
+        patientData.afm?.trim() || null,
+        patientData.doy?.trim() || null,
         patientData.phone,
         patientData.email || null,
         patientData.photoUri || null,
@@ -58,6 +68,8 @@ export const createPatient = async (
         patientData.emergencyContact?.relationship || null,
         patientData.emergencyContact?.phone || null,
         patientData.occupation || null,
+        gdprConsentFlag,
+        gdprDateIso,
         now,
         now,
       ],
@@ -77,6 +89,11 @@ export const createPatient = async (
   return {
     ...patientData,
     id: patientId,
+    gdprConsent: patientData.gdprConsent === true,
+    gdprDate:
+      patientData.gdprConsent === true && gdprDateIso != null
+        ? new Date(gdprDateIso)
+        : null,
     createdAt: new Date(now),
     updatedAt: new Date(now),
   };
@@ -177,6 +194,14 @@ export const updatePatient = async (
     updates.push('amka = ?');
     values.push(patientData.amka || null);
   }
+  if (patientData.afm !== undefined) {
+    updates.push('afm = ?');
+    values.push(patientData.afm || null);
+  }
+  if (patientData.doy !== undefined) {
+    updates.push('doy = ?');
+    values.push(patientData.doy || null);
+  }
   if (patientData.phone !== undefined) {
     updates.push('phone = ?');
     values.push(patientData.phone);
@@ -192,6 +217,18 @@ export const updatePatient = async (
   if (patientData.occupation !== undefined) {
     updates.push('occupation = ?');
     values.push(patientData.occupation || null);
+  }
+  if (patientData.gdprConsent !== undefined) {
+    updates.push('gdpr_consent = ?');
+    values.push(patientData.gdprConsent ? 1 : 0);
+  }
+  if (patientData.gdprDate !== undefined) {
+    updates.push('gdpr_date = ?');
+    values.push(
+      patientData.gdprDate != null
+        ? new Date(patientData.gdprDate).toISOString()
+        : null,
+    );
   }
   if (patientData.address) {
     if (patientData.address.street !== undefined) {
@@ -291,12 +328,20 @@ const mapPatientFromDb = (row: any): Patient => {
     dateOfBirth: new Date(year, month - 1, day),
     gender: row.gender || undefined,
     amka: row.amka || undefined,
+    afm: row.afm != null && String(row.afm).trim() !== '' ? String(row.afm) : undefined,
+    doy: row.doy != null && String(row.doy).trim() !== '' ? String(row.doy) : undefined,
     phone: row.phone,
     email: row.email || undefined,
     photoUri: row.photo_uri || undefined,
     address,
     emergencyContact,
     occupation: row.occupation || undefined,
+    gdprConsent:
+      row.gdpr_consent != null ? Number(row.gdpr_consent) === 1 : false,
+    gdprDate:
+      row.gdpr_date != null && String(row.gdpr_date).trim() !== ''
+        ? new Date(String(row.gdpr_date))
+        : null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
