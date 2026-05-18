@@ -13,6 +13,10 @@ import {
   PendingCheckoutRow,
 } from '../../types';
 import {getPatientBalance} from '../financial/payment.service';
+import {
+  formatLocalDateForDb,
+  parseLocalDateFromDb,
+} from '../../utils/localDate';
 
 export interface UpdateAppointmentStatusOptions {
   recordCheckIn?: boolean;
@@ -69,7 +73,7 @@ export const createAppointment = async (
     [
       appointmentId,
       appointmentData.patientId,
-      appointmentData.date.toISOString().split('T')[0], // YYYY-MM-DD
+      formatLocalDateForDb(appointmentData.date),
       appointmentData.startTime.toISOString(),
       appointmentData.endTime.toISOString(),
       appointmentData.duration,
@@ -148,8 +152,8 @@ export const getAppointmentsByDateRange = async (
      WHERE date >= ? AND date <= ?
      ORDER BY date, start_time`,
     [
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0],
+      formatLocalDateForDb(startDate),
+      formatLocalDateForDb(endDate),
     ],
   );
 
@@ -160,7 +164,7 @@ export const getAppointmentsByDateRange = async (
  * Get appointments for a specific date
  */
 export const getAppointmentsByDate = async (date: Date): Promise<Appointment[]> => {
-  const dateStr = date.toISOString().split('T')[0];
+  const dateStr = formatLocalDateForDb(date);
   const appointments = await query(
     'SELECT * FROM appointments WHERE date = ? ORDER BY start_time',
     [dateStr],
@@ -175,7 +179,7 @@ export const getAppointmentsByDate = async (date: Date): Promise<Appointment[]> 
 export const getAppointmentsByDateWithPatient = async (
   date: Date,
 ): Promise<AppointmentWithPatient[]> => {
-  const dateStr = date.toISOString().split('T')[0];
+  const dateStr = formatLocalDateForDb(date);
   const rows = await query(
     `SELECT a.*, p.first_name AS patient_first_name, p.last_name AS patient_last_name
      FROM appointments a
@@ -193,7 +197,7 @@ export const getAppointmentsByDateWithPatient = async (
 export const getCompletedTodayPendingPayment = async (
   date: Date,
 ): Promise<PendingCheckoutRow[]> => {
-  const dateStr = date.toISOString().split('T')[0];
+  const dateStr = formatLocalDateForDb(date);
   const rows = await query(
     `SELECT a.*, p.first_name AS patient_first_name, p.last_name AS patient_last_name
      FROM appointments a
@@ -242,8 +246,8 @@ export const getAppointmentsByDoctor = async (
   if (startDate && endDate) {
     sql += ' AND date >= ? AND date <= ?';
     params.push(
-      startDate.toISOString().split('T')[0],
-      endDate.toISOString().split('T')[0],
+      formatLocalDateForDb(startDate),
+      formatLocalDateForDb(endDate),
     );
   }
 
@@ -271,7 +275,7 @@ export const updateAppointment = async (
   }
   if (appointmentData.date !== undefined) {
     updates.push('date = ?');
-    values.push(appointmentData.date.toISOString().split('T')[0]);
+    values.push(formatLocalDateForDb(appointmentData.date));
   }
   if (appointmentData.startTime !== undefined) {
     updates.push('start_time = ?');
@@ -396,7 +400,7 @@ const mapAppointmentFromDb = (row: any): Appointment => {
   return {
     id: row.id,
     patientId: row.patient_id,
-    date: new Date(row.date + 'T00:00:00'),
+    date: parseLocalDateFromDb(String(row.date)),
     startTime: new Date(row.start_time),
     endTime: new Date(row.end_time),
     duration: row.duration,

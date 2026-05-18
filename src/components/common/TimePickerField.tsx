@@ -1,0 +1,171 @@
+/**
+ * Native time picker (iOS modal + spinner, Android clock dialog).
+ */
+
+import React, {useEffect, useState} from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+  Modal,
+  Pressable,
+} from 'react-native';
+import DateTimePicker, {DateTimePickerEvent} from '@react-native-community/datetimepicker';
+import {MaterialIcons} from '@expo/vector-icons';
+
+export type TimePickerFieldProps = {
+  label: string;
+  value: Date;
+  onChange: (time: Date) => void;
+  error?: string;
+};
+
+const formatTimeDisplay = (d: Date) =>
+  new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
+
+export const TimePickerField: React.FC<TimePickerFieldProps> = ({
+  label,
+  value,
+  onChange,
+  error,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [iosDraft, setIosDraft] = useState(value);
+
+  useEffect(() => {
+    if (open && Platform.OS === 'ios') {
+      setIosDraft(value);
+    }
+  }, [open, value]);
+
+  const onAndroidChange = (event: DateTimePickerEvent, date?: Date) => {
+    setOpen(false);
+    if (event.type === 'set' && date) {
+      onChange(date);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.label}>{label}</Text>
+      <TouchableOpacity
+        style={[styles.field, error ? styles.fieldError : undefined]}
+        onPress={() => setOpen(true)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={label}>
+        <Text style={styles.fieldText}>{formatTimeDisplay(value)}</Text>
+        <MaterialIcons name="schedule" size={20} color="#007AFF" />
+      </TouchableOpacity>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      {Platform.OS === 'android' && open && (
+        <DateTimePicker
+          value={value}
+          mode="time"
+          display="default"
+          onChange={onAndroidChange}
+        />
+      )}
+
+      {Platform.OS === 'ios' && (
+        <Modal visible={open} transparent animationType="slide">
+          <Pressable style={styles.modalBackdrop} onPress={() => setOpen(false)}>
+            <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.sheetHeader}>
+                <TouchableOpacity onPress={() => setOpen(false)}>
+                  <Text style={styles.sheetBtn}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    onChange(iosDraft);
+                    setOpen(false);
+                  }}>
+                  <Text style={[styles.sheetBtn, styles.sheetBtnPrimary]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={iosDraft}
+                mode="time"
+                display="spinner"
+                themeVariant="light"
+                onChange={(_, d) => {
+                  if (d) {
+                    setIosDraft(d);
+                  }
+                }}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 15,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+    color: '#000000',
+  },
+  field: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#dddddd',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+  },
+  fieldError: {
+    borderColor: '#FF3B30',
+  },
+  fieldText: {
+    fontSize: 16,
+    color: '#000000',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#FF3B30',
+    marginTop: 4,
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 24,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#ddd',
+  },
+  sheetBtn: {
+    fontSize: 17,
+    color: '#007AFF',
+  },
+  sheetBtnPrimary: {
+    fontWeight: '600',
+  },
+});

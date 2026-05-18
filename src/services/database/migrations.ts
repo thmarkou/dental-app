@@ -359,4 +359,181 @@ export const migrations: Migration[] = [
       );
     },
   },
+  {
+    version: 12,
+    up: (database) => {
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS fiscal_sequences (
+          key TEXT PRIMARY KEY,
+          last_value INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS invoices (
+          id TEXT PRIMARY KEY,
+          invoice_number TEXT UNIQUE NOT NULL,
+          patient_id TEXT NOT NULL,
+          issue_date TEXT NOT NULL,
+          due_date TEXT,
+          subtotal REAL NOT NULL,
+          vat_rate REAL NOT NULL DEFAULT 24,
+          vat_amount REAL NOT NULL,
+          total_amount REAL NOT NULL,
+          status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'issued', 'paid', 'cancelled')),
+          notes TEXT,
+          created_by TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+          FOREIGN KEY (created_by) REFERENCES users(id)
+        );
+      `);
+
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS invoice_lines (
+          id TEXT PRIMARY KEY,
+          invoice_id TEXT NOT NULL,
+          description TEXT NOT NULL,
+          quantity REAL NOT NULL DEFAULT 1,
+          unit_price REAL NOT NULL,
+          line_total REAL NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+        );
+      `);
+
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS receipts (
+          id TEXT PRIMARY KEY,
+          receipt_number TEXT UNIQUE NOT NULL,
+          patient_id TEXT NOT NULL,
+          invoice_id TEXT,
+          payment_id TEXT,
+          issue_date TEXT NOT NULL,
+          subtotal REAL NOT NULL,
+          vat_rate REAL NOT NULL DEFAULT 24,
+          vat_amount REAL NOT NULL,
+          total_amount REAL NOT NULL,
+          payment_method TEXT NOT NULL,
+          mydata_mark TEXT,
+          mydata_submitted_at TEXT,
+          notes TEXT,
+          created_by TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+          FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL,
+          FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE SET NULL,
+          FOREIGN KEY (created_by) REFERENCES users(id)
+        );
+      `);
+
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS receipt_lines (
+          id TEXT PRIMARY KEY,
+          receipt_id TEXT NOT NULL,
+          description TEXT NOT NULL,
+          quantity REAL NOT NULL DEFAULT 1,
+          unit_price REAL NOT NULL,
+          vat_rate REAL NOT NULL DEFAULT 24,
+          vat_amount REAL NOT NULL,
+          line_total REAL NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (receipt_id) REFERENCES receipts(id) ON DELETE CASCADE
+        );
+      `);
+
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_invoices_patient ON invoices(patient_id);',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_receipts_patient ON receipts(patient_id);',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_receipts_payment ON receipts(payment_id);',
+      );
+
+      const addPaymentColumn = (sql: string) => {
+        try {
+          database.execute(sql);
+        } catch {
+          console.log('payments column may already exist');
+        }
+      };
+      addPaymentColumn('ALTER TABLE payments ADD COLUMN receipt_id TEXT;');
+      addPaymentColumn('ALTER TABLE payments ADD COLUMN invoice_id TEXT;');
+    },
+  },
+  {
+    version: 13,
+    up: (database) => {
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS treatment_plans (
+          id TEXT PRIMARY KEY,
+          patient_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN (
+            'draft', 'presented', 'approved', 'in_progress', 'completed', 'cancelled'
+          )),
+          total_estimated_cost REAL NOT NULL DEFAULT 0,
+          created_by TEXT,
+          approved_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+          FOREIGN KEY (created_by) REFERENCES users(id)
+        );
+      `);
+
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS treatment_plan_phases (
+          id TEXT PRIMARY KEY,
+          plan_id TEXT NOT NULL,
+          phase_number INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN (
+            'urgent', 'high', 'medium', 'low'
+          )),
+          status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN (
+            'pending', 'in_progress', 'completed'
+          )),
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (plan_id) REFERENCES treatment_plans(id) ON DELETE CASCADE
+        );
+      `);
+
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS treatment_plan_items (
+          id TEXT PRIMARY KEY,
+          phase_id TEXT NOT NULL,
+          procedure_type TEXT NOT NULL,
+          tooth_numbers TEXT,
+          description TEXT,
+          estimated_cost REAL,
+          estimated_duration INTEGER DEFAULT 30,
+          status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN (
+            'pending', 'scheduled', 'completed', 'cancelled'
+          )),
+          treatment_id TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (phase_id) REFERENCES treatment_plan_phases(id) ON DELETE CASCADE,
+          FOREIGN KEY (treatment_id) REFERENCES treatments(id) ON DELETE SET NULL
+        );
+      `);
+
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_treatment_plans_patient ON treatment_plans(patient_id);',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_treatment_plan_phases_plan ON treatment_plan_phases(plan_id);',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_treatment_plan_items_phase ON treatment_plan_items(phase_id);',
+      );
+    },
+  },
 ];

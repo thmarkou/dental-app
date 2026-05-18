@@ -17,7 +17,9 @@ import {
 import {useFocusEffect} from '@react-navigation/native';
 import {MaterialIcons} from '@expo/vector-icons';
 import {useAuthStore} from '../../store/auth.store';
+import {updateUserPassword} from '../../services/auth';
 import {exportDatabase, generateExcelReport} from '../../services/system/backup.service';
+import Input from '../../components/common/Input';
 import {
   getBackupReminderEnabled,
   setBackupReminderEnabled,
@@ -33,6 +35,11 @@ const SettingsScreen = () => {
   const [csvBusy, setCsvBusy] = useState(false);
   const [reminderOn, setReminderOn] = useState(false);
   const [reminderLoading, setReminderLoading] = useState(true);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
 
   const loadReminder = useCallback(async () => {
     try {
@@ -99,6 +106,51 @@ const SettingsScreen = () => {
     }
   };
 
+  const resetPasswordForm = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowPasswordForm(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'You must be signed in to change your password.');
+      return;
+    }
+    if (!currentPassword.trim() || !newPassword.trim()) {
+      Alert.alert('Validation', 'Enter your current and new password.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      Alert.alert('Validation', 'New password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Validation', 'New password and confirmation do not match.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      Alert.alert('Validation', 'Choose a password different from the current one.');
+      return;
+    }
+
+    try {
+      setPasswordBusy(true);
+      await updateUserPassword(user.id, currentPassword, newPassword);
+      resetPasswordForm();
+      Alert.alert('Password updated', 'Your password has been changed successfully.');
+    } catch (e) {
+      console.error(e);
+      Alert.alert(
+        'Could not update password',
+        e instanceof Error ? e.message : 'Please try again.',
+      );
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
   const onToggleReminder = async (value: boolean) => {
     if (Platform.OS === 'web') {
       Alert.alert(
@@ -161,6 +213,66 @@ const SettingsScreen = () => {
               <Text className="font-medium capitalize text-slate-900">{user?.role}</Text>
             </View>
           </View>
+
+          {!showPasswordForm ? (
+            <Pressable
+              onPress={() => setShowPasswordForm(true)}
+              className="mt-4 flex-row items-center justify-center rounded-xl border border-slate-200 bg-slate-50 py-3 active:bg-slate-100">
+              <MaterialIcons name="lock-outline" size={20} color="#0f172a" />
+              <Text className="ml-2 text-sm font-semibold text-slate-900">
+                Change password
+              </Text>
+            </Pressable>
+          ) : (
+            <View className="mt-4 border-t border-slate-100 pt-4">
+              <Text className="mb-3 text-sm font-medium text-slate-700">Change password</Text>
+              <Input
+                label="Current password"
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!passwordBusy}
+              />
+              <Input
+                label="New password"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!passwordBusy}
+              />
+              <Input
+                label="Confirm new password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!passwordBusy}
+              />
+              <View className="flex-row gap-2">
+                <Pressable
+                  onPress={resetPasswordForm}
+                  disabled={passwordBusy}
+                  className="flex-1 rounded-xl border border-slate-200 py-3 active:bg-slate-50 disabled:opacity-50">
+                  <Text className="text-center text-sm font-semibold text-slate-700">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleChangePassword}
+                  disabled={passwordBusy}
+                  className="flex-1 rounded-xl bg-slate-900 py-3 active:bg-slate-800 disabled:opacity-50">
+                  {passwordBusy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text className="text-center text-sm font-semibold text-white">Save</Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          )}
         </View>
 
         <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

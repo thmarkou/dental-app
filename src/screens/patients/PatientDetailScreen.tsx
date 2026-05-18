@@ -347,8 +347,26 @@ const PatientDetailScreen = () => {
             style={styles.editButton}
           />
           <Button
+            title="Treatment plans"
+            onPress={() => navigation.navigate('PatientTreatmentPlans', {patientId})}
+            variant="outline"
+            style={styles.editButton}
+          />
+          <Button
             title="Account & payments"
             onPress={() => navigation.navigate('PatientLedger', {patientId})}
+            variant="outline"
+            style={styles.editButton}
+          />
+          <Button
+            title="Documents & X-rays"
+            onPress={() => navigation.navigate('PatientDocuments', {patientId})}
+            variant="outline"
+            style={styles.editButton}
+          />
+          <Button
+            title="Invoices & receipts"
+            onPress={() => navigation.navigate('PatientInvoices', {patientId})}
             variant="outline"
             style={styles.editButton}
           />

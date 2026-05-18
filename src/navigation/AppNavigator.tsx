@@ -32,6 +32,10 @@ import AddEditAppointmentScreen from '../screens/appointments/AddEditAppointment
 import PatientChartScreen from '../screens/clinical/PatientChartScreen';
 import PatientTreatmentHistoryScreen from '../screens/clinical/PatientTreatmentHistoryScreen';
 import PatientLedgerScreen from '../screens/patients/PatientLedgerScreen';
+import PatientDocumentsScreen from '../screens/clinical/PatientDocumentsScreen';
+import PatientInvoicesScreen from '../screens/financial/PatientInvoicesScreen';
+import PatientTreatmentPlansScreen from '../screens/clinical/PatientTreatmentPlansScreen';
+import PatientTreatmentPlanDetailScreen from '../screens/clinical/PatientTreatmentPlanDetailScreen';
 
 export type {
   RootStackParamList,
@@ -163,6 +167,34 @@ const PatientsStackNavigator = () => {
         component={PatientLedgerScreen}
         options={{
           title: 'Account & payments',
+        }}
+      />
+      <PatientsStack.Screen
+        name="PatientDocuments"
+        component={PatientDocumentsScreen}
+        options={{
+          title: 'Documents & X-rays',
+        }}
+      />
+      <PatientsStack.Screen
+        name="PatientInvoices"
+        component={PatientInvoicesScreen}
+        options={{
+          title: 'Invoices & receipts',
+        }}
+      />
+      <PatientsStack.Screen
+        name="PatientTreatmentPlans"
+        component={PatientTreatmentPlansScreen}
+        options={{
+          title: 'Treatment plans',
+        }}
+      />
+      <PatientsStack.Screen
+        name="PatientTreatmentPlanDetail"
+        component={PatientTreatmentPlanDetailScreen}
+        options={{
+          title: 'Treatment plan',
         }}
       />
     </PatientsStack.Navigator>

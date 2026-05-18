@@ -3,7 +3,7 @@
  * View and manage appointment details
  */
 
-import React, {useState, useEffect} from 'react';
+import React, {useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useFocusEffect, useNavigation, useRoute} from '@react-navigation/native';
 import {MaterialIcons} from '@expo/vector-icons';
 import {Appointment} from '../../types/appointment';
 import {
@@ -38,11 +38,7 @@ const AppointmentDetailScreen = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    loadAppointment();
-  }, [appointmentId]);
-
-  const loadAppointment = async () => {
+  const loadAppointment = useCallback(async () => {
     try {
       setLoading(true);
       const appointmentData = await getAppointmentById(appointmentId);
@@ -67,7 +63,13 @@ const AppointmentDetailScreen = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [appointmentId, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadAppointment();
+    }, [loadAppointment]),
+  );
 
   const handleEdit = () => {
     navigation.navigate('AddEditAppointment', {

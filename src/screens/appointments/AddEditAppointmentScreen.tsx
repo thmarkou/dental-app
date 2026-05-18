@@ -23,16 +23,23 @@ import {
   getAppointmentById,
   updateAppointment,
 } from '../../services/appointment';
-import {getAllPatients, Patient} from '../../services/patient';
+import {getAllPatients, getPatientById, Patient} from '../../services/patient';
 import {useAuthStore} from '../../store/auth.store';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {DatePickerField} from '../../components/common/DatePickerField';
+import {TimePickerField} from '../../components/common/TimePickerField';
 
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function defaultStartTime(): Date {
+  const d = new Date();
+  d.setHours(9, 0, 0, 0);
+  return d;
 }
 
 const AddEditAppointmentScreen = () => {
@@ -54,41 +61,40 @@ const AddEditAppointmentScreen = () => {
   const [appointmentDate, setAppointmentDate] = useState<Date>(() =>
     startOfDay(new Date()),
   );
-  const [startTime, setStartTime] = useState('');
+  const [startTimeAt, setStartTimeAt] = useState(defaultStartTime);
   const [duration, setDuration] = useState('30');
   const [type, setType] = useState<AppointmentType>('regular_checkup');
   const [status, setStatus] = useState<AppointmentStatus>('scheduled');
   const [notes, setNotes] = useState('');
 
-  // Load patients
   useEffect(() => {
-    loadPatients();
-  }, []);
-
-  // Load appointment data for edit mode
-  useEffect(() => {
-    if (mode === 'edit' && appointmentId) {
-      loadAppointment();
-    } else {
-      setAppointmentDate(startOfDay(new Date()));
-      setStartTime('09:00');
-    }
+    void (async () => {
+      const patientList = await loadPatients();
+      if (mode === 'edit' && appointmentId) {
+        await loadAppointment(patientList);
+      } else {
+        setAppointmentDate(startOfDay(new Date()));
+        setStartTimeAt(defaultStartTime());
+      }
+    })();
   }, [mode, appointmentId]);
 
-  const loadPatients = async () => {
+  const loadPatients = async (): Promise<Patient[]> => {
     try {
       setLoadingPatients(true);
       const result = await getAllPatients(100);
       setPatients(result);
+      return result;
     } catch (error) {
       console.error('Error loading patients:', error);
       Alert.alert('Error', 'Failed to load patients');
+      return [];
     } finally {
       setLoadingPatients(false);
     }
   };
 
-  const loadAppointment = async () => {
+  const loadAppointment = async (patientList: Patient[]) => {
     try {
       setLoading(true);
       const appointment = await getAppointmentById(appointmentId);
@@ -98,18 +104,16 @@ const AddEditAppointmentScreen = () => {
         return;
       }
 
-      // Find patient
-      const patient = patients.find(p => p.id === appointment.patientId);
+      const patient =
+        patientList.find((p) => p.id === appointment.patientId) ??
+        (await getPatientById(appointment.patientId));
       if (patient) {
         setSelectedPatient(patient);
       }
 
-      // Populate form fields
       setPatientId(appointment.patientId);
       setAppointmentDate(startOfDay(appointment.date));
-      setStartTime(
-        appointment.startTime.toTimeString().split(' ')[0].substring(0, 5),
-      );
+      setStartTimeAt(new Date(appointment.startTime));
       setDuration(appointment.duration.toString());
       setType(appointment.type);
       setStatus(appointment.status);
@@ -139,7 +143,7 @@ const AddEditAppointmentScreen = () => {
       }
     }
 
-    if (!startTime) {
+    if (!Number.isFinite(startTimeAt.getTime())) {
       newErrors.startTime = 'Start time is required';
     }
 
@@ -167,9 +171,8 @@ const AddEditAppointmentScreen = () => {
       setSaving(true);
 
       // Calculate start and end times
-      const [hours, minutes] = startTime.split(':').map(Number);
       const dayBase = startOfDay(appointmentDate);
-      dayBase.setHours(hours, minutes, 0, 0);
+      dayBase.setHours(startTimeAt.getHours(), startTimeAt.getMinutes(), 0, 0);
 
       const startTimeDate = new Date(dayBase);
       const endTimeDate = new Date(dayBase);
@@ -242,6 +245,9 @@ const AddEditAppointmentScreen = () => {
     'consultation',
   ];
 
+  const resolvedPatient =
+    selectedPatient ?? patients.find((p) => p.id === patientId) ?? null;
+
   const appointmentStatuses: AppointmentStatus[] = [
     'scheduled',
     'confirmed',
@@ -274,10 +280,10 @@ const AddEditAppointmentScreen = () => {
               <Text
                 style={[
                   styles.patientSelectorText,
-                  !selectedPatient && styles.placeholderText,
+                  !resolvedPatient && styles.placeholderText,
                 ]}>
-                {selectedPatient
-                  ? `${selectedPatient.firstName} ${selectedPatient.lastName}`
+                {resolvedPatient
+                  ? `${resolvedPatient.firstName} ${resolvedPatient.lastName}`
                   : 'Select Patient'}
               </Text>
               <MaterialIcons
@@ -301,7 +307,10 @@ const AddEditAppointmentScreen = () => {
                     {patients.map(patient => (
                       <TouchableOpacity
                         key={patient.id}
-                        style={styles.patientOption}
+                        style={[
+                          styles.patientOption,
+                          patient.id === patientId && styles.patientOptionSelected,
+                        ]}
                         onPress={() => handleSelectPatient(patient)}>
                         <Text style={styles.patientOptionText}>
                           {patient.firstName} {patient.lastName}
@@ -327,12 +336,11 @@ const AddEditAppointmentScreen = () => {
             minimumDate={mode === 'add' ? startOfDay(new Date()) : undefined}
           />
 
-          <Input
+          <TimePickerField
             label="Start Time *"
-            value={startTime}
-            onChangeText={setStartTime}
+            value={startTimeAt}
+            onChange={setStartTimeAt}
             error={errors.startTime}
-            placeholder="HH:MM (e.g., 09:00)"
           />
 
           <Input
@@ -500,6 +508,9 @@ const styles = StyleSheet.create({
     padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
+  },
+  patientOptionSelected: {
+    backgroundColor: '#E3F2FD',
   },
   patientOptionText: {
     fontSize: 16,

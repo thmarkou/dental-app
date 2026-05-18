@@ -5,6 +5,7 @@
 import {getDatabase} from '../database';
 import {getPatientById} from '../patient';
 import {applyMyDataSubmission, getPaymentById} from './payment.service';
+import {applyMyDataToReceipt, getReceiptById} from './receipt.service';
 
 /** Simplified structure inspired by Greek e-invoicing fields (simulation only). */
 export interface AadeInvoicePayload {
@@ -117,5 +118,52 @@ export async function submitToMyData(paymentId: string): Promise<string> {
   console.log('[myDATA simulation]', JSON.stringify(payload, null, 2));
   const mark = dummyMyDataMark();
   applyMyDataSubmission(paymentId, mark);
+  return mark;
+}
+
+/**
+ * myDATA submission tied to a formal receipt (απόδειξη).
+ */
+export async function submitReceiptToMyData(receiptId: string): Promise<string> {
+  const receipt = getReceiptById(receiptId);
+  if (!receipt) {
+    throw new Error('Receipt not found');
+  }
+
+  const patient = await getPatientById(receipt.patientId);
+  if (!patient) {
+    throw new Error('Patient not found');
+  }
+
+  const payload: AadeInvoicePayload = {
+    version: '1.0',
+    invoiceType: '11.1',
+    issueDate: receipt.issueDate,
+    counterparty: {
+      vatNumber: patient.afm?.trim() ?? '',
+      name: `${patient.firstName} ${patient.lastName}`.trim(),
+      taxOffice: patient.doy?.trim() || undefined,
+    },
+    lines: (receipt.lines ?? []).map((line, i) => ({
+      lineNumber: i + 1,
+      treatmentTypesSummary: line.description,
+      netAmount: line.unitPrice * line.quantity,
+      vatAmount: line.vatAmount,
+      grossAmount: line.lineTotal,
+    })),
+    payment: {
+      id: receipt.paymentId ?? receipt.id,
+      method: receipt.paymentMethod,
+      amount: receipt.totalAmount,
+    },
+    metadata: {
+      source: 'dentalapp-receipt-mydata-simulation',
+      simulated: true,
+    },
+  };
+
+  console.log('[myDATA receipt simulation]', JSON.stringify(payload, null, 2));
+  const mark = dummyMyDataMark();
+  applyMyDataToReceipt(receiptId, mark);
   return mark;
 }

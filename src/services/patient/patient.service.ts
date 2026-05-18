@@ -6,13 +6,10 @@
 import {query, executeQuery} from '../database';
 import {uuidv4} from '../../utils/uuid';
 import {Patient, Address, EmergencyContact} from '../../types';
-
-const formatDateForDb = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import {
+  formatLocalDateForDb,
+  parseLocalDateFromDb,
+} from '../../utils/localDate';
 
 /**
  * Create a new patient
@@ -24,7 +21,7 @@ export const createPatient = async (
   const now = new Date().toISOString();
 
   // Format date of birth as YYYY-MM-DD (local date, no timezone shift)
-  const dateOfBirthStr = formatDateForDb(patientData.dateOfBirth);
+  const dateOfBirthStr = formatLocalDateForDb(patientData.dateOfBirth);
   
   // Ensure gender is valid or null
   const genderValue = patientData.gender && 
@@ -178,7 +175,7 @@ export const updatePatient = async (
     values.push(patientData.lastName);
   }
   if (patientData.dateOfBirth !== undefined) {
-    const dateOfBirthStr = formatDateForDb(patientData.dateOfBirth);
+    const dateOfBirthStr = formatLocalDateForDb(patientData.dateOfBirth);
     updates.push('date_of_birth = ?');
     values.push(dateOfBirthStr);
   }
@@ -317,15 +314,11 @@ const mapPatientFromDb = (row: any): Patient => {
         }
       : undefined;
 
-  const [year, month, day] = String(row.date_of_birth)
-    .split('-')
-    .map((value: string) => Number(value));
-
   return {
     id: row.id,
     firstName: row.first_name,
     lastName: row.last_name,
-    dateOfBirth: new Date(year, month - 1, day),
+    dateOfBirth: parseLocalDateFromDb(String(row.date_of_birth)),
     gender: row.gender || undefined,
     amka: row.amka || undefined,
     afm: row.afm != null && String(row.afm).trim() !== '' ? String(row.afm) : undefined,

@@ -15,6 +15,10 @@ export type PatientsStackParamList = {
   PatientChart: {patientId: string; openTreatmentId?: string};
   PatientTreatmentHistory: {patientId: string};
   PatientLedger: {patientId: string};
+  PatientDocuments: {patientId: string};
+  PatientInvoices: {patientId: string};
+  PatientTreatmentPlans: {patientId: string};
+  PatientTreatmentPlanDetail: {patientId: string; planId: string};
 };
 
 export type AppointmentsStackParamList = {

@@ -3,12 +3,13 @@
  * Appointment calendar and management
  */
 
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useMemo} from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  SectionList,
+  ScrollView,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
@@ -23,15 +24,33 @@ import DateTimePicker, {
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {MaterialIcons} from '@expo/vector-icons';
 import {Appointment} from '../../types/appointment';
-import {getAppointmentsByDate, deleteAppointment} from '../../services/appointment';
+import {
+  deleteAppointment,
+  getAppointmentsByDateRange,
+} from '../../services/appointment';
 import {getPatientById, Patient} from '../../services/patient';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {AppointmentWeekGrid} from '../../components/appointments/AppointmentWeekGrid';
+import {AppointmentMonthGrid} from '../../components/appointments/AppointmentMonthGrid';
+import {AppointmentYearGrid} from '../../components/appointments/AppointmentYearGrid';
+import {
+  type AppointmentCalendarView,
+  formatAppointmentViewPeriod,
+  formatLocalDateForDb,
+  getAppointmentViewRange,
+  parseLocalDateFromDb,
+  shiftAppointmentAnchor,
+  startOfLocalDay,
+} from '../../utils/localDate';
 
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
+const VIEW_MODES: {id: AppointmentCalendarView; label: string}[] = [
+  {id: 'day', label: 'Day'},
+  {id: 'week', label: 'Week'},
+  {id: 'month', label: 'Month'},
+  {id: 'year', label: 'Year'},
+];
 
 const AppointmentsScreen = () => {
   const navigation = useNavigation<any>();
@@ -39,27 +58,30 @@ const AppointmentsScreen = () => {
   const [patients, setPatients] = useState<Record<string, Patient>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(() => startOfLocalDay(new Date()));
+  const [viewMode, setViewMode] = useState<AppointmentCalendarView>('day');
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [datePickerDraft, setDatePickerDraft] = useState(() => startOfDay(new Date()));
+  const [datePickerDraft, setDatePickerDraft] = useState(() =>
+    startOfLocalDay(new Date()),
+  );
 
   const openDatePicker = () => {
-    setDatePickerDraft(startOfDay(selectedDate));
+    setDatePickerDraft(startOfLocalDay(selectedDate));
     setDatePickerOpen(true);
   };
 
   const onAndroidDateChange = (event: DateTimePickerEvent, d?: Date) => {
     setDatePickerOpen(false);
     if (event.type === 'set' && d) {
-      setSelectedDate(startOfDay(d));
+      setSelectedDate(startOfLocalDay(d));
     }
   };
 
-  // Load appointments
   const loadAppointments = useCallback(async () => {
     try {
       setLoading(true);
-      const result = await getAppointmentsByDate(selectedDate);
+      const {start, end} = getAppointmentViewRange(selectedDate, viewMode);
+      const result = await getAppointmentsByDateRange(start, end);
       setAppointments(result);
 
       // Load patient data for each appointment
@@ -82,7 +104,7 @@ const AppointmentsScreen = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, viewMode]);
 
   // Initial load
   useEffect(() => {
@@ -102,22 +124,60 @@ const AppointmentsScreen = () => {
     loadAppointments();
   }, [loadAppointments]);
 
-  // Handle date navigation
-  const handlePreviousDay = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() - 1);
-    setSelectedDate(newDate);
+  const handlePreviousPeriod = () => {
+    setSelectedDate((d) => shiftAppointmentAnchor(d, viewMode, -1));
   };
 
-  const handleNextDay = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + 1);
-    setSelectedDate(newDate);
+  const handleNextPeriod = () => {
+    setSelectedDate((d) => shiftAppointmentAnchor(d, viewMode, 1));
   };
 
   const handleToday = () => {
-    setSelectedDate(new Date());
+    setSelectedDate(startOfLocalDay(new Date()));
   };
+
+  const formatSectionDate = useCallback((date: Date) => {
+    const today = startOfLocalDay(new Date());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.getTime() === today.getTime()) {
+      return 'Today';
+    }
+    if (date.getTime() === tomorrow.getTime()) {
+      return 'Tomorrow';
+    }
+    if (date.getTime() === yesterday.getTime()) {
+      return 'Yesterday';
+    }
+    return new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(date);
+  }, []);
+
+  const sections = useMemo(() => {
+    if (appointments.length === 0) {
+      return [];
+    }
+    const byDate = new Map<string, Appointment[]>();
+    for (const apt of appointments) {
+      const key = formatLocalDateForDb(apt.date);
+      const list = byDate.get(key) ?? [];
+      list.push(apt);
+      byDate.set(key, list);
+    }
+    return Array.from(byDate.entries()).map(([key, data]) => ({
+      title: formatSectionDate(parseLocalDateFromDb(key)),
+      data,
+    }));
+  }, [appointments, formatSectionDate]);
+
+  const periodLabel = formatAppointmentViewPeriod(selectedDate, viewMode);
 
   // Handle appointment press
   const handleAppointmentPress = useCallback(
@@ -131,6 +191,16 @@ const AppointmentsScreen = () => {
   const handleAddAppointment = useCallback(() => {
     navigation.navigate('AddEditAppointment', {mode: 'add'});
   }, [navigation]);
+
+  const handlePressDayFromGrid = useCallback((date: Date) => {
+    setSelectedDate(startOfLocalDay(date));
+    setViewMode('day');
+  }, []);
+
+  const handlePressMonthFromGrid = useCallback((monthStart: Date) => {
+    setSelectedDate(startOfLocalDay(monthStart));
+    setViewMode('month');
+  }, []);
 
   // Handle delete appointment
   const handleDeleteAppointment = useCallback(
@@ -160,7 +230,6 @@ const AppointmentsScreen = () => {
     [loadAppointments],
   );
 
-  // Format date
   const formatDate = (date: Date) => {
     const today = new Date();
     const tomorrow = new Date(today);
@@ -286,7 +355,9 @@ const AppointmentsScreen = () => {
         <MaterialIcons name="event-busy" size={64} color="#CCCCCC" />
         <Text style={styles.emptyText}>No appointments</Text>
         <Text style={styles.emptySubtext}>
-          No appointments scheduled for {formatDate(selectedDate)}
+          {viewMode === 'day'
+            ? `No appointments scheduled for ${formatDate(selectedDate)}`
+            : `No appointments in ${periodLabel}`}
         </Text>
         <Button
           title="Add Appointment"
@@ -300,53 +371,115 @@ const AppointmentsScreen = () => {
   return (
     <ScreenSafeArea variant="content">
     <View style={styles.container}>
-      {/* Date Selector */}
+      <View style={styles.viewModeRow}>
+        {VIEW_MODES.map((mode) => (
+          <TouchableOpacity
+            key={mode.id}
+            onPress={() => setViewMode(mode.id)}
+            style={[
+              styles.viewModeChip,
+              viewMode === mode.id && styles.viewModeChipActive,
+            ]}>
+            <Text
+              style={[
+                styles.viewModeChipText,
+                viewMode === mode.id && styles.viewModeChipTextActive,
+              ]}>
+              {mode.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={styles.dateSelector}>
-        <TouchableOpacity
-          onPress={handlePreviousDay}
-          style={styles.dateButton}>
+        <TouchableOpacity onPress={handlePreviousPeriod} style={styles.dateButton}>
           <MaterialIcons name="chevron-left" size={24} color="#007AFF" />
         </TouchableOpacity>
 
         <View style={styles.dateCenterWrap}>
           <TouchableOpacity onPress={openDatePicker} style={styles.dateDisplay}>
-            <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
-            <Text style={styles.dateSubtext}>
-              {new Intl.DateTimeFormat('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              }).format(selectedDate)}
+            <Text style={styles.dateText}>
+              {viewMode === 'day' ? formatDate(selectedDate) : periodLabel}
             </Text>
-            <Text style={styles.dateTapHint}>Tap to change</Text>
+            <Text style={styles.dateSubtext}>
+              {viewMode === 'day'
+                ? new Intl.DateTimeFormat('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  }).format(selectedDate)
+                : `${appointments.length} appointment${appointments.length === 1 ? '' : 's'}`}
+            </Text>
+            <Text style={styles.dateTapHint}>
+              {viewMode === 'day' ? 'Tap to change date' : 'Tap to jump to a date'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleToday} style={styles.todayBtn}>
             <Text style={styles.todayBtnText}>Today</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity onPress={handleNextDay} style={styles.dateButton}>
+        <TouchableOpacity onPress={handleNextPeriod} style={styles.dateButton}>
           <MaterialIcons name="chevron-right" size={24} color="#007AFF" />
         </TouchableOpacity>
       </View>
 
-      {/* Appointments List */}
-      <FlatList
-        data={appointments}
-        renderItem={renderAppointmentItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={
-          appointments.length === 0 ? styles.emptyListContainer : styles.listContainer
-        }
-        ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      />
+      {viewMode === 'day' ? (
+        <SectionList
+          sections={sections}
+          renderItem={renderAppointmentItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={
+            appointments.length === 0 ? styles.emptyListContainer : styles.listContainer
+          }
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      ) : loading ? (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      ) : appointments.length === 0 ? (
+        renderEmptyState()
+      ) : (
+        <ScrollView
+          style={styles.gridScroll}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }>
+          {viewMode === 'week' ? (
+            <AppointmentWeekGrid
+              anchor={selectedDate}
+              appointments={appointments}
+              patients={patients}
+              onPressAppointment={handleAppointmentPress}
+              onPressDay={handlePressDayFromGrid}
+            />
+          ) : null}
+          {viewMode === 'month' ? (
+            <AppointmentMonthGrid
+              anchor={selectedDate}
+              appointments={appointments}
+              patients={patients}
+              onPressAppointment={handleAppointmentPress}
+              onPressDay={handlePressDayFromGrid}
+            />
+          ) : null}
+          {viewMode === 'year' ? (
+            <AppointmentYearGrid
+              anchor={selectedDate}
+              appointments={appointments}
+              onPressMonth={handlePressMonthFromGrid}
+            />
+          ) : null}
+        </ScrollView>
+      )}
 
       {/* Add Button */}
-      {appointments.length > 0 && (
+      {appointments.length > 0 && viewMode === 'day' && (
         <View style={styles.fabContainer}>
           <TouchableOpacity
             style={styles.fab}
@@ -376,7 +509,7 @@ const AppointmentsScreen = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
-                    setSelectedDate(startOfDay(datePickerDraft));
+                    setSelectedDate(startOfLocalDay(datePickerDraft));
                     setDatePickerOpen(false);
                   }}>
                   <Text style={[styles.pickerHeaderBtn, styles.pickerHeaderBtnPrimary]}>
@@ -408,6 +541,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  viewModeRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  viewModeChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  viewModeChipActive: {
+    backgroundColor: '#007AFF',
+  },
+  viewModeChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666666',
+  },
+  viewModeChipTextActive: {
+    color: '#FFFFFF',
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
+    backgroundColor: '#F5F5F5',
+  },
+  sectionHeaderText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   dateSelector: {
     flexDirection: 'row',
@@ -484,6 +657,9 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
+  },
+  gridScroll: {
+    flex: 1,
   },
   emptyListContainer: {
     flex: 1,

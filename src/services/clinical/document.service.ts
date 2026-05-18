@@ -4,6 +4,7 @@
 
 import {executeQuery, query, getDatabase} from '../database';
 import {uuidv4} from '../../utils/uuid';
+import {deleteDocumentFile} from './documentStorage.service';
 
 export type PatientDocumentType = 'xray' | 'consent' | 'other';
 
@@ -80,7 +81,27 @@ export const getPatientDocuments = async (
   return rows.map((r) => mapDocumentRow(r as Record<string, unknown>));
 };
 
+export const getPatientDocumentById = async (
+  documentId: string,
+): Promise<PatientDocumentRow | null> => {
+  const rows = await query('SELECT * FROM patient_documents WHERE id = ?', [
+    documentId,
+  ]);
+  if (rows.length === 0) {
+    return null;
+  }
+  return mapDocumentRow(rows[0] as Record<string, unknown>);
+};
+
 export const deletePatientDocument = async (documentId: string): Promise<void> => {
+  const doc = await getPatientDocumentById(documentId);
+  if (doc?.fileUri) {
+    try {
+      await deleteDocumentFile(doc.fileUri);
+    } catch (e) {
+      console.warn('Could not delete document file from disk:', e);
+    }
+  }
   await executeQuery('DELETE FROM patient_documents WHERE id = ?', [documentId]);
 };
 

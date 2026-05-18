@@ -106,6 +106,34 @@ function coalesceSum(value: unknown): number {
  * Amount the patient still owes: SUM(treatment costs) − SUM(payments).
  * Returns 0 when there are no rows or only null costs.
  */
+export interface PatientAccountSummary {
+  totalCharges: number;
+  totalPayments: number;
+  balance: number;
+}
+
+/** Charges (treatments) minus payments — same numbers as the ledger header. */
+export const getPatientAccountSummary = (
+  patientId: string,
+): PatientAccountSummary => {
+  const db = getDatabase();
+  const chargesResult = db.execute(
+    `SELECT COALESCE(SUM(cost), 0) AS total FROM treatments WHERE patient_id = ?`,
+    [patientId],
+  );
+  const creditsResult = db.execute(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE patient_id = ?`,
+    [patientId],
+  );
+  const totalCharges = coalesceSum(chargesResult.rows?._array?.[0]?.total);
+  const totalPayments = coalesceSum(creditsResult.rows?._array?.[0]?.total);
+  return {
+    totalCharges,
+    totalPayments,
+    balance: totalCharges - totalPayments,
+  };
+};
+
 export const getPatientBalance = (patientId: string): number => {
   const db = getDatabase();
 
@@ -245,16 +273,22 @@ export const getMonthlyPaymentReportRows = (
 };
 
 function mapLedgerDebit(row: Record<string, unknown>): LedgerEntry {
-  const cost = row.cost != null ? Number(row.cost) : 0;
+  const rawCost = row.cost;
+  const parsed =
+    rawCost != null && rawCost !== '' ? Number(rawCost) : Number.NaN;
+  const cost = Number.isFinite(parsed) ? parsed : 0;
   const tooth = row.tooth_number != null ? Number(row.tooth_number) : null;
   const note = row.notes != null ? String(row.notes) : null;
+  const proc =
+    row.procedure_type != null && String(row.procedure_type).trim() !== ''
+      ? String(row.procedure_type)
+      : 'Treatment';
   return {
     kind: 'debit',
     id: String(row.id),
     occurredAt: String(row.created_at),
-    amount: Number.isFinite(cost) ? cost : 0,
-    description:
-      tooth != null ? `Treatment (tooth ${tooth})` : 'Treatment',
+    amount: cost,
+    description: tooth != null ? `${proc} (tooth ${tooth})` : proc,
     paymentMethod: null,
     receiptIssued: null,
     notes: note,
@@ -292,7 +326,7 @@ export const getPatientLedger = (patientId: string): LedgerEntry[] => {
 
   const treatmentRows =
     db.execute(
-      `SELECT id, patient_id, cost, notes, tooth_number, created_at
+      `SELECT id, patient_id, cost, notes, tooth_number, created_at, procedure_type
        FROM treatments
        WHERE patient_id = ?
        ORDER BY created_at ASC`,
