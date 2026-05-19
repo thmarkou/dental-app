@@ -26,16 +26,17 @@ import {
 } from '../../services/clinical/document.service';
 import {copyDocumentToPatientStorage} from '../../services/clinical/documentStorage.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el, UI_LOCALE} from '../../i18n';
 
 const TYPE_LABELS: Record<PatientDocumentType, string> = {
-  xray: 'X-ray / Ακτινογραφία',
-  consent: 'Consent / Συγκατάθεση',
-  other: 'Other / Άλλο',
+  xray: el.documents.typeXray,
+  consent: el.documents.typeConsent,
+  other: el.documents.typeOther,
 };
 
 const formatWhen = (iso: string) => {
   try {
-    return new Intl.DateTimeFormat('en-GB', {
+    return new Intl.DateTimeFormat(UI_LOCALE, {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(iso));
@@ -93,10 +94,10 @@ const PatientDocumentsScreen: React.FC = () => {
       const storedUri = await copyDocumentToPatientStorage(sourceUri, patientId);
       const defaultTitle =
         documentType === 'xray'
-          ? `X-ray ${new Date().toLocaleDateString('en-GB')}`
+          ? `${el.documents.defaultXray} ${new Date().toLocaleDateString(UI_LOCALE)}`
           : documentType === 'consent'
-            ? `Consent ${new Date().toLocaleDateString('en-GB')}`
-            : `Document ${new Date().toLocaleDateString('en-GB')}`;
+            ? `${el.documents.defaultConsent} ${new Date().toLocaleDateString(UI_LOCALE)}`
+            : `${el.documents.defaultDocument} ${new Date().toLocaleDateString(UI_LOCALE)}`;
       await addPatientDocument({
         patientId,
         documentType,
@@ -107,8 +108,8 @@ const PatientDocumentsScreen: React.FC = () => {
     } catch (e) {
       console.error(e);
       Alert.alert(
-        'Upload failed',
-        e instanceof Error ? e.message : 'Could not save the document.',
+        el.documents.uploadFailed,
+        e instanceof Error ? e.message : el.documents.uploadFailedBody,
       );
     } finally {
       setUploading(false);
@@ -118,10 +119,7 @@ const PatientDocumentsScreen: React.FC = () => {
   const pickFromLibrary = async (documentType: PatientDocumentType) => {
     const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission required',
-        'Photo library access is needed to attach documents.',
-      );
+      Alert.alert(el.common.error, el.documents.libraryPermission);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -137,10 +135,7 @@ const PatientDocumentsScreen: React.FC = () => {
   const pickFromCamera = async (documentType: PatientDocumentType) => {
     const {status} = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission required',
-        'Camera access is needed to capture documents.',
-      );
+      Alert.alert(el.common.error, el.documents.cameraPermission);
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -153,11 +148,8 @@ const PatientDocumentsScreen: React.FC = () => {
   };
 
   const onAddDocument = () => {
-    Alert.alert(
-      'Add document',
-      'Choose document type, then source.',
-      [
-        {text: 'Cancel', style: 'cancel'},
+    Alert.alert(el.documents.addTitle, el.documents.addBody, [
+      {text: el.common.cancel, style: 'cancel'},
         {
           text: TYPE_LABELS.xray,
           onPress: () => chooseSource('xray'),
@@ -175,14 +167,14 @@ const PatientDocumentsScreen: React.FC = () => {
   };
 
   const chooseSource = (documentType: PatientDocumentType) => {
-    Alert.alert('Source', undefined, [
-      {text: 'Cancel', style: 'cancel'},
+    Alert.alert(el.documents.source, undefined, [
+      {text: el.common.cancel, style: 'cancel'},
       {
-        text: 'Photo library',
+        text: el.documents.photoLibrary,
         onPress: () => void pickFromLibrary(documentType),
       },
       {
-        text: 'Camera',
+        text: el.documents.camera,
         onPress: () => void pickFromCamera(documentType),
       },
     ]);
@@ -190,12 +182,12 @@ const PatientDocumentsScreen: React.FC = () => {
 
   const onDelete = (doc: PatientDocumentRow) => {
     Alert.alert(
-      'Delete document',
-      `Remove "${doc.title ?? TYPE_LABELS[doc.documentType]}"? This cannot be undone.`,
+      el.documents.deleteTitle,
+      `${el.documents.deleteConfirm} «${doc.title ?? TYPE_LABELS[doc.documentType]}»;`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: 'Delete',
+          text: el.common.delete,
           style: 'destructive',
           onPress: async () => {
             try {
@@ -205,8 +197,8 @@ const PatientDocumentsScreen: React.FC = () => {
             } catch (e) {
               console.error(e);
               Alert.alert(
-                'Error',
-                e instanceof Error ? e.message : 'Could not delete document.',
+                el.common.error,
+                e instanceof Error ? e.message : el.documents.deleteFailed,
               );
             } finally {
               setDeletingId(null);
@@ -222,7 +214,7 @@ const PatientDocumentsScreen: React.FC = () => {
       <ScreenSafeArea variant="content">
         <View className="flex-1 items-center justify-center bg-slate-50">
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text className="mt-3 text-slate-600">Loading documents…</Text>
+          <Text className="mt-3 text-slate-600">{el.documents.loading}</Text>
         </View>
       </ScreenSafeArea>
     );
@@ -234,18 +226,15 @@ const PatientDocumentsScreen: React.FC = () => {
         className="flex-1 bg-slate-50"
         contentContainerStyle={{padding: pad, paddingBottom: 32}}>
         <Text className="text-lg font-semibold text-slate-900">
-          {patientName || 'Patient'} — Documents & X-rays
+          {patientName || el.common.patient} {el.documents.headerSuffix}
         </Text>
-        <Text className="mt-1 text-sm text-slate-600">
-          Attach X-rays, consent scans, and other files. Stored on this device only.
-        </Text>
+        <Text className="mt-1 text-sm text-slate-600">{el.documents.intro}</Text>
 
         {!gdprOk ? (
           <View className="mt-4 flex-row gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
             <MaterialIcons name="warning-amber" size={22} color="#b45309" />
             <Text className="flex-1 text-sm text-amber-900">
-              GDPR consent is not on file. Record consent on the patient profile before
-              storing sensitive clinical images when possible.
+              {el.documents.gdprWarning}
             </Text>
           </View>
         ) : null}
@@ -260,7 +249,7 @@ const PatientDocumentsScreen: React.FC = () => {
             <>
               <MaterialIcons name="add-photo-alternate" size={22} color="#fff" />
               <Text className="ml-2 text-base font-semibold text-white">
-                Add document
+                {el.documents.addDocument}
               </Text>
             </>
           )}
@@ -270,10 +259,10 @@ const PatientDocumentsScreen: React.FC = () => {
           <View className="mt-8 items-center rounded-xl border border-dashed border-slate-200 bg-white py-12 px-4">
             <MaterialIcons name="folder-open" size={48} color="#94a3b8" />
             <Text className="mt-3 text-center text-base font-medium text-slate-700">
-              No documents yet
+              {el.documents.noDocuments}
             </Text>
             <Text className="mt-1 text-center text-sm text-slate-500">
-              Tap Add document to upload an X-ray or scan from the library or camera.
+              {el.documents.noDocumentsHint}
             </Text>
           </View>
         ) : (
@@ -293,7 +282,7 @@ const PatientDocumentsScreen: React.FC = () => {
                       {TYPE_LABELS[doc.documentType]}
                     </Text>
                     <Text className="mt-0.5 text-base font-semibold text-slate-900" numberOfLines={2}>
-                      {doc.title ?? 'Untitled'}
+                      {doc.title ?? el.documents.untitled}
                     </Text>
                     <Text className="mt-1 text-xs text-slate-500">
                       {formatWhen(doc.createdAt)}

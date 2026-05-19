@@ -1,5 +1,20 @@
 # Progress Summary - Dental Practice Management App
 
+## Ημερομηνία: 20 Μαΐου 2026
+
+> Λεπτομερής σύνοψη συνεδρίας: **[SESSION_2026-05-20.md](./SESSION_2026-05-20.md)**
+
+### Σημερινές Αλλαγές (20 Μαΐου 2026) — σύνοψη
+
+- **Ελληνικό UI**: κεντρικό `src/i18n/el.ts` — κύριες οθόνες, ledger, σχέδια θεραπείας
+- **Τιμολόγια**: πολυγραμμικά (`InvoiceLinesEditor`), PDF (`expo-print` + `invoicePdf.service`)
+- **Ρυθμίσεις ιατρείου**: migration v14, φόρμα στο Settings, εκδότης στο PDF
+- **Αποθήκη**: migration v15, οθόνη από Αναφορές, Πρόσθεσε/Αφαίρεσε, όριο προειδοποίησης
+- **Fix**: `env.config` dev defaults (όχι crash Release), SQLite `rows._array` στην αποθήκη
+- **Επόμενο**: αποδείξεις πολυγραμμικές, clinic flow `scheduled`, myDATA (τελευταίο)
+
+---
+
 ## Ημερομηνία: 19 Μαΐου 2026
 
 > Λεπτομερής σύνοψη συνεδρίας: **[SESSION_2026-05-19.md](./SESSION_2026-05-19.md)**
@@ -8,7 +23,6 @@
 
 - **Σχέδια θεραπείας**: πλήρες module (v13), σύνδεση λογιστήριου με επιβεβαίωση, ένδειξη «στο λογιστήριο», διαγραφή → αφαίρεση χρεώσεων, UX modals/δόντια
 - **Ραντεβού**: fix ασθενή στο edit, time picker, fix ημερομηνίας (localDate), refresh detail μετά update, Week/Month/Year + **πλέγμα πλάνου** (week grid, month calendar, year table)
-- **Επόμενο**: ελληνικό UI, τιμολόγια/PDF, myDATA, inventory (βλ. SESSION αρχείο)
 
 ---
 

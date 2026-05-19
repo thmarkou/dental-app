@@ -24,7 +24,9 @@ import {
   statusColor,
 } from './appointmentGrid.utils';
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+import {el} from '../../i18n';
+
+const WEEKDAYS = [...el.appointments.weekdays];
 
 export interface AppointmentMonthGridProps {
   anchor: Date;
@@ -63,7 +65,7 @@ export const AppointmentMonthGrid: React.FC<AppointmentMonthGridProps> = ({
   return (
     <View style={styles.wrap}>
       <Text style={styles.legend}>
-        Month plan · tap day for day list · tap appointment to open
+        {el.appointments.monthPlanLegend}
       </Text>
       <View style={styles.weekdayRow}>
         {WEEKDAYS.map((wd) => (

@@ -28,17 +28,14 @@ import {
 import {useAuthStore} from '../../store/auth.store';
 import type {PatientsStackParamList} from '../../navigation/navigation.types';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {
+  el,
+  treatmentPlanLedgerPartial,
+  treatmentPlanStatusLabel,
+  UI_LOCALE,
+} from '../../i18n';
 
 type Nav = NativeStackNavigationProp<PatientsStackParamList, 'PatientTreatmentPlans'>;
-
-const STATUS_LABEL: Record<TreatmentPlanStatus, string> = {
-  draft: '\u03A0\u03C1\u03CC\u03C7\u03B5\u03B9\u03C1\u03BF',
-  presented: '\u03A0\u03B1\u03C1\u03BF\u03C5\u03C3\u03B9\u03AC\u03C3\u03C4\u03B7\u03BA\u03B5',
-  approved: '\u0395\u03B3\u03BA\u03B5\u03BA\u03C1\u03B9\u03BC\u03AD\u03BD\u03BF',
-  in_progress: '\u03A3\u03B5 \u03B5\u03BE\u03AD\u03BB\u03B9\u03BE\u03B7',
-  completed: '\u039F\u03BB\u03BF\u03BA\u03BB\u03B7\u03C1\u03CE\u03B8\u03B7\u03BA\u03B5',
-  cancelled: '\u0391\u03BA\u03C5\u03C1\u03CE\u03B8\u03B7\u03BA\u03B5',
-};
 
 const STATUS_COLOR: Record<TreatmentPlanStatus, string> = {
   draft: 'bg-slate-100 text-slate-700',
@@ -50,7 +47,7 @@ const STATUS_COLOR: Record<TreatmentPlanStatus, string> = {
 };
 
 const currencyEl = (n: number) =>
-  new Intl.NumberFormat('en-US', {style: 'currency', currency: 'EUR'}).format(n);
+  new Intl.NumberFormat(UI_LOCALE, {style: 'currency', currency: 'EUR'}).format(n);
 
 const PatientTreatmentPlansScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
@@ -96,10 +93,7 @@ const PatientTreatmentPlansScreen: React.FC = () => {
 
   const savePlan = () => {
     if (!newTitle.trim()) {
-      Alert.alert(
-        '\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1',
-        '\u0394\u03CE\u03C3\u03C4\u03B5 \u03C4\u03AF\u03C4\u03BB\u03BF \u03C3\u03C7\u03B5\u03B4\u03AF\u03BF\u03C5.',
-      );
+      Alert.alert(el.common.error, el.treatmentPlans.titleRequired);
       return;
     }
     setSaving(true);
@@ -117,8 +111,8 @@ const PatientTreatmentPlansScreen: React.FC = () => {
       });
     } catch (e) {
       Alert.alert(
-        '\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1',
-        e instanceof Error ? e.message : 'Could not create plan.',
+        el.common.error,
+        e instanceof Error ? e.message : el.treatmentPlans.createFailed,
       );
     } finally {
       setSaving(false);
@@ -145,18 +139,15 @@ const PatientTreatmentPlansScreen: React.FC = () => {
           ListHeaderComponent={
             <>
               <Text className="text-lg font-semibold text-slate-900">
-                {patientName || '\u0391\u03C3\u03B8\u03B5\u03BD\u03AE\u03C2'} —{' '}
-                {'\u03A3\u03C7\u03AD\u03B4\u03B9\u03B1 \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B1\u03C2'}
+                {patientName || el.common.patient} — {el.treatmentPlans.headerSuffix}
               </Text>
-              <Text className="mt-1 text-sm text-slate-600">
-                {'\u03A6\u03AC\u03C3\u03B5\u03B9\u03C2 \u03BA\u03B1\u03B9 \u03B5\u03C5\u03C1\u03CE\u03C0\u03B7 \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B5\u03C2 \u03B1\u03BD\u03AC \u03B1\u03C3\u03B8\u03B5\u03BD\u03AE.'}
-              </Text>
+              <Text className="mt-1 text-sm text-slate-600">{el.treatmentPlans.intro}</Text>
               <Pressable
                 onPress={openCreate}
                 className="mt-4 flex-row items-center justify-center rounded-xl bg-blue-600 py-3.5 active:bg-blue-700">
                 <MaterialIcons name="add" size={22} color="#fff" />
                 <Text className="ml-1 text-base font-semibold text-white">
-                  {'\u039D\u03AD\u03BF \u03C3\u03C7\u03AD\u03B4\u03B9\u03BF'}
+                  {el.treatmentPlans.newPlan}
                 </Text>
               </Pressable>
             </>
@@ -165,7 +156,7 @@ const PatientTreatmentPlansScreen: React.FC = () => {
             <View className="mt-8 items-center rounded-xl border border-dashed border-slate-200 bg-white py-12">
               <MaterialIcons name="assignment" size={44} color="#94a3b8" />
               <Text className="mt-3 text-center text-slate-600">
-                {'\u0394\u03B5\u03BD \u03C5\u03C0\u03AC\u03C1\u03C7\u03BF\u03C5\u03BD \u03C3\u03C7\u03AD\u03B4\u03B9\u03B1.'}
+                {el.treatmentPlans.noPlans}
               </Text>
             </View>
           }
@@ -192,7 +183,7 @@ const PatientTreatmentPlansScreen: React.FC = () => {
                   </Text>
                   <View className={`rounded-full px-2.5 py-1 ${STATUS_COLOR[item.status]}`}>
                     <Text className="text-xs font-semibold">
-                      {STATUS_LABEL[item.status]}
+                      {treatmentPlanStatusLabel(item.status)}
                     </Text>
                   </View>
                 </View>
@@ -229,10 +220,13 @@ const PatientTreatmentPlansScreen: React.FC = () => {
                         allPosted ? 'text-emerald-800' : 'text-amber-900'
                       }`}>
                       {allPosted
-                        ? '\u0388\u03C7\u03B5\u03B9 \u03C0\u03B5\u03C1\u03AC\u03C3\u03B5\u03B9 \u03C3\u03C4\u03BF \u03BB\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF'
+                        ? el.treatmentPlans.ledgerAllPosted
                         : nonePosted
-                          ? '\u039A\u03B1\u03BC\u03AF\u03B1 \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7 \u03C3\u03C4\u03BF \u03BB\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF'
-                          : `\u03A7\u03C1\u03B5\u03CE\u03C3\u03B5\u03B9\u03C2 \u03C3\u03C4\u03BF \u03BB\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF: ${ledger.postedToLedgerCount}/${ledger.activeItemCount}`}
+                          ? el.treatmentPlans.ledgerNonePosted
+                          : treatmentPlanLedgerPartial(
+                              ledger.postedToLedgerCount,
+                              ledger.activeItemCount,
+                            )}
                     </Text>
                   </View>
                 ) : null}
@@ -254,19 +248,19 @@ const PatientTreatmentPlansScreen: React.FC = () => {
             className="rounded-t-2xl bg-white p-5 pb-8"
             onPress={(e) => e.stopPropagation()}>
             <Text className="text-lg font-bold text-slate-900">
-              {'\u039D\u03AD\u03BF \u03C3\u03C7\u03AD\u03B4\u03B9\u03BF \u03B8\u03B5\u03B1\u03C0\u03B5\u03AF\u03B1\u03C2'}
+              {el.treatmentPlans.newPlanModalTitle}
             </Text>
             <Text className="mb-1 mt-4 text-sm font-medium text-slate-700">
-              {'\u03A4\u03AF\u03C4\u03BB\u03BF\u03C2'}
+              {el.treatmentPlans.titleLabel}
             </Text>
             <TextInput
               className="rounded-lg border border-slate-200 px-3 py-2.5 text-base"
               value={newTitle}
               onChangeText={setNewTitle}
-              placeholder={'\u03C0.\u03C7. \u03A0\u03BB\u03AE\u03C1\u03B5\u03C2 \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B1'}
+              placeholder={el.treatmentPlans.titlePlaceholder}
             />
             <Text className="mb-1 mt-3 text-sm font-medium text-slate-700">
-              {'\u03A0\u03B5\u03C1\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE (\u03C0\u03B1\u03B9\u03C1\u03B5\u03C4\u03B9\u03BA\u03AC)'}
+              {el.treatmentPlans.descriptionOptional}
             </Text>
             <TextInput
               className="min-h-[72px] rounded-lg border border-slate-200 px-3 py-2.5 text-base"
@@ -279,7 +273,7 @@ const PatientTreatmentPlansScreen: React.FC = () => {
                 onPress={() => setModalOpen(false)}
                 className="flex-1 rounded-xl border border-slate-200 py-3">
                 <Text className="text-center font-semibold text-slate-700">
-                  {'\u0391\u03BA\u03CD\u03C1\u03C9\u03C3\u03B7'}
+                  {el.common.cancel}
                 </Text>
               </Pressable>
               <Pressable
@@ -290,7 +284,7 @@ const PatientTreatmentPlansScreen: React.FC = () => {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text className="text-center font-semibold text-white">
-                    {'\u0394\u03B7\u03BC\u03B9\u03BF\u03C5\u03C1\u03B3\u03AF\u03B1'}
+                    {el.treatmentPlans.create}
                   </Text>
                 )}
               </Pressable>

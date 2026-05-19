@@ -44,12 +44,19 @@ import {
   shiftAppointmentAnchor,
   startOfLocalDay,
 } from '../../utils/localDate';
+import {
+  el,
+  appointmentStatusLabel,
+  appointmentTypeLabel,
+  appointmentCountEl,
+  UI_LOCALE,
+} from '../../i18n';
 
 const VIEW_MODES: {id: AppointmentCalendarView; label: string}[] = [
-  {id: 'day', label: 'Day'},
-  {id: 'week', label: 'Week'},
-  {id: 'month', label: 'Month'},
-  {id: 'year', label: 'Year'},
+  {id: 'day', label: el.appointments.viewDay},
+  {id: 'week', label: el.appointments.viewWeek},
+  {id: 'month', label: el.appointments.viewMonth},
+  {id: 'year', label: el.appointments.viewYear},
 ];
 
 const AppointmentsScreen = () => {
@@ -99,7 +106,7 @@ const AppointmentsScreen = () => {
       setPatients(patientMap);
     } catch (error) {
       console.error('Error loading appointments:', error);
-      Alert.alert('Error', 'Failed to load appointments. Please try again.');
+      Alert.alert(el.common.error, el.appointments.loadFailed);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -144,15 +151,15 @@ const AppointmentsScreen = () => {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (date.getTime() === today.getTime()) {
-      return 'Today';
+      return el.common.today;
     }
     if (date.getTime() === tomorrow.getTime()) {
-      return 'Tomorrow';
+      return el.common.tomorrow;
     }
     if (date.getTime() === yesterday.getTime()) {
-      return 'Yesterday';
+      return el.common.yesterday;
     }
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(UI_LOCALE, {
       weekday: 'short',
       day: 'numeric',
       month: 'short',
@@ -205,27 +212,23 @@ const AppointmentsScreen = () => {
   // Handle delete appointment
   const handleDeleteAppointment = useCallback(
     (appointment: Appointment) => {
-      Alert.alert(
-        'Delete Appointment',
-        `Are you sure you want to delete this appointment?`,
-        [
-          {text: 'Cancel', style: 'cancel'},
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await deleteAppointment(appointment.id);
-                Alert.alert('Success', 'Appointment deleted successfully');
-                loadAppointments();
-              } catch (error) {
-                console.error('Error deleting appointment:', error);
-                Alert.alert('Error', 'Failed to delete appointment. Please try again.');
-              }
-            },
+      Alert.alert(el.appointments.deleteTitle, el.appointments.deleteConfirm, [
+        {text: el.common.cancel, style: 'cancel'},
+        {
+          text: el.common.delete,
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAppointment(appointment.id);
+              Alert.alert(el.common.success, el.appointments.deleteSuccess);
+              loadAppointments();
+            } catch (error) {
+              console.error('Error deleting appointment:', error);
+              Alert.alert(el.common.error, el.appointments.deleteFailed);
+            }
           },
-        ],
-      );
+        },
+      ]);
     },
     [loadAppointments],
   );
@@ -238,13 +241,13 @@ const AppointmentsScreen = () => {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return el.common.today;
     } else if (date.toDateString() === tomorrow.toDateString()) {
-      return 'Tomorrow';
+      return el.common.tomorrow;
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return el.common.yesterday;
     } else {
-      return new Intl.DateTimeFormat('en-US', {
+      return new Intl.DateTimeFormat(UI_LOCALE, {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -255,7 +258,7 @@ const AppointmentsScreen = () => {
 
   // Format time
   const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(UI_LOCALE, {
       hour: '2-digit',
       minute: '2-digit',
     }).format(date);
@@ -283,20 +286,12 @@ const AppointmentsScreen = () => {
     }
   };
 
-  // Get type label
-  const getTypeLabel = (type: string) => {
-    return type
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
   // Render appointment item
   const renderAppointmentItem = ({item}: {item: Appointment}) => {
     const patient = patients[item.patientId];
     const patientName = patient
       ? `${patient.firstName} ${patient.lastName}`
-      : `Patient ID: ${item.patientId.substring(0, 8)}...`;
+      : `${el.appointments.patientIdFallback} #${item.patientId.substring(0, 8)}`;
 
     return (
       <TouchableOpacity
@@ -306,11 +301,13 @@ const AppointmentsScreen = () => {
           <View style={styles.appointmentHeader}>
             <View style={styles.appointmentTime}>
               <Text style={styles.timeText}>{formatTime(item.startTime)}</Text>
-              <Text style={styles.durationText}>{item.duration} min</Text>
+              <Text style={styles.durationText}>
+                {item.duration} {el.common.minutes}
+              </Text>
             </View>
             <View style={styles.appointmentInfo}>
               <Text style={styles.patientName}>{patientName}</Text>
-              <Text style={styles.typeText}>{getTypeLabel(item.type)}</Text>
+              <Text style={styles.typeText}>{appointmentTypeLabel(item.type)}</Text>
               {item.notes && (
                 <Text style={styles.notesText} numberOfLines={2}>
                   {item.notes}
@@ -324,7 +321,7 @@ const AppointmentsScreen = () => {
                   {backgroundColor: getStatusColor(item.status)},
                 ]}>
                 <Text style={styles.statusText}>
-                  {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                  {appointmentStatusLabel(item.status)}
                 </Text>
               </View>
               <TouchableOpacity
@@ -345,7 +342,7 @@ const AppointmentsScreen = () => {
       return (
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.emptyText}>Loading appointments...</Text>
+          <Text style={styles.emptyText}>{el.appointments.loadingAppointments}</Text>
         </View>
       );
     }
@@ -353,14 +350,14 @@ const AppointmentsScreen = () => {
     return (
       <View style={styles.emptyContainer}>
         <MaterialIcons name="event-busy" size={64} color="#CCCCCC" />
-        <Text style={styles.emptyText}>No appointments</Text>
+        <Text style={styles.emptyText}>{el.appointments.noAppointments}</Text>
         <Text style={styles.emptySubtext}>
           {viewMode === 'day'
-            ? `No appointments scheduled for ${formatDate(selectedDate)}`
-            : `No appointments in ${periodLabel}`}
+            ? `${el.appointments.noAppointmentsDay} ${formatDate(selectedDate)}`
+            : `${el.appointments.noAppointmentsPeriod} · ${periodLabel}`}
         </Text>
         <Button
-          title="Add Appointment"
+          title={el.appointments.addAppointment}
           onPress={handleAddAppointment}
           style={styles.addButtonEmpty}
         />
@@ -403,19 +400,21 @@ const AppointmentsScreen = () => {
             </Text>
             <Text style={styles.dateSubtext}>
               {viewMode === 'day'
-                ? new Intl.DateTimeFormat('en-US', {
+                ? new Intl.DateTimeFormat(UI_LOCALE, {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
                   }).format(selectedDate)
-                : `${appointments.length} appointment${appointments.length === 1 ? '' : 's'}`}
+                : appointmentCountEl(appointments.length)}
             </Text>
             <Text style={styles.dateTapHint}>
-              {viewMode === 'day' ? 'Tap to change date' : 'Tap to jump to a date'}
+              {viewMode === 'day'
+                ? el.appointments.tapChangeDate
+                : el.appointments.tapJumpDate}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleToday} style={styles.todayBtn}>
-            <Text style={styles.todayBtnText}>Today</Text>
+            <Text style={styles.todayBtnText}>{el.common.today}</Text>
           </TouchableOpacity>
         </View>
 
@@ -505,7 +504,7 @@ const AppointmentsScreen = () => {
             <Pressable style={styles.pickerSheet} onPress={(e) => e.stopPropagation()}>
               <View style={styles.pickerHeader}>
                 <TouchableOpacity onPress={() => setDatePickerOpen(false)}>
-                  <Text style={styles.pickerHeaderBtn}>Cancel</Text>
+                  <Text style={styles.pickerHeaderBtn}>{el.common.cancel}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
@@ -513,7 +512,7 @@ const AppointmentsScreen = () => {
                     setDatePickerOpen(false);
                   }}>
                   <Text style={[styles.pickerHeaderBtn, styles.pickerHeaderBtnPrimary]}>
-                    Done
+                    {el.common.done}
                   </Text>
                 </TouchableOpacity>
               </View>

@@ -23,6 +23,13 @@ import type {RootStackParamList} from '../../navigation/navigation.types';
 import {useAuthStore} from '../../store/auth.store';
 import {UserRole} from '../../types';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el} from '../../i18n';
+
+const roleLabel = (role: UserRole) => {
+  if (role === 'receptionist') return el.auth.roleReceptionist;
+  if (role === 'assistant') return el.auth.roleAssistant;
+  return el.auth.roleDentist;
+};
 
 type SignUpNav = NativeStackNavigationProp<RootStackParamList, 'SignUp'>;
 
@@ -48,40 +55,41 @@ const SignUpScreen = () => {
   };
 
   const validateForm = (): boolean => {
+    const title = el.appointments.validationErrorTitle;
     if (!formData.username.trim()) {
-      Alert.alert('Validation Error', 'Please enter a username');
+      Alert.alert(title, el.auth.enterUsername);
       return false;
     }
     if (formData.username.length < 3) {
-      Alert.alert('Validation Error', 'Username must be at least 3 characters');
+      Alert.alert(title, el.auth.usernameMin);
       return false;
     }
     if (!formData.email.trim()) {
-      Alert.alert('Validation Error', 'Please enter an email address');
+      Alert.alert(title, el.auth.enterEmail);
       return false;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      Alert.alert('Validation Error', 'Please enter a valid email address');
+      Alert.alert(title, el.auth.validEmail);
       return false;
     }
     if (!formData.password) {
-      Alert.alert('Validation Error', 'Please enter a password');
+      Alert.alert(title, el.auth.enterPassword);
       return false;
     }
     if (formData.password.length < 6) {
-      Alert.alert('Validation Error', 'Password must be at least 6 characters');
+      Alert.alert(title, el.settings.passwordTooShort);
       return false;
     }
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Validation Error', 'Passwords do not match');
+      Alert.alert(title, el.auth.passwordsMismatch);
       return false;
     }
     if (!formData.firstName.trim()) {
-      Alert.alert('Validation Error', 'Please enter your first name');
+      Alert.alert(title, el.auth.enterFirstName);
       return false;
     }
     if (!formData.lastName.trim()) {
-      Alert.alert('Validation Error', 'Please enter your last name');
+      Alert.alert(title, el.auth.enterLastName);
       return false;
     }
     return true;
@@ -102,18 +110,17 @@ const SignUpScreen = () => {
         formData.lastName.trim(),
         formData.phone.trim() || undefined,
       );
+      Alert.alert(el.common.success, el.auth.registrationSuccessBody, [
+        {
+          text: el.common.ok,
+          onPress: () => navigation.navigate('Login'),
+        },
+      ]);
+    } catch (error: unknown) {
       Alert.alert(
-        'Success',
-        'Account created successfully! You can now sign in.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('Login'),
-          },
-        ],
+        el.auth.registrationFailed,
+        error instanceof Error ? error.message : el.auth.registrationFailedBody,
       );
-    } catch (error: any) {
-      Alert.alert('Registration Failed', error?.message || 'Failed to create account. Please try again.');
     }
   };
 
@@ -142,19 +149,19 @@ const SignUpScreen = () => {
               <MaterialIcons name="arrow-back" size={24} color="#007AFF" />
             </TouchableOpacity>
             <View style={styles.titleContainer}>
-              <Text style={styles.title}>Create Account</Text>
+              <Text style={styles.title}>{el.auth.createAccount}</Text>
             </View>
-            <Text style={styles.subtitle}>Sign up for a new account</Text>
+            <Text style={styles.subtitle}>{el.auth.createAccountSubtitle}</Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
             {/* Username */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Username *</Text>
+              <Text style={styles.inputLabel}>{el.auth.username} *</Text>
               <TextInput
                 style={getInputStyle('username')}
-                placeholder="Choose a username"
+                placeholder={el.auth.chooseUsername}
                 placeholderTextColor="#999999"
                 value={formData.username}
                 onChangeText={value => handleInputChange('username', value)}
@@ -168,10 +175,10 @@ const SignUpScreen = () => {
 
             {/* Email */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Email *</Text>
+              <Text style={styles.inputLabel}>{el.patients.email} *</Text>
               <TextInput
                 style={getInputStyle('email')}
-                placeholder="Enter your email"
+                placeholder={el.auth.enterEmail}
                 placeholderTextColor="#999999"
                 value={formData.email}
                 onChangeText={value => handleInputChange('email', value)}
@@ -186,10 +193,10 @@ const SignUpScreen = () => {
 
             {/* First Name */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>First Name *</Text>
+              <Text style={styles.inputLabel}>{el.auth.firstName} *</Text>
               <TextInput
                 style={getInputStyle('firstName')}
-                placeholder="Enter your first name"
+                placeholder={el.auth.enterFirstName}
                 placeholderTextColor="#999999"
                 value={formData.firstName}
                 onChangeText={value => handleInputChange('firstName', value)}
@@ -202,10 +209,10 @@ const SignUpScreen = () => {
 
             {/* Last Name */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Last Name *</Text>
+              <Text style={styles.inputLabel}>{el.auth.lastName} *</Text>
               <TextInput
                 style={getInputStyle('lastName')}
-                placeholder="Enter your last name"
+                placeholder={el.auth.enterLastName}
                 placeholderTextColor="#999999"
                 value={formData.lastName}
                 onChangeText={value => handleInputChange('lastName', value)}
@@ -218,10 +225,10 @@ const SignUpScreen = () => {
 
             {/* Phone */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Phone (Optional)</Text>
+              <Text style={styles.inputLabel}>{el.auth.phoneOptional}</Text>
               <TextInput
                 style={getInputStyle('phone')}
-                placeholder="Enter your phone number"
+                placeholder={el.patients.phone}
                 placeholderTextColor="#999999"
                 value={formData.phone}
                 onChangeText={value => handleInputChange('phone', value)}
@@ -234,14 +241,14 @@ const SignUpScreen = () => {
 
             {/* Password */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Password *</Text>
+              <Text style={styles.inputLabel}>{el.auth.password} *</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={[
                     styles.passwordInput,
                     focusedField === 'password' && styles.inputFocused,
                   ]}
-                  placeholder="Enter your password"
+                  placeholder={el.auth.password}
                   placeholderTextColor="#999999"
                   value={formData.password}
                   onChangeText={value => handleInputChange('password', value)}
@@ -267,14 +274,14 @@ const SignUpScreen = () => {
 
             {/* Confirm Password */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirm Password *</Text>
+              <Text style={styles.inputLabel}>{el.auth.confirmPasswordLabel} *</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={[
                     styles.passwordInput,
                     focusedField === 'confirmPassword' && styles.inputFocused,
                   ]}
-                  placeholder="Confirm your password"
+                  placeholder={el.settings.confirmPassword}
                   placeholderTextColor="#999999"
                   value={formData.confirmPassword}
                   onChangeText={value => handleInputChange('confirmPassword', value)}
@@ -300,7 +307,7 @@ const SignUpScreen = () => {
 
             {/* Role Selection */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Role *</Text>
+              <Text style={styles.inputLabel}>{el.auth.role} *</Text>
               <View style={styles.roleContainer}>
                 {(['receptionist', 'assistant', 'dentist'] as UserRole[]).map(role => (
                   <TouchableOpacity
@@ -316,7 +323,7 @@ const SignUpScreen = () => {
                         styles.roleButtonText,
                         formData.role === role && styles.roleButtonTextActive,
                       ]}>
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                      {roleLabel(role)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -332,17 +339,17 @@ const SignUpScreen = () => {
               {isLoading ? (
                 <ActivityIndicator color="#ffffff" size="small" />
               ) : (
-                <Text style={styles.buttonText}>Create Account</Text>
+                <Text style={styles.buttonText}>{el.auth.createAccount}</Text>
               )}
             </TouchableOpacity>
 
             {/* Login Link */}
             <View style={styles.loginLinkContainer}>
-              <Text style={styles.loginLinkText}>Already have an account? </Text>
+              <Text style={styles.loginLinkText}>{el.auth.hasAccount} </Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('Login')}
                 activeOpacity={0.7}>
-                <Text style={styles.loginLink}>Sign In</Text>
+                <Text style={styles.loginLink}>{el.auth.login}</Text>
               </TouchableOpacity>
             </View>
           </View>

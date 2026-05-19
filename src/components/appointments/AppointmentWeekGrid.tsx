@@ -19,6 +19,7 @@ import {
   patientLabel,
   statusColor,
 } from './appointmentGrid.utils';
+import {el, UI_LOCALE} from '../../i18n';
 
 const TIME_COL_W = 48;
 const DAY_COL_W = 96;
@@ -56,9 +57,7 @@ export const AppointmentWeekGrid: React.FC<AppointmentWeekGridProps> = ({
   return (
     <ScrollView style={styles.wrap} contentContainerStyle={styles.scrollContent}>
       <View style={styles.legend}>
-        <Text style={styles.legendText}>
-          Plan view · tap a cell block to open appointment · tap day header for day list
-        </Text>
+        <Text style={styles.legendText}>{el.appointments.weekPlanLegend}</Text>
       </View>
       <View style={styles.table}>
         <View style={[styles.timeCol, {width: TIME_COL_W}]}>
@@ -84,7 +83,7 @@ export const AppointmentWeekGrid: React.FC<AppointmentWeekGridProps> = ({
                       isToday && styles.dayHeaderToday,
                     ]}>
                     <Text style={[styles.dayName, isToday && styles.dayNameToday]}>
-                      {new Intl.DateTimeFormat('en-US', {weekday: 'short'}).format(day)}
+                      {new Intl.DateTimeFormat(UI_LOCALE, {weekday: 'short'}).format(day)}
                     </Text>
                     <Text style={[styles.dayNum, isToday && styles.dayNameToday]}>
                       {day.getDate()}

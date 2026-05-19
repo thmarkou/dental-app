@@ -27,6 +27,7 @@ import {getPatientById, Patient} from '../../services/patient';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el, appointmentTypeLabel, appointmentStatusLabel, UI_LOCALE} from '../../i18n';
 
 const AppointmentDetailScreen = () => {
   const navigation = useNavigation<any>();
@@ -43,8 +44,8 @@ const AppointmentDetailScreen = () => {
       setLoading(true);
       const appointmentData = await getAppointmentById(appointmentId);
       if (!appointmentData) {
-        Alert.alert('Error', 'Appointment not found', [
-          {text: 'OK', onPress: () => navigation.goBack()},
+        Alert.alert(el.common.error, el.appointments.notFound, [
+          {text: el.common.ok, onPress: () => navigation.goBack()},
         ]);
         return;
       }
@@ -59,7 +60,7 @@ const AppointmentDetailScreen = () => {
       }
     } catch (error) {
       console.error('Error loading appointment:', error);
-      Alert.alert('Error', 'Failed to load appointment data');
+      Alert.alert(el.common.error, el.appointments.loadAppointmentFailed);
     } finally {
       setLoading(false);
     }
@@ -81,28 +82,24 @@ const AppointmentDetailScreen = () => {
   const handleDelete = () => {
     if (!appointment) return;
 
-    Alert.alert(
-      'Delete Appointment',
-      'Are you sure you want to delete this appointment? This action cannot be undone.',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAppointment(appointmentId);
-              Alert.alert('Success', 'Appointment deleted successfully', [
-                {text: 'OK', onPress: () => navigation.goBack()},
-              ]);
-            } catch (error) {
-              console.error('Error deleting appointment:', error);
-              Alert.alert('Error', 'Failed to delete appointment. Please try again.');
-            }
-          },
+    Alert.alert(el.appointments.deleteTitle, el.appointments.deleteConfirm, [
+      {text: el.common.cancel, style: 'cancel'},
+      {
+        text: el.common.delete,
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteAppointment(appointmentId);
+            Alert.alert(el.common.success, el.appointments.deleteSuccess, [
+              {text: el.common.ok, onPress: () => navigation.goBack()},
+            ]);
+          } catch (error) {
+            console.error('Error deleting appointment:', error);
+            Alert.alert(el.common.error, el.appointments.deleteFailed);
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const handleCheckIn = async () => {
@@ -111,11 +108,11 @@ const AppointmentDetailScreen = () => {
     try {
       setProcessing(true);
       await checkInAppointment(appointmentId);
-      Alert.alert('Success', 'Patient checked in successfully');
+      Alert.alert(el.common.success, el.appointments.checkInSuccess);
       loadAppointment();
     } catch (error) {
       console.error('Error checking in:', error);
-      Alert.alert('Error', 'Failed to check in patient. Please try again.');
+      Alert.alert(el.common.error, el.appointments.checkInFailed);
     } finally {
       setProcessing(false);
     }
@@ -126,11 +123,11 @@ const AppointmentDetailScreen = () => {
     try {
       setProcessing(true);
       await startTreatmentAppointment(appointmentId);
-      Alert.alert('Success', 'Treatment started');
+      Alert.alert(el.common.success, el.appointments.treatmentStarted);
       loadAppointment();
     } catch (error) {
       console.error('Error starting treatment:', error);
-      Alert.alert('Error', 'Could not start treatment.');
+      Alert.alert(el.common.error, el.appointments.treatmentStartFailed);
     } finally {
       setProcessing(false);
     }
@@ -142,11 +139,11 @@ const AppointmentDetailScreen = () => {
     try {
       setProcessing(true);
       await checkOutAppointment(appointmentId);
-      Alert.alert('Success', 'Patient checked out successfully');
+      Alert.alert(el.common.success, el.appointments.checkoutSuccess);
       loadAppointment();
     } catch (error) {
       console.error('Error checking out:', error);
-      Alert.alert('Error', 'Failed to check out patient. Please try again.');
+      Alert.alert(el.common.error, el.appointments.checkoutFailed);
     } finally {
       setProcessing(false);
     }
@@ -156,21 +153,21 @@ const AppointmentDetailScreen = () => {
     if (!appointment) return;
 
     Alert.prompt(
-      'Cancel Appointment',
-      'Enter cancellation reason (optional):',
+      el.appointments.cancelTitle,
+      el.appointments.cancelPrompt,
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: 'Confirm',
+          text: el.appointments.cancelConfirm,
           onPress: async (reason) => {
             try {
               setProcessing(true);
               await cancelAppointment(appointmentId, reason || undefined);
-              Alert.alert('Success', 'Appointment cancelled successfully');
+              Alert.alert(el.common.success, el.appointments.cancelSuccess);
               loadAppointment();
             } catch (error) {
               console.error('Error cancelling appointment:', error);
-              Alert.alert('Error', 'Failed to cancel appointment. Please try again.');
+              Alert.alert(el.common.error, el.appointments.cancelFailed);
             } finally {
               setProcessing(false);
             }
@@ -182,7 +179,7 @@ const AppointmentDetailScreen = () => {
   };
 
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(UI_LOCALE, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -191,7 +188,7 @@ const AppointmentDetailScreen = () => {
   };
 
   const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(UI_LOCALE, {
       hour: '2-digit',
       minute: '2-digit',
     }).format(date);
@@ -218,19 +215,12 @@ const AppointmentDetailScreen = () => {
     }
   };
 
-  const getTypeLabel = (type: string) => {
-    return type
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
   if (loading) {
     return (
       <ScreenSafeArea variant="content">
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Loading appointment data...</Text>
+          <Text style={styles.loadingText}>{el.appointments.loadingAppointmentDetail}</Text>
         </View>
       </ScreenSafeArea>
     );
@@ -241,9 +231,9 @@ const AppointmentDetailScreen = () => {
       <ScreenSafeArea variant="content">
         <View style={styles.loadingContainer}>
           <MaterialIcons name="error-outline" size={64} color="#FF3B30" />
-          <Text style={styles.errorText}>Appointment not found</Text>
+          <Text style={styles.errorText}>{el.appointments.notFound}</Text>
           <Button
-            title="Go Back"
+            title={el.patients.goBack}
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           />
@@ -264,18 +254,19 @@ const AppointmentDetailScreen = () => {
           <View style={styles.headerContent}>
             <View style={styles.timeContainer}>
               <Text style={styles.timeText}>{formatTime(appointment.startTime)}</Text>
-              <Text style={styles.durationText}>{appointment.duration} min</Text>
+              <Text style={styles.durationText}>
+                {appointment.duration} {el.common.minutes}
+              </Text>
             </View>
             <View style={styles.headerInfo}>
-              <Text style={styles.typeText}>{getTypeLabel(appointment.type)}</Text>
+              <Text style={styles.typeText}>{appointmentTypeLabel(appointment.type)}</Text>
               <View
                 style={[
                   styles.statusBadge,
                   {backgroundColor: getStatusColor(appointment.status)},
                 ]}>
                 <Text style={styles.statusText}>
-                  {appointment.status.charAt(0).toUpperCase() +
-                    appointment.status.slice(1)}
+                  {appointmentStatusLabel(appointment.status)}
                 </Text>
               </View>
             </View>
@@ -285,9 +276,9 @@ const AppointmentDetailScreen = () => {
         {/* Patient Information */}
         {patient && (
           <Card style={styles.card}>
-            <Text style={styles.sectionTitle}>Patient Information</Text>
+            <Text style={styles.sectionTitle}>{el.appointments.patientInformation}</Text>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Name</Text>
+              <Text style={styles.infoLabel}>{el.patients.name}</Text>
               <Text style={styles.infoValue}>
                 {patient.firstName} {patient.lastName}
               </Text>
@@ -311,35 +302,37 @@ const AppointmentDetailScreen = () => {
 
         {/* Appointment Details */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Appointment Details</Text>
+          <Text style={styles.sectionTitle}>{el.appointments.appointmentDetailsSection}</Text>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Date</Text>
+            <Text style={styles.infoLabel}>{el.common.date}</Text>
             <Text style={styles.infoValue}>{formatDate(appointment.date)}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Time</Text>
+            <Text style={styles.infoLabel}>{el.common.time}</Text>
             <Text style={styles.infoValue}>
               {formatTime(appointment.startTime)} - {formatTime(appointment.endTime)}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Duration</Text>
-            <Text style={styles.infoValue}>{appointment.duration} minutes</Text>
+            <Text style={styles.infoLabel}>{el.appointments.duration}</Text>
+            <Text style={styles.infoValue}>
+              {appointment.duration} {el.appointments.minutesLong}
+            </Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Type</Text>
-            <Text style={styles.infoValue}>{getTypeLabel(appointment.type)}</Text>
+            <Text style={styles.infoLabel}>{el.common.type}</Text>
+            <Text style={styles.infoValue}>{appointmentTypeLabel(appointment.type)}</Text>
           </View>
 
           {appointment.checkInTime && (
             <View style={styles.infoRow}>
               <MaterialIcons name="check-circle" size={20} color="#34C759" />
               <Text style={[styles.infoValue, styles.contactValue]}>
-                Checked in: {formatTime(appointment.checkInTime)}
+                {el.appointments.checkedInAt}: {formatTime(appointment.checkInTime)}
               </Text>
             </View>
           )}
@@ -348,21 +341,21 @@ const AppointmentDetailScreen = () => {
             <View style={styles.infoRow}>
               <MaterialIcons name="check-circle-outline" size={20} color="#8E8E93" />
               <Text style={[styles.infoValue, styles.contactValue]}>
-                Checked out: {formatTime(appointment.checkOutTime)}
+                {el.appointments.checkedOutAt}: {formatTime(appointment.checkOutTime)}
               </Text>
             </View>
           )}
 
           {appointment.notes && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Notes</Text>
+              <Text style={styles.infoLabel}>{el.common.notes}</Text>
               <Text style={styles.infoValue}>{appointment.notes}</Text>
             </View>
           )}
 
           {appointment.cancellationReason && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Cancellation Reason</Text>
+              <Text style={styles.infoLabel}>{el.appointments.cancellationReason}</Text>
               <Text style={[styles.infoValue, styles.cancellationReason]}>
                 {appointment.cancellationReason}
               </Text>
@@ -375,7 +368,7 @@ const AppointmentDetailScreen = () => {
           {(appointment.status === 'scheduled' ||
             appointment.status === 'confirmed') && (
             <Button
-              title="Check In"
+              title={el.appointments.checkIn}
               onPress={handleCheckIn}
               variant="primary"
               loading={processing}
@@ -386,7 +379,7 @@ const AppointmentDetailScreen = () => {
 
           {appointment.status === 'checked_in' && !appointment.checkOutTime && (
             <Button
-              title="Start Treatment"
+              title={el.appointments.startTreatment}
               onPress={handleStartTreatment}
               variant="primary"
               loading={processing}
@@ -397,7 +390,7 @@ const AppointmentDetailScreen = () => {
 
           {appointment.status === 'in_progress' && !appointment.checkOutTime && (
             <Button
-              title="Complete Visit"
+              title={el.appointments.completeVisit}
               onPress={handleCheckOut}
               variant="primary"
               loading={processing}
@@ -409,7 +402,7 @@ const AppointmentDetailScreen = () => {
           {appointment.status !== 'cancelled' &&
             appointment.status !== 'completed' && (
               <Button
-                title="Cancel Appointment"
+                title={el.appointments.cancelAppointment}
                 onPress={handleCancel}
                 variant="danger"
                 loading={processing}
@@ -419,14 +412,14 @@ const AppointmentDetailScreen = () => {
             )}
 
           <Button
-            title="Edit Appointment"
+            title={el.appointments.editAppointment}
             onPress={handleEdit}
             variant="outline"
             style={styles.actionButton}
           />
 
           <Button
-            title="Delete Appointment"
+            title={el.appointments.deleteAppointment}
             onPress={handleDelete}
             variant="danger"
             style={styles.actionButton}

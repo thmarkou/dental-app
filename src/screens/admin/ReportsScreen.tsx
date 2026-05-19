@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
-import {useFocusEffect} from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {ReportsStackParamList} from '../../navigation/navigation.types';
 import {MaterialIcons} from '@expo/vector-icons';
 import {isDatabaseAvailable} from '../../services/database';
 import {DatabaseWarning} from '../../components/common/DatabaseWarning';
@@ -22,6 +24,7 @@ import {
   type OutstandingDebtRow,
 } from '../../services/admin/report.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el, UI_LOCALE} from '../../i18n';
 
 const eur = (n: number) =>
   new Intl.NumberFormat('en-US', {
@@ -31,7 +34,7 @@ const eur = (n: number) =>
   }).format(n);
 
 const monthLabel = (y: number, m: number) =>
-  new Intl.DateTimeFormat('en-US', {month: 'long', year: 'numeric'}).format(
+  new Intl.DateTimeFormat(UI_LOCALE, {month: 'long', year: 'numeric'}).format(
     new Date(y, m - 1, 1),
   );
 
@@ -56,6 +59,8 @@ const KpiCard: React.FC<{
 );
 
 const ReportsScreen: React.FC = () => {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<ReportsStackParamList>>();
   const {width} = useWindowDimensions();
   const isWide = width >= 840;
   const cardMinW = width >= 900 ? width * 0.28 : width * 0.42;
@@ -114,11 +119,27 @@ const ReportsScreen: React.FC = () => {
         {!isDatabaseAvailable && <DatabaseWarning />}
 
         <View className="px-2 py-3">
-          <Text className="text-2xl font-bold text-slate-900">Reports</Text>
-          <Text className="mt-1 text-sm text-slate-600">
-            Monthly performance and accounts receivable
-          </Text>
+          <Text className="text-2xl font-bold text-slate-900">{el.reports.title}</Text>
+          <Text className="mt-1 text-sm text-slate-600">{el.reports.subtitle}</Text>
         </View>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('Inventory')}
+          className="mx-2 mb-4 flex-row items-center rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm active:bg-slate-50">
+          <View className="mr-3 rounded-full bg-indigo-100 p-2">
+            <MaterialIcons name="inventory-2" size={26} color="#4f46e5" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-base font-semibold text-slate-900">
+              {el.reports.openInventory}
+            </Text>
+            <Text className="text-sm text-slate-500">
+              {el.reports.openInventoryHint}
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={24} color="#94a3b8" />
+        </Pressable>
 
         <View className="mb-6 flex-row items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm">
           <Pressable
@@ -146,14 +167,14 @@ const ReportsScreen: React.FC = () => {
           <>
             <View className="mb-2 flex-row flex-wrap justify-between gap-3">
               <KpiCard
-                title="Revenue"
+                title={el.reports.revenue}
                 value={eur(summary.revenue)}
                 icon="payments"
                 accent="#059669"
                 minWidth={cardMinW}
               />
               <KpiCard
-                title="New patients"
+                title={el.reports.newPatients}
                 value={String(summary.newPatients)}
                 icon="person-add"
                 accent="#2563eb"
@@ -163,10 +184,10 @@ const ReportsScreen: React.FC = () => {
 
             <View className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <Text className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-                Clinical procedures
+                {el.reports.clinicalProcedures}
               </Text>
               {summary.procedures.length === 0 ? (
-                <Text className="text-sm text-slate-400">No procedures this month</Text>
+                <Text className="text-sm text-slate-400">{el.reports.noProceduresMonth}</Text>
               ) : (
                 <View className="flex-row flex-wrap gap-2">
                   {summary.procedures.map((p) => (
@@ -185,10 +206,10 @@ const ReportsScreen: React.FC = () => {
 
             <View className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <Text className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-                Top outstanding balances
+                {el.reports.topOutstanding}
               </Text>
               {debts.length === 0 ? (
-                <Text className="text-sm text-slate-400">No receivables</Text>
+                <Text className="text-sm text-slate-400">{el.reports.noReceivables}</Text>
               ) : (
                 debts.map((d, i) => (
                   <View
@@ -208,7 +229,7 @@ const ReportsScreen: React.FC = () => {
             </View>
           </>
         ) : (
-          <Text className="text-slate-500">Unable to load reports.</Text>
+          <Text className="text-slate-500">{el.reports.loadFailed}</Text>
         )}
       </ScrollView>
     </ScreenSafeArea>

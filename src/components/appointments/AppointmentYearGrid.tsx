@@ -7,6 +7,8 @@ import {View, Text, Pressable, StyleSheet, ScrollView} from 'react-native';
 import {eachMonthOfInterval, endOfYear, format, startOfYear} from 'date-fns';
 import {Appointment} from '../../types/appointment';
 import {formatLocalDateForDb, startOfLocalDay} from '../../utils/localDate';
+import {el} from '../../i18n';
+import {el as elLocale} from 'date-fns/locale';
 
 export interface AppointmentYearGridProps {
   anchor: Date;
@@ -58,14 +60,22 @@ export const AppointmentYearGrid: React.FC<AppointmentYearGridProps> = ({
   return (
     <ScrollView style={styles.wrap} contentContainerStyle={styles.content}>
       <Text style={styles.legend}>
-        Year overview · tap a month to open month plan
+        {el.appointments.yearOverview}
       </Text>
       <View style={styles.table}>
         <View style={[styles.row, styles.headerRow]}>
-          <Text style={[styles.cell, styles.cellMonth, styles.headerText]}>Month</Text>
-          <Text style={[styles.cell, styles.cellNum, styles.headerText]}>Appts</Text>
-          <Text style={[styles.cell, styles.cellNum, styles.headerText]}>Days</Text>
-          <Text style={[styles.cell, styles.cellBar, styles.headerText]}>Activity</Text>
+          <Text style={[styles.cell, styles.cellMonth, styles.headerText]}>
+            {el.appointments.monthCol}
+          </Text>
+          <Text style={[styles.cell, styles.cellNum, styles.headerText]}>
+            {el.appointments.apptsCol}
+          </Text>
+          <Text style={[styles.cell, styles.cellNum, styles.headerText]}>
+            {el.appointments.daysCol}
+          </Text>
+          <Text style={[styles.cell, styles.cellBar, styles.headerText]}>
+            {el.appointments.activityCol}
+          </Text>
         </View>
         {countByMonth.map(({month, count, activeDays}) => {
           const monthKey = format(month, 'yyyy-MM');
@@ -77,7 +87,7 @@ export const AppointmentYearGrid: React.FC<AppointmentYearGridProps> = ({
               onPress={() => onPressMonth?.(startOfLocalDay(month))}
               style={({pressed}) => [styles.row, pressed && styles.rowPressed]}>
               <Text style={[styles.cell, styles.cellMonth, styles.monthName]}>
-                {format(month, 'MMMM')}
+                {format(month, 'MMMM', {locale: elLocale})}
               </Text>
               <Text style={[styles.cell, styles.cellNum, styles.countText]}>{count}</Text>
               <Text style={[styles.cell, styles.cellNum, styles.countText]}>
@@ -92,7 +102,9 @@ export const AppointmentYearGrid: React.FC<AppointmentYearGridProps> = ({
           );
         })}
         <View style={[styles.row, styles.totalRow]}>
-          <Text style={[styles.cell, styles.cellMonth, styles.totalLabel]}>Total {yearLabel}</Text>
+          <Text style={[styles.cell, styles.cellMonth, styles.totalLabel]}>
+            {el.appointments.totalYear} {yearLabel}
+          </Text>
           <Text style={[styles.cell, styles.cellNum, styles.totalLabel]}>
             {appointments.length}
           </Text>

@@ -9,6 +9,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useAuthStore} from '../store/auth.store';
 import {MaterialIcons} from '@expo/vector-icons';
+import {el} from '../i18n';
 
 // Screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -19,6 +20,7 @@ import PatientsScreen from '../screens/patients/PatientsScreen';
 import AppointmentsScreen from '../screens/appointments/AppointmentsScreen';
 import GlobalTransactionsScreen from '../screens/financial/GlobalTransactionsScreen';
 import ReportsScreen from '../screens/admin/ReportsScreen';
+import InventoryScreen from '../screens/admin/InventoryScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 
 // Patient screens
@@ -79,14 +81,14 @@ const DashboardStackNavigator = () => {
         name="DailyFlow"
         component={DailyFlowScreen}
         options={{
-          title: 'Today · Clinic flow',
+          title: el.nav.todayClinicFlow,
         }}
       />
       <DashboardStack.Screen
         name="Overview"
         component={OverviewScreen}
         options={{
-          title: 'Overview',
+          title: el.nav.overview,
         }}
       />
     </DashboardStack.Navigator>
@@ -104,14 +106,14 @@ const ClinicStackNavigator = () => {
         name="DailyFlow"
         component={DailyFlowScreen}
         options={{
-          title: 'Clinic · Daily flow',
+          title: el.nav.clinicDailyFlow,
         }}
       />
       <ClinicStack.Screen
         name="Overview"
         component={OverviewScreen}
         options={{
-          title: 'Overview',
+          title: el.nav.overview,
         }}
       />
     </ClinicStack.Navigator>
@@ -131,70 +133,71 @@ const PatientsStackNavigator = () => {
         name="PatientsList"
         component={PatientsScreen}
         options={{
-          title: 'Patients',
+          title: el.nav.tabPatients,
         }}
       />
       <PatientsStack.Screen
         name="PatientDetail"
         component={PatientDetailScreen}
         options={{
-          title: 'Patient Details',
+          title: el.nav.patientDetails,
         }}
       />
       <PatientsStack.Screen
         name="AddEditPatient"
         component={AddEditPatientScreen}
         options={({route}) => ({
-          title: route.params.mode === 'add' ? 'Add Patient' : 'Edit Patient',
+          title:
+            route.params.mode === 'add' ? el.nav.addPatient : el.nav.editPatient,
         })}
       />
       <PatientsStack.Screen
         name="PatientChart"
         component={PatientChartScreen}
         options={{
-          title: 'Dental Chart',
+          title: el.nav.dentalChart,
         }}
       />
       <PatientsStack.Screen
         name="PatientTreatmentHistory"
         component={PatientTreatmentHistoryScreen}
         options={{
-          title: 'Treatment History',
+          title: el.nav.treatmentHistory,
         }}
       />
       <PatientsStack.Screen
         name="PatientLedger"
         component={PatientLedgerScreen}
         options={{
-          title: 'Account & payments',
+          title: el.nav.accountPayments,
         }}
       />
       <PatientsStack.Screen
         name="PatientDocuments"
         component={PatientDocumentsScreen}
         options={{
-          title: 'Documents & X-rays',
+          title: el.nav.documentsXrays,
         }}
       />
       <PatientsStack.Screen
         name="PatientInvoices"
         component={PatientInvoicesScreen}
         options={{
-          title: 'Invoices & receipts',
+          title: el.nav.invoicesReceipts,
         }}
       />
       <PatientsStack.Screen
         name="PatientTreatmentPlans"
         component={PatientTreatmentPlansScreen}
         options={{
-          title: 'Treatment plans',
+          title: el.nav.treatmentPlans,
         }}
       />
       <PatientsStack.Screen
         name="PatientTreatmentPlanDetail"
         component={PatientTreatmentPlanDetailScreen}
         options={{
-          title: 'Treatment plan',
+          title: el.nav.treatmentPlan,
         }}
       />
     </PatientsStack.Navigator>
@@ -214,21 +217,24 @@ const AppointmentsStackNavigator = () => {
         name="AppointmentsList"
         component={AppointmentsScreen}
         options={{
-          title: 'Appointments',
+          title: el.nav.appointments,
         }}
       />
       <AppointmentsStack.Screen
         name="AppointmentDetail"
         component={AppointmentDetailScreen}
         options={{
-          title: 'Appointment Details',
+          title: el.nav.appointmentDetails,
         }}
       />
       <AppointmentsStack.Screen
         name="AddEditAppointment"
         component={AddEditAppointmentScreen}
         options={({route}) => ({
-          title: route.params.mode === 'add' ? 'Add Appointment' : 'Edit Appointment',
+          title:
+            route.params.mode === 'add'
+              ? el.nav.addAppointment
+              : el.nav.editAppointment,
         })}
       />
     </AppointmentsStack.Navigator>
@@ -249,6 +255,7 @@ const FinancialStackNavigator = () => (
 const ReportsStackNavigator = () => (
   <ReportsStack.Navigator screenOptions={{headerShown: false}}>
     <ReportsStack.Screen name="ReportsHome" component={ReportsScreen} />
+    <ReportsStack.Screen name="Inventory" component={InventoryScreen} />
   </ReportsStack.Navigator>
 );
 
@@ -280,8 +287,8 @@ const MainTabs = () => {
         name="Dashboard"
         component={DashboardStackNavigator}
         options={{
-          title: 'Dashboard',
-          tabBarLabel: 'Today',
+          title: el.nav.dashboard,
+          tabBarLabel: el.nav.tabToday,
           headerShown: false,
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="event" size={size} color={color} />
@@ -292,8 +299,8 @@ const MainTabs = () => {
         name="Patients"
         component={PatientsStackNavigator}
         options={{
-          title: 'Patients',
-          tabBarLabel: 'Patients',
+          title: el.nav.tabPatients,
+          tabBarLabel: el.nav.tabPatients,
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="people" size={size} color={color} />
           ),
@@ -303,8 +310,8 @@ const MainTabs = () => {
         name="Appointments"
         component={AppointmentsStackNavigator}
         options={{
-          title: 'Appointments',
-          tabBarLabel: 'Appointments',
+          title: el.nav.appointments,
+          tabBarLabel: el.nav.tabAppointments,
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="event" size={size} color={color} />
           ),
@@ -314,8 +321,8 @@ const MainTabs = () => {
         name="Treatments"
         component={ClinicStackNavigator}
         options={{
-          title: 'Clinic',
-          tabBarLabel: 'Clinic',
+          title: el.nav.tabClinic,
+          tabBarLabel: el.nav.tabClinic,
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="medical-services" size={size} color={color} />
           ),
@@ -325,8 +332,8 @@ const MainTabs = () => {
         name="Financial"
         component={FinancialStackNavigator}
         options={{
-          title: 'Cash register',
-          tabBarLabel: 'Cash',
+          title: el.nav.cashRegister,
+          tabBarLabel: el.nav.tabCash,
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="account-balance-wallet" size={size} color={color} />
           ),
@@ -336,8 +343,8 @@ const MainTabs = () => {
         name="Reports"
         component={ReportsStackNavigator}
         options={{
-          title: 'Reports',
-          tabBarLabel: 'Reports',
+          title: el.nav.reports,
+          tabBarLabel: el.nav.tabReports,
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="assessment" size={size} color={color} />
           ),
@@ -347,8 +354,8 @@ const MainTabs = () => {
         name="Settings"
         component={SettingsStackNavigator}
         options={{
-          title: 'Settings',
-          tabBarLabel: 'Settings',
+          title: el.nav.settings,
+          tabBarLabel: el.nav.tabSettings,
           tabBarIcon: ({color, size}) => (
             <MaterialIcons name="settings" size={size} color={color} />
           ),

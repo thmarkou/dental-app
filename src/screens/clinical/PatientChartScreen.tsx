@@ -41,6 +41,7 @@ import {
 } from '../../services/clinical/treatment.service';
 import {getPatientById} from '../../services/patient';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el} from '../../i18n';
 
 type Nav = NativeStackNavigationProp<PatientsStackParamList, 'PatientChart'>;
 
@@ -130,7 +131,7 @@ const PatientChartScreen: React.FC = () => {
       setPatientTreatments(history);
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Could not load dental chart.');
+      Alert.alert(el.common.error, el.chart.loadFailed);
     } finally {
       setLoading(false);
     }
@@ -210,7 +211,7 @@ const PatientChartScreen: React.FC = () => {
           accessibilityRole="button"
           onPress={() => navigation.navigate('PatientTreatmentHistory', {patientId})}
           className="mr-2 rounded-lg px-3 py-2 active:bg-slate-100">
-          <Text className="text-base font-medium text-blue-600">History</Text>
+          <Text className="text-base font-medium text-blue-600">{el.chart.history}</Text>
         </Pressable>
       ),
     });
@@ -273,7 +274,7 @@ const PatientChartScreen: React.FC = () => {
     const cost =
       costText.trim() === '' ? null : Number.parseFloat(costText.replace(',', '.'));
     if (costText.trim() !== '' && (cost == null || Number.isNaN(cost))) {
-      Alert.alert('Invalid cost', 'Enter a valid number or leave cost empty.');
+      Alert.alert(el.chart.invalidCost, el.chart.invalidCostBody);
       return;
     }
 
@@ -321,16 +322,16 @@ const PatientChartScreen: React.FC = () => {
       await refreshClinicalData();
       closeModal();
       Alert.alert(
-        'Saved',
+        el.common.success,
         modalMode === 'general'
-          ? 'General treatment saved.'
+          ? el.chart.savedGeneral
           : editingTreatmentId
-            ? 'Treatment updated and chart refreshed.'
-            : 'Treatment recorded and chart updated.',
+            ? el.chart.savedUpdated
+            : el.chart.savedNew,
       );
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Could not save treatment. Please try again.');
+      Alert.alert(el.common.error, el.chart.saveFailed);
     } finally {
       setSaving(false);
     }
@@ -344,14 +345,12 @@ const PatientChartScreen: React.FC = () => {
       return;
     }
     Alert.alert(
-      'Delete treatment',
-      modalMode === 'general'
-        ? 'Remove this general treatment record?'
-        : 'Remove this treatment entry? The chart will follow the newest remaining site-specific record for this tooth, or clear if none.',
+      el.chart.deleteTitle,
+      modalMode === 'general' ? el.chart.deleteGeneralConfirm : el.chart.deleteToothConfirm,
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: 'Delete',
+          text: el.common.delete,
           style: 'destructive',
           onPress: () => void runDeleteTreatment(),
         },
@@ -377,7 +376,7 @@ const PatientChartScreen: React.FC = () => {
 
       if (mode === 'general') {
         closeModal();
-        Alert.alert('Deleted', 'Treatment removed.');
+        Alert.alert(el.common.success, el.chart.deleted);
       } else if (tooth != null) {
         const nextLatest = findLatestSiteTreatmentForTooth(history, tooth);
         if (nextLatest) {
@@ -400,11 +399,11 @@ const PatientChartScreen: React.FC = () => {
         }
         const present = await isToothPresent(patientId, tooth);
         setToothPresent(present);
-        Alert.alert('Deleted', 'Treatment removed. Chart updated.');
+        Alert.alert(el.common.success, el.chart.deletedChartUpdated);
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Could not delete treatment. Please try again.');
+      Alert.alert(el.common.error, el.chart.deleteFailed);
     } finally {
       setSaving(false);
     }
@@ -415,7 +414,7 @@ const PatientChartScreen: React.FC = () => {
       <ScreenSafeArea variant="content">
         <View className="flex-1 items-center justify-center bg-slate-50">
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text className="mt-3 text-slate-600">Loading chart…</Text>
+          <Text className="mt-3 text-slate-600">{el.chart.loading}</Text>
         </View>
       </ScreenSafeArea>
     );
@@ -446,7 +445,7 @@ const PatientChartScreen: React.FC = () => {
           className="mx-auto mt-2 w-full max-w-md flex-row items-center justify-center gap-2 rounded-2xl border-2 border-emerald-600 bg-emerald-600 px-4 py-3 shadow-md active:bg-emerald-700">
           <MaterialIcons name="add-circle-outline" size={28} color="#ecfdf5" />
           <View className="flex-1">
-            <Text className="text-base font-bold text-emerald-50">General visit</Text>
+            <Text className="text-base font-bold text-emerald-50">{el.chart.generalVisit}</Text>
             <Text className="mt-0.5 text-xs text-emerald-100">
               Cleaning, exam, X-ray, whitening, and other non–tooth-specific care
             </Text>
@@ -480,14 +479,16 @@ const PatientChartScreen: React.FC = () => {
             <View className="mb-4 h-1 w-12 self-center rounded-full bg-slate-300" />
             {modalMode === 'general' ? (
               <>
-                <Text className="text-lg font-bold text-slate-900">General visit</Text>
+                <Text className="text-lg font-bold text-slate-900">{el.chart.generalVisit}</Text>
                 <Text className="mt-2 text-sm text-slate-600">
                   Not assigned to a single tooth. Choose the procedure below.
                 </Text>
               </>
             ) : (
               <>
-                <Text className="text-lg font-bold text-slate-900">Tooth {selectedTooth}</Text>
+                <Text className="text-lg font-bold text-slate-900">
+                  {el.chart.tooth} {selectedTooth}
+                </Text>
                 <Text className="mt-1 text-sm text-slate-600">
                   Current status:{' '}
                   <Text className="font-semibold text-slate-800">{currentConditionLabel}</Text>
@@ -568,17 +569,17 @@ const PatientChartScreen: React.FC = () => {
               </ScrollView>
             )}
 
-            <Text className="mb-1 text-xs font-medium text-slate-600">Notes (UTF-8 / Greek OK)</Text>
+            <Text className="mb-1 text-xs font-medium text-slate-600">{el.chart.notesLabel}</Text>
             <TextInput
               className="mb-3 min-h-[72px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900"
-              placeholder="Clinical notes…"
+              placeholder={el.chart.notesPlaceholder}
               placeholderTextColor="#94a3b8"
               multiline
               value={notes}
               onChangeText={setNotes}
             />
 
-            <Text className="mb-1 text-xs font-medium text-slate-600">Cost (optional)</Text>
+            <Text className="mb-1 text-xs font-medium text-slate-600">{el.chart.costOptional}</Text>
             <TextInput
               className="mb-4 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900"
               placeholder="0.00"
@@ -593,7 +594,7 @@ const PatientChartScreen: React.FC = () => {
                 onPress={handleDeleteTreatment}
                 disabled={saving}
                 className="mb-3 items-center rounded-xl border-2 border-red-200 bg-red-50 py-3 active:bg-red-100 disabled:opacity-50">
-                <Text className="font-semibold text-red-700">Delete treatment</Text>
+                <Text className="font-semibold text-red-700">{el.chart.deleteTreatment}</Text>
               </Pressable>
             ) : null}
 
@@ -601,7 +602,7 @@ const PatientChartScreen: React.FC = () => {
               <Pressable
                 onPress={closeModal}
                 className="flex-1 items-center rounded-xl border border-slate-300 py-3 active:bg-slate-50">
-                <Text className="font-semibold text-slate-700">Cancel</Text>
+                <Text className="font-semibold text-slate-700">{el.common.cancel}</Text>
               </Pressable>
               <Pressable
                 onPress={() => void submitTreatment()}
@@ -610,7 +611,7 @@ const PatientChartScreen: React.FC = () => {
                 {saving ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text className="font-semibold text-white">Save treatment</Text>
+                  <Text className="font-semibold text-white">{el.chart.saveTreatment}</Text>
                 )}
               </Pressable>
             </View>

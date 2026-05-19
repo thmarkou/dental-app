@@ -97,6 +97,10 @@ interface EnvConfig {
  * Load environment variables
  * In React Native, use react-native-config or react-native-dotenv
  */
+/** Bundled fallbacks when .env is not wired yet (offline app, local SQLite). */
+const LOCAL_DEV_JWT_SECRET = 'local-dev-jwt-secret-not-for-production';
+const LOCAL_DEV_ENCRYPTION_KEY = 'local-dev-encryption-key-32-chars!!';
+
 const loadEnvConfig = (): EnvConfig => {
   // TODO: Replace with actual environment variable loading
   // For React Native, use: import Config from 'react-native-config';
@@ -167,8 +171,9 @@ const loadEnvConfig = (): EnvConfig => {
     },
     
     security: {
-      jwtSecret: getEnv('JWT_SECRET', ''),
-      encryptionKey: getEnv('ENCRYPTION_KEY', ''),
+      // Always fall back until react-native-config / .env is connected.
+      jwtSecret: getEnv('JWT_SECRET') || LOCAL_DEV_JWT_SECRET,
+      encryptionKey: getEnv('ENCRYPTION_KEY') || LOCAL_DEV_ENCRYPTION_KEY,
       sessionTimeout: getEnvNumber('SESSION_TIMEOUT', 3600000),
     },
     
@@ -195,13 +200,20 @@ const loadEnvConfig = (): EnvConfig => {
  */
 const validateEnvConfig = (config: EnvConfig): void => {
   const errors: string[] = [];
-  
-  if (!config.security.jwtSecret) {
-    errors.push('JWT_SECRET is required');
-  }
-  
-  if (!config.security.encryptionKey) {
-    errors.push('ENCRYPTION_KEY is required');
+
+  if (config.nodeEnv === 'production') {
+    if (
+      !config.security.jwtSecret ||
+      config.security.jwtSecret === LOCAL_DEV_JWT_SECRET
+    ) {
+      errors.push('JWT_SECRET is required for production builds');
+    }
+    if (
+      !config.security.encryptionKey ||
+      config.security.encryptionKey === LOCAL_DEV_ENCRYPTION_KEY
+    ) {
+      errors.push('ENCRYPTION_KEY is required for production builds');
+    }
   }
   
   if (config.smsGateway.enabled && !config.smsGateway.apiKey) {
@@ -227,6 +239,14 @@ let envConfig: EnvConfig;
 try {
   envConfig = loadEnvConfig();
   validateEnvConfig(envConfig);
+  if (
+    envConfig.security.jwtSecret === LOCAL_DEV_JWT_SECRET ||
+    envConfig.security.encryptionKey === LOCAL_DEV_ENCRYPTION_KEY
+  ) {
+    console.warn(
+      '[env] Using bundled JWT_SECRET / ENCRYPTION_KEY defaults. Set real values in .env.dentalapp before production release.',
+    );
+  }
 } catch (error) {
   console.error('Failed to load environment configuration:', error);
   throw error;

@@ -22,6 +22,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../../navigation/navigation.types';
 import {useAuthStore} from '../../store/auth.store';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el} from '../../i18n';
 
 type LoginNav = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -36,30 +37,27 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     if (!username.trim()) {
-      Alert.alert('Error', 'Please enter your username');
+      Alert.alert(el.common.error, el.auth.enterUsername);
       return;
     }
 
     if (!password.trim()) {
-      Alert.alert('Error', 'Please enter your password');
+      Alert.alert(el.common.error, el.auth.enterPassword);
       return;
     }
 
     try {
       await login(username.trim(), password);
     } catch (error: any) {
-      const errorMessage = error?.message || 'Invalid username or password. Please try again.';
-      Alert.alert('Authentication Failed', errorMessage);
+      const errorMessage = error?.message || el.auth.invalidCredentials;
+      Alert.alert(el.auth.authFailed, errorMessage);
     }
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      'Forgot Password',
-      'To reset your password, please contact your system administrator.\n\n' +
-        'For the default admin account, the password can be reset through the database.',
-      [{text: 'OK', style: 'default'}]
-    );
+    Alert.alert(el.auth.forgotPassword, el.auth.forgotPasswordBody, [
+      {text: el.common.ok, style: 'default'},
+    ]);
   };
 
   return (
@@ -79,23 +77,21 @@ const LoginScreen = () => {
                 <Text style={styles.logoText}>🦷</Text>
               </View>
             </View>
-            <Text style={styles.title}>Dental Practice</Text>
-            <Text style={styles.subtitle}>Management System</Text>
-            <Text style={styles.description}>
-              Sign in to access your practice management dashboard
-            </Text>
+            <Text style={styles.title}>{el.auth.loginTitle}</Text>
+            <Text style={styles.subtitle}>{el.auth.loginSubtitle}</Text>
+            <Text style={styles.description}>{el.auth.loginDescription}</Text>
           </View>
 
           {/* Form Section */}
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Username</Text>
+              <Text style={styles.inputLabel}>{el.auth.username}</Text>
               <TextInput
                 style={[
                   styles.input,
                   isUsernameFocused && styles.inputFocused,
                 ]}
-                placeholder="Enter your username"
+                placeholder={el.auth.username}
                 placeholderTextColor="#999999"
                 value={username}
                 onChangeText={setUsername}
@@ -110,14 +106,14 @@ const LoginScreen = () => {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Password</Text>
+              <Text style={styles.inputLabel}>{el.auth.password}</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={[
                     styles.passwordInput,
                     isPasswordFocused && styles.inputFocused,
                   ]}
-                  placeholder="Enter your password"
+                  placeholder={el.auth.password}
                   placeholderTextColor="#999999"
                   value={password}
                   onChangeText={setPassword}
@@ -148,7 +144,7 @@ const LoginScreen = () => {
               style={styles.forgotPasswordContainer}
               onPress={handleForgotPassword}
               activeOpacity={0.7}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              <Text style={styles.forgotPasswordText}>{el.auth.forgotPassword}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -159,25 +155,25 @@ const LoginScreen = () => {
               {isLoading ? (
                 <ActivityIndicator color="#ffffff" size="small" />
               ) : (
-                <Text style={styles.buttonText}>Sign In</Text>
+                <Text style={styles.buttonText}>{el.auth.login}</Text>
               )}
             </TouchableOpacity>
           </View>
 
           {/* Sign Up Link */}
           <View style={styles.signUpContainer}>
-            <Text style={styles.signUpText}>Don't have an account? </Text>
+            <Text style={styles.signUpText}>{el.auth.noAccount} </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('SignUp')}
               activeOpacity={0.7}>
-              <Text style={styles.signUpLink}>Sign Up</Text>
+              <Text style={styles.signUpLink}>{el.auth.signUp}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              Secure access to your practice data
+              {el.auth.footerSecure}
             </Text>
           </View>
         </View>

@@ -31,6 +31,13 @@ import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {DatePickerField} from '../../components/common/DatePickerField';
+import {el} from '../../i18n';
+
+const genderLabel = (g: 'male' | 'female' | 'other') => {
+  if (g === 'male') return el.patients.male;
+  if (g === 'female') return el.patients.female;
+  return el.patients.otherGender;
+};
 
 function defaultDateOfBirth(): Date {
   const d = new Date();
@@ -93,7 +100,7 @@ const AddEditPatientScreen = () => {
       setLoading(true);
       const patient = await getPatientById(patientId);
       if (!patient) {
-        Alert.alert('Error', 'Patient not found');
+        Alert.alert(el.common.error, el.patients.patientNotFound);
         navigation.goBack();
         return;
       }
@@ -127,7 +134,7 @@ const AddEditPatientScreen = () => {
       }
     } catch (error) {
       console.error('Error loading patient:', error);
-      Alert.alert('Error', 'Failed to load patient data');
+      Alert.alert(el.common.error, el.patients.loadPatientFailed);
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -138,7 +145,7 @@ const AddEditPatientScreen = () => {
     try {
       const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Photo library access is needed to select a patient photo.');
+        Alert.alert(el.common.error, el.patients.photoPermission);
         return;
       }
 
@@ -154,7 +161,7 @@ const AddEditPatientScreen = () => {
       }
     } catch (error) {
       console.error('Error picking photo:', error);
-      Alert.alert('Error', 'Failed to select photo. Please try again.');
+      Alert.alert(el.common.error, el.patients.photoPickFailed);
     }
   };
 
@@ -167,30 +174,30 @@ const AddEditPatientScreen = () => {
     const newErrors: Record<string, string> = {};
 
     if (!firstName.trim()) {
-      newErrors.firstName = 'First name is required';
+      newErrors.firstName = el.patients.firstNameRequired;
     }
 
     if (!lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
+      newErrors.lastName = el.patients.lastNameRequired;
     }
 
     if (dobDate > endOfToday()) {
-      newErrors.dateOfBirth = 'Date of birth cannot be in the future';
+      newErrors.dateOfBirth = el.patients.dobFuture;
     }
 
     if (!phone.trim()) {
-      newErrors.phone = 'Phone number is required';
+      newErrors.phone = el.patients.phoneRequired;
     } else if (!/^[0-9+\-\s()]+$/.test(phone)) {
-      newErrors.phone = 'Invalid phone number format';
+      newErrors.phone = el.patients.phoneInvalid;
     }
 
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Invalid email format';
+      newErrors.email = el.patients.emailInvalid;
     }
 
     const afmTrim = afm.trim();
     if (afmTrim && !/^\d{9}$/.test(afmTrim)) {
-      newErrors.afm = 'AFM must be exactly 9 digits.';
+      newErrors.afm = el.patients.afmInvalid;
     }
 
     setErrors(newErrors);
@@ -200,7 +207,7 @@ const AddEditPatientScreen = () => {
   // Handle save
   const handleSave = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors in the form');
+      Alert.alert(el.appointments.validationErrorTitle, el.appointments.validationError);
       return;
     }
 
@@ -252,20 +259,20 @@ const AddEditPatientScreen = () => {
 
       if (mode === 'add') {
         await createPatient(patientData);
-        Alert.alert('Success', 'Patient created successfully', [
-          {text: 'OK', onPress: () => navigation.goBack()},
+        Alert.alert(el.common.success, el.patients.createSuccess, [
+          {text: el.common.ok, onPress: () => navigation.goBack()},
         ]);
       } else {
         await updatePatient(patientId, patientData);
-        Alert.alert('Success', 'Patient updated successfully', [
-          {text: 'OK', onPress: () => navigation.goBack()},
+        Alert.alert(el.common.success, el.patients.updateSuccess, [
+          {text: el.common.ok, onPress: () => navigation.goBack()},
         ]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving patient:', error);
-      const errorMessage = error?.message || 
-        `Failed to ${mode === 'add' ? 'create' : 'update'} patient. Please try again.`;
-      Alert.alert('Error', errorMessage);
+      const errorMessage =
+        error instanceof Error && error.message ? error.message : el.patients.saveFailed;
+      Alert.alert(el.common.error, errorMessage);
     } finally {
       setSaving(false);
     }
@@ -276,7 +283,7 @@ const AddEditPatientScreen = () => {
       <ScreenSafeArea variant="content">
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading patient data...</Text>
+        <Text style={styles.loadingText}>{el.patients.formLoading}</Text>
       </View>
       </ScreenSafeArea>
     );
@@ -305,38 +312,38 @@ const AddEditPatientScreen = () => {
             </View>
             <View style={styles.photoActions}>
               <Button
-                title={photoUri ? 'Change Photo' : 'Add Photo'}
+                title={photoUri ? el.patients.changePhoto : el.patients.addPhoto}
                 onPress={handlePickPhoto}
                 variant="outline"
                 style={styles.photoButton}
               />
               {photoUri ? (
                 <TouchableOpacity onPress={handleRemovePhoto} style={styles.removePhotoButton}>
-                  <Text style={styles.removePhotoText}>Remove</Text>
+                  <Text style={styles.removePhotoText}>{el.patients.removePhoto}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
           </View>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionTitle}>{el.patients.personalInformation}</Text>
 
           <Input
-            label="First Name *"
+            label={`${el.auth.firstName} *`}
             value={firstName}
             onChangeText={setFirstName}
             error={errors.firstName}
-            placeholder="Enter first name"
+            placeholder={el.auth.enterFirstName}
           />
 
           <Input
-            label="Last Name *"
+            label={`${el.auth.lastName} *`}
             value={lastName}
             onChangeText={setLastName}
             error={errors.lastName}
-            placeholder="Enter last name"
+            placeholder={el.auth.enterLastName}
           />
 
           <DatePickerField
-            label="Date of birth *"
+            label={`${el.patients.dob} *`}
             value={dobDate}
             onChange={setDobDate}
             error={errors.dateOfBirth}
@@ -345,7 +352,7 @@ const AddEditPatientScreen = () => {
           />
 
           <View style={styles.genderContainer}>
-            <Text style={styles.label}>Gender</Text>
+            <Text style={styles.label}>{el.patients.gender}</Text>
             <View style={styles.genderOptions}>
               {(['male', 'female', 'other'] as const).map(option => (
                 <TouchableOpacity
@@ -360,7 +367,7 @@ const AddEditPatientScreen = () => {
                       styles.genderOptionText,
                       gender === option && styles.genderOptionTextSelected,
                     ]}>
-                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                    {genderLabel(option)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -368,15 +375,15 @@ const AddEditPatientScreen = () => {
           </View>
 
           <Input
-            label="AMKA"
+            label={el.patients.amka}
             value={amka}
             onChangeText={setAmka}
-            placeholder="Enter AMKA"
+            placeholder={el.patients.amka}
             keyboardType="numeric"
           />
 
           <Input
-            label="AFM (9 digits)"
+            label={`${el.patients.afm} (9 ψηφία)`}
             value={afm}
             onChangeText={(t) => setAfm(t.replace(/\D/g, '').slice(0, 9))}
             error={errors.afm}
@@ -386,45 +393,43 @@ const AddEditPatientScreen = () => {
           />
 
           <Input
-            label="Tax office (DOY)"
+            label={el.patients.taxOffice}
             value={doy}
             onChangeText={setDoy}
-            placeholder="e.g. Athens"
+            placeholder={el.patients.taxOfficePlaceholder}
             autoCapitalize="characters"
           />
 
           <Input
-            label="Phone *"
+            label={`${el.patients.phone} *`}
             value={phone}
             onChangeText={setPhone}
             error={errors.phone}
-            placeholder="Enter phone number"
+            placeholder={el.patients.phone}
             keyboardType="phone-pad"
           />
 
           <Input
-            label="Email"
+            label={el.patients.email}
             value={email}
             onChangeText={setEmail}
             error={errors.email}
-            placeholder="Enter email address"
+            placeholder={el.auth.enterEmail}
             keyboardType="email-address"
             autoCapitalize="none"
           />
 
           <Input
-            label="Occupation"
+            label={el.patients.occupation}
             value={occupation}
             onChangeText={setOccupation}
-            placeholder="Enter occupation"
+            placeholder={el.patients.occupationPlaceholder}
           />
 
           <View style={styles.gdprRow}>
             <View style={styles.gdprTextCol}>
-              <Text style={styles.label}>GDPR consent</Text>
-              <Text style={styles.gdprHint}>
-                Record that the patient has agreed to processing of personal health data (GDPR).
-              </Text>
+              <Text style={styles.label}>{el.patients.gdprConsent}</Text>
+              <Text style={styles.gdprHint}>{el.patients.gdprFormHint}</Text>
             </View>
             <Switch
               value={gdprConsent}
@@ -444,24 +449,24 @@ const AddEditPatientScreen = () => {
         </Card>
 
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Address</Text>
+          <Text style={styles.sectionTitle}>{el.patients.address}</Text>
 
           <Input
-            label="Street"
+            label={el.patients.street}
             value={addressStreet}
             onChangeText={setAddressStreet}
             placeholder="Enter street address"
           />
 
           <Input
-            label="City"
+            label={el.patients.city}
             value={addressCity}
             onChangeText={setAddressCity}
             placeholder="Enter city"
           />
 
           <Input
-            label="Postal Code"
+            label={el.patients.postalCode}
             value={addressPostalCode}
             onChangeText={setAddressPostalCode}
             placeholder="Enter postal code"
@@ -469,7 +474,7 @@ const AddEditPatientScreen = () => {
           />
 
           <Input
-            label="Country"
+            label={el.patients.country}
             value={addressCountry}
             onChangeText={setAddressCountry}
             placeholder="Enter country"
@@ -477,24 +482,24 @@ const AddEditPatientScreen = () => {
         </Card>
 
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Emergency Contact</Text>
+          <Text style={styles.sectionTitle}>{el.patients.emergencyContactSection}</Text>
 
           <Input
-            label="Name"
+            label={el.patients.emergencyName}
             value={emergencyContactName}
             onChangeText={setEmergencyContactName}
             placeholder="Enter emergency contact name"
           />
 
           <Input
-            label="Relationship"
+            label={el.patients.relationship}
             value={emergencyContactRelationship}
             onChangeText={setEmergencyContactRelationship}
             placeholder="e.g., Spouse, Parent, etc."
           />
 
           <Input
-            label="Phone"
+            label={el.patients.emergencyPhone}
             value={emergencyContactPhone}
             onChangeText={setEmergencyContactPhone}
             placeholder="Enter emergency contact phone"
@@ -504,7 +509,7 @@ const AddEditPatientScreen = () => {
 
         <View style={styles.buttonContainer}>
           <Button
-            title={mode === 'add' ? 'Create Patient' : 'Update Patient'}
+            title={mode === 'add' ? el.patients.createPatient : el.patients.updatePatient}
             onPress={handleSave}
             loading={saving}
             disabled={saving}

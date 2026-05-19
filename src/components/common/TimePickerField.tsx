@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import DateTimePicker, {DateTimePickerEvent} from '@react-native-community/datetimepicker';
 import {MaterialIcons} from '@expo/vector-icons';
+import {el} from '../../i18n';
 
 export type TimePickerFieldProps = {
   label: string;
@@ -80,14 +81,14 @@ export const TimePickerField: React.FC<TimePickerFieldProps> = ({
             <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
               <View style={styles.sheetHeader}>
                 <TouchableOpacity onPress={() => setOpen(false)}>
-                  <Text style={styles.sheetBtn}>Cancel</Text>
+                  <Text style={styles.sheetBtn}>{el.common.cancel}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
                     onChange(iosDraft);
                     setOpen(false);
                   }}>
-                  <Text style={[styles.sheetBtn, styles.sheetBtnPrimary]}>Done</Text>
+                  <Text style={[styles.sheetBtn, styles.sheetBtnPrimary]}>{el.common.done}</Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker

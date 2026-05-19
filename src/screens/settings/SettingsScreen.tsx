@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Switch,
   Platform,
+  TextInput,
   useWindowDimensions,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
@@ -25,6 +26,31 @@ import {
   setBackupReminderEnabled,
 } from '../../services/system/backupReminder.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {
+  getPracticeSettings,
+  savePracticeSettings,
+  type PracticeSettings,
+} from '../../services/settings/practiceSettings.service';
+import {el} from '../../i18n';
+
+function applySettingsToForm(s: PracticeSettings) {
+  return {
+    legalName: s.legalName,
+    tradeName: s.tradeName ?? '',
+    afm: s.afm ?? '',
+    doy: s.doy ?? '',
+    activityCode: s.activityCode ?? '',
+    addressStreet: s.addressStreet ?? '',
+    addressCity: s.addressCity ?? '',
+    addressPostalCode: s.addressPostalCode ?? '',
+    addressCountry: s.addressCountry || el.patients.greece,
+    phone: s.phone ?? '',
+    email: s.email ?? '',
+    website: s.website ?? '',
+    defaultVatRate: String(s.defaultVatRate),
+    invoiceFooter: s.invoiceFooter ?? '',
+  };
+}
 
 const SettingsScreen = () => {
   const {width} = useWindowDimensions();
@@ -40,6 +66,47 @@ const SettingsScreen = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordBusy, setPasswordBusy] = useState(false);
+  const [practiceBusy, setPracticeBusy] = useState(false);
+  const [practiceLoading, setPracticeLoading] = useState(true);
+  const [legalName, setLegalName] = useState('');
+  const [tradeName, setTradeName] = useState('');
+  const [practiceAfm, setPracticeAfm] = useState('');
+  const [practiceDoy, setPracticeDoy] = useState('');
+  const [activityCode, setActivityCode] = useState('');
+  const [addressStreet, setAddressStreet] = useState('');
+  const [addressCity, setAddressCity] = useState('');
+  const [addressPostalCode, setAddressPostalCode] = useState('');
+  const [addressCountry, setAddressCountry] = useState<string>(el.patients.greece);
+  const [practicePhone, setPracticePhone] = useState('');
+  const [practiceEmail, setPracticeEmail] = useState('');
+  const [website, setWebsite] = useState('');
+  const [defaultVatRate, setDefaultVatRate] = useState('24');
+  const [invoiceFooter, setInvoiceFooter] = useState('');
+
+  const loadPractice = useCallback(() => {
+    try {
+      setPracticeLoading(true);
+      const form = applySettingsToForm(getPracticeSettings());
+      setLegalName(form.legalName);
+      setTradeName(form.tradeName);
+      setPracticeAfm(form.afm);
+      setPracticeDoy(form.doy);
+      setActivityCode(form.activityCode);
+      setAddressStreet(form.addressStreet);
+      setAddressCity(form.addressCity);
+      setAddressPostalCode(form.addressPostalCode);
+      setAddressCountry(form.addressCountry);
+      setPracticePhone(form.phone);
+      setPracticeEmail(form.email);
+      setWebsite(form.website);
+      setDefaultVatRate(form.defaultVatRate);
+      setInvoiceFooter(form.invoiceFooter);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPracticeLoading(false);
+    }
+  }, []);
 
   const loadReminder = useCallback(async () => {
     try {
@@ -59,15 +126,54 @@ const SettingsScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
+      loadPractice();
       void loadReminder();
-    }, [loadReminder]),
+    }, [loadPractice, loadReminder]),
   );
 
+  const handleSavePractice = () => {
+    setPracticeBusy(true);
+    try {
+      savePracticeSettings({
+        legalName,
+        tradeName: tradeName.trim() || null,
+        afm: practiceAfm.trim() || null,
+        doy: practiceDoy.trim() || null,
+        activityCode: activityCode.trim() || null,
+        addressStreet: addressStreet.trim() || null,
+        addressCity: addressCity.trim() || null,
+        addressPostalCode: addressPostalCode.trim() || null,
+        addressCountry: addressCountry.trim() || el.patients.greece,
+        phone: practicePhone.trim() || null,
+        email: practiceEmail.trim() || null,
+        website: website.trim() || null,
+        defaultVatRate: Number.parseFloat(defaultVatRate.replace(',', '.')),
+        invoiceFooter: invoiceFooter.trim() || null,
+      });
+      Alert.alert(el.common.success, el.settings.practiceSaved);
+      loadPractice();
+    } catch (e) {
+      const code = e instanceof Error ? e.message : '';
+      if (code === 'INVALID_AFM') {
+        Alert.alert(el.common.error, el.settings.practiceInvalidAfm);
+      } else if (code === 'INVALID_VAT') {
+        Alert.alert(el.common.error, el.settings.practiceInvalidVat);
+      } else {
+        Alert.alert(
+          el.common.error,
+          e instanceof Error ? e.message : el.settings.practiceSaveFailed,
+        );
+      }
+    } finally {
+      setPracticeBusy(false);
+    }
+  };
+
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to log out?', [
-      {text: 'Cancel', style: 'cancel'},
+    Alert.alert(el.settings.logout, el.settings.logoutConfirm, [
+      {text: el.common.cancel, style: 'cancel'},
       {
-        text: 'Logout',
+        text: el.settings.logout,
         style: 'destructive',
         onPress: async () => {
           await logout();
@@ -83,8 +189,8 @@ const SettingsScreen = () => {
     } catch (e) {
       console.error(e);
       Alert.alert(
-        'Backup failed',
-        e instanceof Error ? e.message : 'Could not export the database.',
+        el.settings.backupFailed,
+        e instanceof Error ? e.message : el.settings.exportFailed,
       );
     } finally {
       setBackupBusy(false);
@@ -98,8 +204,8 @@ const SettingsScreen = () => {
     } catch (e) {
       console.error(e);
       Alert.alert(
-        'Export failed',
-        e instanceof Error ? e.message : 'Could not create the CSV file.',
+        el.settings.exportCsvFailed,
+        e instanceof Error ? e.message : el.settings.exportCsvFailed,
       );
     } finally {
       setCsvBusy(false);
@@ -115,23 +221,23 @@ const SettingsScreen = () => {
 
   const handleChangePassword = async () => {
     if (!user?.id) {
-      Alert.alert('Error', 'You must be signed in to change your password.');
+      Alert.alert(el.common.error, el.settings.mustBeSignedIn);
       return;
     }
     if (!currentPassword.trim() || !newPassword.trim()) {
-      Alert.alert('Validation', 'Enter your current and new password.');
+      Alert.alert(el.common.error, el.settings.enterPasswords);
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Validation', 'New password must be at least 6 characters.');
+      Alert.alert(el.common.error, el.settings.passwordTooShort);
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Validation', 'New password and confirmation do not match.');
+      Alert.alert(el.common.error, el.settings.passwordMismatch);
       return;
     }
     if (newPassword === currentPassword) {
-      Alert.alert('Validation', 'Choose a password different from the current one.');
+      Alert.alert(el.common.error, el.settings.passwordDifferent);
       return;
     }
 
@@ -139,12 +245,12 @@ const SettingsScreen = () => {
       setPasswordBusy(true);
       await updateUserPassword(user.id, currentPassword, newPassword);
       resetPasswordForm();
-      Alert.alert('Password updated', 'Your password has been changed successfully.');
+      Alert.alert(el.common.success, el.settings.passwordUpdated);
     } catch (e) {
       console.error(e);
       Alert.alert(
-        'Could not update password',
-        e instanceof Error ? e.message : 'Please try again.',
+        el.settings.passwordUpdateFailed,
+        e instanceof Error ? e.message : el.common.tryAgain,
       );
     } finally {
       setPasswordBusy(false);
@@ -153,10 +259,7 @@ const SettingsScreen = () => {
 
   const onToggleReminder = async (value: boolean) => {
     if (Platform.OS === 'web') {
-      Alert.alert(
-        'Not available',
-        'Local notifications are not supported on web. Use the mobile app for reminders.',
-      );
+      Alert.alert(el.common.error, el.settings.reminderNotAvailable);
       return;
     }
     try {
@@ -164,15 +267,15 @@ const SettingsScreen = () => {
       setReminderOn(value);
       if (value) {
         Alert.alert(
-          'Reminder on',
-          'A weekly backup reminder is scheduled (Mondays at 09:00, device local time).',
+          el.settings.reminderOnTitle,
+          el.settings.reminderOnBody,
         );
       }
     } catch (e) {
       console.error(e);
       Alert.alert(
-        'Notifications',
-        e instanceof Error ? e.message : 'Could not update reminder settings.',
+        el.common.error,
+        e instanceof Error ? e.message : el.settings.reminderFailed,
       );
       await loadReminder();
     }
@@ -187,29 +290,27 @@ const SettingsScreen = () => {
           paddingHorizontal: isWide ? 12 : 8,
         }}>
         <View className="px-2 py-3">
-          <Text className="text-2xl font-bold text-slate-900">Settings</Text>
-          <Text className="mt-1 text-sm text-slate-600">
-            Profile, backups, and sign out
-          </Text>
+          <Text className="text-2xl font-bold text-slate-900">{el.settings.title}</Text>
+          <Text className="mt-1 text-sm text-slate-600">{el.settings.subtitle}</Text>
         </View>
 
         <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <Text className="text-base font-semibold text-slate-900">Profile</Text>
+          <Text className="text-base font-semibold text-slate-900">{el.settings.profile}</Text>
           <View className="mt-4 border-t border-slate-100 pt-3">
             <View className="flex-row justify-between py-2">
-              <Text className="text-slate-500">Name</Text>
+              <Text className="text-slate-500">{el.settings.name}</Text>
               <Text className="max-w-[60%] text-right font-medium text-slate-900">
                 {user?.firstName} {user?.lastName}
               </Text>
             </View>
             <View className="flex-row justify-between py-2">
-              <Text className="text-slate-500">Email</Text>
+              <Text className="text-slate-500">{el.settings.email}</Text>
               <Text className="max-w-[60%] text-right font-medium text-slate-900">
                 {user?.email}
               </Text>
             </View>
             <View className="flex-row justify-between py-2">
-              <Text className="text-slate-500">Role</Text>
+              <Text className="text-slate-500">{el.settings.role}</Text>
               <Text className="font-medium capitalize text-slate-900">{user?.role}</Text>
             </View>
           </View>
@@ -220,14 +321,16 @@ const SettingsScreen = () => {
               className="mt-4 flex-row items-center justify-center rounded-xl border border-slate-200 bg-slate-50 py-3 active:bg-slate-100">
               <MaterialIcons name="lock-outline" size={20} color="#0f172a" />
               <Text className="ml-2 text-sm font-semibold text-slate-900">
-                Change password
+                {el.settings.changePassword}
               </Text>
             </Pressable>
           ) : (
             <View className="mt-4 border-t border-slate-100 pt-4">
-              <Text className="mb-3 text-sm font-medium text-slate-700">Change password</Text>
+              <Text className="mb-3 text-sm font-medium text-slate-700">
+                {el.settings.changePassword}
+              </Text>
               <Input
-                label="Current password"
+                label={el.settings.currentPassword}
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
                 secureTextEntry
@@ -236,7 +339,7 @@ const SettingsScreen = () => {
                 editable={!passwordBusy}
               />
               <Input
-                label="New password"
+                label={el.settings.newPassword}
                 value={newPassword}
                 onChangeText={setNewPassword}
                 secureTextEntry
@@ -245,7 +348,7 @@ const SettingsScreen = () => {
                 editable={!passwordBusy}
               />
               <Input
-                label="Confirm new password"
+                label={el.settings.confirmPassword}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
@@ -258,7 +361,9 @@ const SettingsScreen = () => {
                   onPress={resetPasswordForm}
                   disabled={passwordBusy}
                   className="flex-1 rounded-xl border border-slate-200 py-3 active:bg-slate-50 disabled:opacity-50">
-                  <Text className="text-center text-sm font-semibold text-slate-700">Cancel</Text>
+                  <Text className="text-center text-sm font-semibold text-slate-700">
+                    {el.common.cancel}
+                  </Text>
                 </Pressable>
                 <Pressable
                   onPress={handleChangePassword}
@@ -267,7 +372,9 @@ const SettingsScreen = () => {
                   {passwordBusy ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text className="text-center text-sm font-semibold text-white">Save</Text>
+                    <Text className="text-center text-sm font-semibold text-white">
+                      {el.common.save}
+                    </Text>
                   )}
                 </Pressable>
               </View>
@@ -276,10 +383,160 @@ const SettingsScreen = () => {
         </View>
 
         <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <Text className="text-base font-semibold text-slate-900">System</Text>
-          <Text className="mt-1 text-sm text-slate-600">
-            Export a full copy of your data or a monthly payment report for your accountant.
+          <Text className="text-base font-semibold text-slate-900">
+            {el.settings.practice}
           </Text>
+          <Text className="mt-1 text-sm text-slate-600">{el.settings.practiceDesc}</Text>
+
+          {practiceLoading ? (
+            <View className="mt-6 items-center">
+              <ActivityIndicator color="#64748b" />
+            </View>
+          ) : (
+            <View className="mt-4">
+              <Input
+                label={el.settings.legalName}
+                value={legalName}
+                onChangeText={setLegalName}
+                placeholder={el.settings.legalNamePlaceholder}
+                autoCapitalize="words"
+                editable={!practiceBusy}
+              />
+              <Input
+                label={el.settings.tradeName}
+                value={tradeName}
+                onChangeText={setTradeName}
+                placeholder={el.settings.tradeNamePlaceholder}
+                editable={!practiceBusy}
+              />
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <Input
+                    label={el.settings.practiceAfm}
+                    value={practiceAfm}
+                    onChangeText={setPracticeAfm}
+                    keyboardType="number-pad"
+                    maxLength={9}
+                    editable={!practiceBusy}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Input
+                    label={el.settings.practiceDoy}
+                    value={practiceDoy}
+                    onChangeText={setPracticeDoy}
+                    editable={!practiceBusy}
+                  />
+                </View>
+              </View>
+              <Input
+                label={el.settings.activityCode}
+                value={activityCode}
+                onChangeText={setActivityCode}
+                editable={!practiceBusy}
+              />
+              <Text className="mb-2 text-sm font-medium text-slate-700">
+                {el.patients.addressInformation}
+              </Text>
+              <Input
+                label={el.patients.street}
+                value={addressStreet}
+                onChangeText={setAddressStreet}
+                editable={!practiceBusy}
+              />
+              <View className="flex-row gap-2">
+                <View className="flex-[2]">
+                  <Input
+                    label={el.patients.city}
+                    value={addressCity}
+                    onChangeText={setAddressCity}
+                    editable={!practiceBusy}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Input
+                    label={el.patients.postalCode}
+                    value={addressPostalCode}
+                    onChangeText={setAddressPostalCode}
+                    keyboardType="number-pad"
+                    editable={!practiceBusy}
+                  />
+                </View>
+              </View>
+              <Input
+                label={el.patients.country}
+                value={addressCountry}
+                onChangeText={setAddressCountry}
+                editable={!practiceBusy}
+              />
+              <Input
+                label={el.settings.practicePhone}
+                value={practicePhone}
+                onChangeText={setPracticePhone}
+                keyboardType="phone-pad"
+                editable={!practiceBusy}
+              />
+              <Input
+                label={el.settings.practiceEmail}
+                value={practiceEmail}
+                onChangeText={setPracticeEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!practiceBusy}
+              />
+              <Input
+                label={el.settings.website}
+                value={website}
+                onChangeText={setWebsite}
+                autoCapitalize="none"
+                editable={!practiceBusy}
+              />
+              <Input
+                label={el.settings.defaultVat}
+                value={defaultVatRate}
+                onChangeText={setDefaultVatRate}
+                keyboardType="decimal-pad"
+                editable={!practiceBusy}
+              />
+              <Text className="mb-1 text-sm font-medium text-slate-700">
+                {el.settings.invoiceFooter}
+              </Text>
+              <TextInput
+                className="min-h-[72px] rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900"
+                value={invoiceFooter}
+                onChangeText={setInvoiceFooter}
+                placeholder={el.settings.invoiceFooterPlaceholder}
+                multiline
+                textAlignVertical="top"
+                editable={!practiceBusy}
+              />
+              {!legalName.trim() || !practiceAfm.trim() ? (
+                <Text className="mt-2 text-xs text-amber-700">
+                  {el.settings.practiceIncompleteHint}
+                </Text>
+              ) : null}
+              <Pressable
+                onPress={handleSavePractice}
+                disabled={practiceBusy}
+                className="mt-4 flex-row items-center justify-center rounded-xl bg-blue-600 py-3.5 active:bg-blue-700 disabled:opacity-50">
+                {practiceBusy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <MaterialIcons name="save" size={22} color="#fff" />
+                    <Text className="ml-2 text-base font-semibold text-white">
+                      {el.common.save}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          )}
+        </View>
+
+        <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <Text className="text-base font-semibold text-slate-900">{el.settings.system}</Text>
+          <Text className="mt-1 text-sm text-slate-600">{el.settings.systemDesc}</Text>
 
           <Pressable
             onPress={runBackup}
@@ -291,7 +548,7 @@ const SettingsScreen = () => {
               <>
                 <MaterialIcons name="save-alt" size={22} color="#fff" />
                 <Text className="ml-2 text-base font-semibold text-white">
-                  Backup Data Now
+                  {el.settings.backupNow}
                 </Text>
               </>
             )}
@@ -307,7 +564,7 @@ const SettingsScreen = () => {
               <>
                 <MaterialIcons name="table-chart" size={22} color="#0f172a" />
                 <Text className="ml-2 text-base font-semibold text-slate-900">
-                  Export Monthly CSV for Accountant
+                  {el.settings.exportCsvLong}
                 </Text>
               </>
             )}
@@ -316,10 +573,10 @@ const SettingsScreen = () => {
           <View className="mt-5 flex-row items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3">
             <View className="mr-3 flex-1">
               <Text className="text-sm font-medium text-slate-900">
-                Automatic Backup Reminder
+                {el.settings.autoReminder}
               </Text>
               <Text className="mt-0.5 text-xs text-slate-600">
-                Weekly notification (mobile only) to run a manual backup.
+                {el.settings.autoReminderDesc}
               </Text>
             </View>
             {reminderLoading ? (
@@ -339,7 +596,9 @@ const SettingsScreen = () => {
         <Pressable
           onPress={handleLogout}
           className="rounded-2xl border border-red-200 bg-red-50 py-3.5 active:bg-red-100">
-          <Text className="text-center text-base font-semibold text-red-700">Logout</Text>
+          <Text className="text-center text-base font-semibold text-red-700">
+            {el.settings.logout}
+          </Text>
         </Pressable>
       </ScrollView>
     </ScreenSafeArea>

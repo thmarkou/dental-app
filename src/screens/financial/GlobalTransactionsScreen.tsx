@@ -23,6 +23,7 @@ import {
   type RecentPaymentWithPatientRow,
 } from '../../services/financial/payment.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el, paymentMethodLabel, UI_LOCALE} from '../../i18n';
 
 const eur = (n: number) =>
   new Intl.NumberFormat('en-US', {
@@ -37,7 +38,7 @@ const formatPaymentWhen = (isoOrLocal: string) => {
     if (Number.isNaN(d.getTime())) {
       return isoOrLocal;
     }
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(UI_LOCALE, {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -114,7 +115,7 @@ const GlobalTransactionsScreen: React.FC = () => {
 
   const dayTitle = useMemo(() => {
     const [y, m, d] = selectedDay.split('-').map(Number);
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(UI_LOCALE, {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -138,7 +139,7 @@ const GlobalTransactionsScreen: React.FC = () => {
         {!isDatabaseAvailable && <DatabaseWarning />}
 
         <View className="px-2 py-3">
-          <Text className="text-xl font-bold text-slate-900">Cash register</Text>
+          <Text className="text-xl font-bold text-slate-900">{el.financial.cashRegister}</Text>
         </View>
 
         <View className="mb-4 flex-row items-center justify-center gap-4 px-2">
@@ -150,7 +151,7 @@ const GlobalTransactionsScreen: React.FC = () => {
           </Pressable>
           <Text className="min-w-[200px] text-center text-sm font-medium text-slate-700">
             {dayTitle}
-            {isToday ? ' · Today' : ''}
+            {isToday ? el.financial.todaySuffix : ''}
           </Text>
           <Pressable
             onPress={() => setSelectedDay((d) => addDaysYmd(d, 1))}
@@ -166,17 +167,17 @@ const GlobalTransactionsScreen: React.FC = () => {
         {loading && isDatabaseAvailable ? (
           <View className="items-center py-12">
             <ActivityIndicator size="large" color="#2563eb" />
-            <Text className="mt-2 text-slate-500">Loading…</Text>
+            <Text className="mt-2 text-slate-500">{el.common.loading}</Text>
           </View>
         ) : (
           <>
             <View className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <Text className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Collections for day (by payment method)
+                {el.financial.dailyTotals}
               </Text>
               {dailyByMethod.length === 0 ? (
                 <Text className="text-center text-slate-600">
-                  No payments on this day.
+                  {el.financial.noPaymentsDay}
                 </Text>
               ) : (
                 <>
@@ -184,14 +185,16 @@ const GlobalTransactionsScreen: React.FC = () => {
                     <View
                       key={row.paymentMethod}
                       className="mb-2 flex-row items-center justify-between border-b border-slate-100 pb-2 last:mb-0 last:border-b-0 last:pb-0">
-                      <Text className="text-base text-slate-800">{row.paymentMethod}</Text>
+                      <Text className="text-base text-slate-800">
+                        {paymentMethodLabel(row.paymentMethod)}
+                      </Text>
                       <Text className="text-base font-semibold text-slate-900">
                         {eur(row.total)}
                       </Text>
                     </View>
                   ))}
                   <View className="mt-3 flex-row items-center justify-between border-t border-slate-200 pt-3">
-                    <Text className="text-base font-bold text-slate-900">Total</Text>
+                    <Text className="text-base font-bold text-slate-900">{el.financial.total}</Text>
                     <Text className="text-lg font-bold text-emerald-700">{eur(dayGrandTotal)}</Text>
                   </View>
                 </>
@@ -199,11 +202,11 @@ const GlobalTransactionsScreen: React.FC = () => {
             </View>
 
             <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Recent payments (all patients)
+              {el.financial.recentPayments}
             </Text>
             {recent.length === 0 ? (
               <Text className="rounded-xl bg-white p-6 text-center text-slate-500 shadow-sm">
-                No recorded payments yet.
+                {el.financial.noPaymentsYet}
               </Text>
             ) : (
               recent.map((p) => (
@@ -216,8 +219,9 @@ const GlobalTransactionsScreen: React.FC = () => {
                         {p.firstName} {p.lastName}
                       </Text>
                       <Text className="mt-0.5 text-xs text-slate-500">
-                        {formatPaymentWhen(p.transactionDate)} · {p.paymentMethod}
-                        {p.receiptIssued ? ' · Receipt' : ''}
+                        {formatPaymentWhen(p.transactionDate)} ·{' '}
+                        {paymentMethodLabel(p.paymentMethod)}
+                        {p.receiptIssued ? ` · ${el.financial.receiptTag}` : ''}
                       </Text>
                     </View>
                     <Text className="shrink-0 text-base font-bold text-emerald-700">

@@ -38,11 +38,18 @@ import {
   PAYMENT_METHODS,
 } from '../../services/financial/payment.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {
+  el,
+  paymentMethodLabel,
+  appointmentTypeLabel,
+  appointmentStatusLabel,
+  UI_LOCALE,
+} from '../../i18n';
 
 type Nav = NativeStackNavigationProp<DashboardStackParamList, 'DailyFlow'>;
 
 const formatTime = (d: Date) =>
-  new Intl.DateTimeFormat('en-US', {hour: '2-digit', minute: '2-digit'}).format(d);
+  new Intl.DateTimeFormat(UI_LOCALE, {hour: '2-digit', minute: '2-digit'}).format(d);
 
 const currencyEl = (n: number) =>
   new Intl.NumberFormat('en-US', {
@@ -87,10 +94,10 @@ const AppointmentFlowCard: React.FC<{
         {item.patientFirstName} {item.patientLastName}
       </Text>
       <Text className="text-xs text-slate-500">
-        {formatTime(item.startTime)} · {item.type.replace(/_/g, ' ')}
+        {formatTime(item.startTime)} · {appointmentTypeLabel(item.type)}
       </Text>
-      <Text className="mt-1 text-xs font-medium capitalize text-slate-600">
-        {item.status.replace(/_/g, ' ')}
+      <Text className="mt-1 text-xs font-medium text-slate-600">
+        {appointmentStatusLabel(item.status)}
       </Text>
       <View className="mt-2">
         <BalanceBadge patientId={item.patientId} />
@@ -100,21 +107,21 @@ const AppointmentFlowCard: React.FC<{
           <Pressable
             onPress={onCheckIn}
             className="rounded-lg bg-blue-600 px-3 py-2 active:bg-blue-700">
-            <Text className="text-xs font-semibold text-white">Check-in</Text>
+            <Text className="text-xs font-semibold text-white">{el.clinic.checkIn}</Text>
           </Pressable>
         )}
         {showStart && (
           <Pressable
             onPress={onStart}
             className="rounded-lg bg-amber-500 px-3 py-2 active:bg-amber-600">
-            <Text className="text-xs font-semibold text-white">Start treatment</Text>
+            <Text className="text-xs font-semibold text-white">{el.clinic.startTreatment}</Text>
           </Pressable>
         )}
         {showComplete && (
           <Pressable
             onPress={onComplete}
             className="rounded-lg bg-emerald-600 px-3 py-2 active:bg-emerald-700">
-            <Text className="text-xs font-semibold text-white">Complete</Text>
+            <Text className="text-xs font-semibold text-white">{el.clinic.complete}</Text>
           </Pressable>
         )}
       </View>
@@ -129,11 +136,13 @@ const PendingPaymentCard: React.FC<{
 }> = ({name, balance, onQuickPay}) => (
   <View className="mb-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3">
     <Text className="font-semibold text-slate-900">{name}</Text>
-    <Text className="text-sm text-amber-900">Due: {currencyEl(balance)}</Text>
+    <Text className="text-sm text-amber-900">
+      {el.clinic.due}: {currencyEl(balance)}
+    </Text>
     <Pressable
       onPress={onQuickPay}
       className="mt-2 self-start rounded-lg bg-amber-600 px-3 py-2 active:bg-amber-700">
-      <Text className="text-xs font-semibold text-white">Quick payment</Text>
+      <Text className="text-xs font-semibold text-white">{el.clinic.quickPayment}</Text>
     </Pressable>
   </View>
 );
@@ -200,7 +209,7 @@ const DailyFlowScreen: React.FC = () => {
           onPress={() => navigation.navigate('Overview')}
           className="mr-2 flex-row items-center gap-1 rounded-lg px-2 py-1 active:bg-slate-100">
           <MaterialIcons name="insights" size={20} color="#2563eb" />
-          <Text className="text-sm font-medium text-blue-600">Overview</Text>
+          <Text className="text-sm font-medium text-blue-600">{el.clinic.overviewLink}</Text>
         </Pressable>
       ),
     });
@@ -225,7 +234,7 @@ const DailyFlowScreen: React.FC = () => {
     const normalized = payAmount.replace(',', '.');
     const amt = Number.parseFloat(normalized);
     if (!Number.isFinite(amt) || amt <= 0) {
-      Alert.alert('Amount', 'Enter a valid payment amount.');
+      Alert.alert(el.clinic.amountTitle, el.clinic.invalidAmount);
       return;
     }
     setPaySaving(true);
@@ -239,10 +248,10 @@ const DailyFlowScreen: React.FC = () => {
       });
       closePay();
       void load();
-      Alert.alert('Payment recorded', 'The ledger has been updated.');
+      Alert.alert(el.clinic.paymentRecordedTitle, el.clinic.paymentRecorded);
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Could not record payment.');
+      Alert.alert(el.common.error, el.clinic.paymentFailed);
     } finally {
       setPaySaving(false);
     }
@@ -258,7 +267,7 @@ const DailyFlowScreen: React.FC = () => {
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Could not complete visit.');
+      Alert.alert(el.common.error, el.clinic.completeFailed);
     }
   };
 
@@ -276,7 +285,7 @@ const DailyFlowScreen: React.FC = () => {
         }
         contentContainerStyle={{paddingBottom: 32, paddingHorizontal: isWide ? 12 : 8}}>
         <Text className="px-2 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-500">
-          {new Intl.DateTimeFormat('en-US', {
+          {new Intl.DateTimeFormat(UI_LOCALE, {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
@@ -287,11 +296,13 @@ const DailyFlowScreen: React.FC = () => {
         <View
           className={isWide ? 'min-h-[480px] flex-1 flex-row items-start' : 'flex-col'}>
           <FlowColumn
-            title="Waiting room"
-            subtitle="Confirmed or checked in"
+            title={el.clinic.waitingRoom}
+            subtitle={el.clinic.waitingSubtitle}
             isWide={isWide}>
             {waiting.length === 0 ? (
-              <Text className="py-4 text-center text-sm text-slate-400">No patients here</Text>
+              <Text className="py-4 text-center text-sm text-slate-400">
+                {el.clinic.noPatientsHere}
+              </Text>
             ) : (
               waiting.map((item) => (
                 <AppointmentFlowCard
@@ -302,12 +313,12 @@ const DailyFlowScreen: React.FC = () => {
                       recordCheckIn: true,
                     })
                       .then(() => load())
-                      .catch(() => Alert.alert('Error', 'Check-in failed'))
+                      .catch(() => Alert.alert(el.common.error, el.clinic.checkInFailed))
                   }
                   onStart={() =>
                     void startTreatmentAppointment(item.id)
                       .then(() => load())
-                      .catch(() => Alert.alert('Error', 'Could not start treatment'))
+                      .catch(() => Alert.alert(el.common.error, el.clinic.startFailed))
                   }
                   onComplete={() => void handleComplete(item)}
                 />
@@ -315,9 +326,14 @@ const DailyFlowScreen: React.FC = () => {
             )}
           </FlowColumn>
 
-          <FlowColumn title="In chair" subtitle="Treatment in progress" isWide={isWide}>
+          <FlowColumn
+            title={el.clinic.inChair}
+            subtitle={el.clinic.inChairSubtitle}
+            isWide={isWide}>
             {inChair.length === 0 ? (
-              <Text className="py-4 text-center text-sm text-slate-400">Empty</Text>
+              <Text className="py-4 text-center text-sm text-slate-400">
+                {el.clinic.emptyChair}
+              </Text>
             ) : (
               inChair.map((item) => (
                 <AppointmentFlowCard
@@ -332,11 +348,13 @@ const DailyFlowScreen: React.FC = () => {
           </FlowColumn>
 
           <FlowColumn
-            title="Check-out / pending payment"
-            subtitle="Completed today, balance due"
+            title={el.clinic.checkout}
+            subtitle={el.clinic.checkoutSubtitle}
             isWide={isWide}>
             {pendingPay.length === 0 ? (
-              <Text className="py-4 text-center text-sm text-slate-400">All clear</Text>
+              <Text className="py-4 text-center text-sm text-slate-400">
+                {el.clinic.allClear}
+              </Text>
             ) : (
               pendingPay.map((row) => (
                 <PendingPaymentCard
@@ -366,17 +384,19 @@ const DailyFlowScreen: React.FC = () => {
           <Pressable
             className="rounded-t-2xl bg-white px-4 pb-8 pt-4"
             onPress={(e) => e.stopPropagation()}>
-            <Text className="text-lg font-bold text-slate-900">Quick payment</Text>
+            <Text className="text-lg font-bold text-slate-900">{el.clinic.quickPayment}</Text>
             {payModal ? (
               <Text className="mt-1 text-sm text-slate-600">{payModal.patientName}</Text>
             ) : null}
             {payModal ? (
               <Text className="text-sm text-amber-800">
-                Balance: {currencyEl(payModal.balance)}
+                {el.clinic.balance}: {currencyEl(payModal.balance)}
               </Text>
             ) : null}
 
-            <Text className="mb-1 mt-4 text-xs font-medium text-slate-600">Amount</Text>
+            <Text className="mb-1 mt-4 text-xs font-medium text-slate-600">
+              {el.common.amount}
+            </Text>
             <TextInput
               className="mb-3 rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900"
               keyboardType="decimal-pad"
@@ -384,7 +404,7 @@ const DailyFlowScreen: React.FC = () => {
               onChangeText={setPayAmount}
             />
 
-            <Text className="mb-1 text-xs font-medium text-slate-600">Method</Text>
+            <Text className="mb-1 text-xs font-medium text-slate-600">{el.clinic.method}</Text>
             <View className="mb-3 flex-row flex-wrap gap-2">
               {[PAYMENT_METHODS.CASH, PAYMENT_METHODS.CARD, PAYMENT_METHODS.BANK_TRANSFER].map(
                 (m) => (
@@ -398,7 +418,7 @@ const DailyFlowScreen: React.FC = () => {
                       className={`text-xs font-medium ${
                         payMethod === m ? 'text-blue-800' : 'text-slate-700'
                       }`}>
-                      {m}
+                      {paymentMethodLabel(m)}
                     </Text>
                   </Pressable>
                 ),
@@ -413,15 +433,15 @@ const DailyFlowScreen: React.FC = () => {
                 size={22}
                 color="#2563eb"
               />
-              <Text className="text-sm text-slate-700">Receipt issued (pre–myDATA)</Text>
+              <Text className="text-sm text-slate-700">{el.clinic.receiptIssued}</Text>
             </Pressable>
 
-            <Text className="mb-1 text-xs text-slate-600">Notes</Text>
+            <Text className="mb-1 text-xs text-slate-600">{el.common.notes}</Text>
             <TextInput
               className="mb-4 rounded-lg border border-slate-300 px-3 py-2 text-slate-900"
               value={payNotes}
               onChangeText={setPayNotes}
-              placeholder="Optional"
+              placeholder={el.clinic.optionalNotes}
               placeholderTextColor="#94a3b8"
             />
 
@@ -429,7 +449,7 @@ const DailyFlowScreen: React.FC = () => {
               <Pressable
                 onPress={closePay}
                 className="flex-1 items-center rounded-xl border border-slate-300 py-3">
-                <Text className="font-semibold text-slate-700">Cancel</Text>
+                <Text className="font-semibold text-slate-700">{el.common.cancel}</Text>
               </Pressable>
               <Pressable
                 onPress={submitPayment}
@@ -438,7 +458,7 @@ const DailyFlowScreen: React.FC = () => {
                 {paySaving ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text className="font-semibold text-white">Record</Text>
+                  <Text className="font-semibold text-white">{el.clinic.record}</Text>
                 )}
               </Pressable>
             </View>

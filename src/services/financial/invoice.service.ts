@@ -4,6 +4,7 @@
 
 import {getDatabase} from '../database';
 import {uuidv4} from '../../utils/uuid';
+import {getPracticeSettings} from '../settings/practiceSettings.service';
 import {allocateFiscalNumber} from './fiscalSequence.service';
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
@@ -167,7 +168,7 @@ export const createInvoice = (input: CreateInvoiceInput): InvoiceRow => {
   }
 
   const db = getDatabase();
-  const vatRate = input.vatRate ?? DEFAULT_VAT_RATE;
+  const vatRate = input.vatRate ?? getPracticeSettings().defaultVatRate ?? DEFAULT_VAT_RATE;
   const {subtotal, vatAmount, totalAmount} = computeTotals(input.lines, vatRate);
   const id = uuidv4();
   const invoiceNumber = allocateFiscalNumber('invoice');
@@ -241,6 +242,33 @@ export const updateInvoiceStatus = (
 };
 
 /** Record payment against invoice and mark paid when amount covers total. */
+/** Parse UI draft rows into validated line inputs; returns null if any row invalid. */
+export function parseInvoiceLineDrafts(
+  drafts: {description: string; quantity: string; unitPrice: string}[],
+): InvoiceLineInput[] | null {
+  const lines: InvoiceLineInput[] = [];
+  for (const draft of drafts) {
+    const description = draft.description.trim();
+    if (!description) {
+      return null;
+    }
+    const qty = Number.parseFloat(draft.quantity.replace(',', '.'));
+    const unit = Number.parseFloat(draft.unitPrice.replace(',', '.'));
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unit) || unit < 0) {
+      return null;
+    }
+    lines.push({description, quantity: qty, unitPrice: unit});
+  }
+  return lines.length > 0 ? lines : null;
+}
+
+export function previewInvoiceTotals(
+  lines: InvoiceLineInput[],
+  vatRate: number = DEFAULT_VAT_RATE,
+): {subtotal: number; vatAmount: number; totalAmount: number} {
+  return computeTotals(lines, vatRate);
+}
+
 export const recordPaymentForInvoice = (
   invoiceId: string,
   amount: number,

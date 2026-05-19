@@ -46,6 +46,28 @@ import {
   type TreatmentPlanStatus,
 } from '../../services/clinical/treatmentPlan.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {
+  el,
+  phasePriorityLabel,
+  planCompleteItemBody,
+  planCompletePlanSuccess,
+  planCompletePlanWithCharges,
+  planDeleteItemBody,
+  planDeleteItemLedgerNote,
+  planDeletePhaseBody,
+  planDeletePhaseEmpty,
+  planDeletePhaseLedgerNote,
+  planDeletePhaseWithItems,
+  planDeletePlanBody,
+  planDeletePlanDetails,
+  planDeletePlanLedgerNote,
+  planItemStatusLabel,
+  planPendingBannerSub,
+  planPostPendingBody,
+  planPostPendingSuccess,
+  treatmentPlanStatusLabel,
+  UI_LOCALE,
+} from '../../i18n';
 
 const TOOTH_PROC_SET = new Set<string>(TOOTH_SITE_PROCEDURE_VALUES);
 const PROCEDURE_OPTIONS = [
@@ -53,34 +75,11 @@ const PROCEDURE_OPTIONS = [
   ...GENERAL_PROCEDURE_VALUES.filter((g) => !TOOTH_PROC_SET.has(g)),
 ];
 
-const STATUS_LABEL: Record<TreatmentPlanStatus, string> = {
-  draft: '\u03A0\u03C1\u03CC\u03C7\u03B5\u03B9\u03C1\u03BF',
-  presented: '\u03A0\u03B1\u03C1\u03BF\u03C5\u03C3\u03B9\u03AC\u03C3\u03C4\u03B7\u03BA\u03B5',
-  approved: '\u0395\u03B3\u03BA\u03B5\u03BA\u03C1\u03B9\u03BC\u03AD\u03BD\u03BF',
-  in_progress: '\u03A3\u03B5 \u03B5\u03BE\u03AD\u03BB\u03B9\u03BE\u03B7',
-  completed: '\u039F\u03BB\u03BF\u03BA\u03BB\u03B7\u03C1\u03CE\u03B8\u03B7\u03BA\u03B5',
-  cancelled: '\u0391\u03BA\u03C5\u03C1\u03CE\u03B8\u03B7\u03BA\u03B5',
-};
-
-const PRIORITY_LABEL: Record<PhasePriority, string> = {
-  urgent: '\u0395\u03C0\u03B5\u03AF\u03B3\u03BF\u03C5\u03C3\u03B1',
-  high: '\u03A5\u03C8\u03B7\u03BB\u03AE',
-  medium: '\u039C\u03B5\u03C3\u03B1\u03AF\u03B1',
-  low: '\u03A7\u03B1\u03BC\u03B7\u03BB\u03AE',
-};
-
-const ITEM_STATUS_LABEL: Record<PlanItemStatus, string> = {
-  pending: '\u0391\u03BD\u03B1\u03BC\u03BF\u03BD\u03AE',
-  scheduled: '\u03A0\u03C1\u03BF\u03B3\u03C1\u03B1\u03BC\u03BC\u03AD\u03BD\u03B7',
-  completed: '\u039F\u03BB\u03BF\u03BA\u03BB\u03B7\u03C1\u03CE\u03B8\u03B7\u03BA\u03B5',
-  cancelled: '\u0391\u03BA\u03C5\u03C1\u03CE\u03B8\u03B7\u03BA\u03B5',
-};
-
 const currencyEl = (n: number) =>
-  new Intl.NumberFormat('en-US', {style: 'currency', currency: 'EUR'}).format(n);
+  new Intl.NumberFormat(UI_LOCALE, {style: 'currency', currency: 'EUR'}).format(n);
 
 const formatChargeAmount = (cost: number | null) =>
-  cost != null ? currencyEl(cost) : '\u20AC0 (\u03C7\u03C9\u03C1\u03AF\u03C2 \u03BA\u03CC\u03C3\u03C4\u03BF\u03C2)';
+  cost != null ? currencyEl(cost) : el.treatmentPlans.zeroCost;
 
 const PatientTreatmentPlanDetailScreen: React.FC = () => {
   const navigation =
@@ -130,25 +129,26 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
     }
     const total = completedPending.reduce((s, i) => s + (i.estimatedCost ?? 0), 0);
     Alert.alert(
-      '\u039A\u03B1\u03C4\u03B1\u03C7\u03CE\u03C1\u03B7\u03C3\u03B7 \u03C3\u03C4\u03BF \u03BB\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF',
-      `\u0398\u03AD\u03BB\u03B5\u03C4\u03B5 \u03BD\u03B1 \u03BA\u03B1\u03C4\u03B1\u03C7\u03C9\u03C1\u03B7\u03B8\u03BF\u03CD\u03BD ${completedPending.length} \u03BF\u03BB\u03BF\u03BA\u03BB\u03B7\u03C1\u03C9\u03BC\u03AD\u03BD\u03B5\u03C2 \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B5\u03C2 \u03C3\u03C4\u03BF \u039B\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF / \u03A0\u03BB\u03B7\u03C1\u03CE\u03BC\u03B5\u03B9\u03C2;\n\n\u03A3\u03CD\u03BD\u03BF\u03BB\u03BF \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7\u03C2: ${currencyEl(total)}`,
+      el.treatmentPlans.postToLedger,
+      planPostPendingBody(completedPending.length, currencyEl(total)),
       [
-        {text: '\u0391\u03BA\u03CD\u03C1\u03C9\u03C3\u03B7', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: '\u039A\u03B1\u03C4\u03B1\u03C7\u03CE\u03C1\u03B7\u03C3\u03B7',
+          text: el.treatmentPlans.postToLedgerBtn,
           onPress: () => {
             void (async () => {
               try {
                 const posted = await postPendingLedgerItemsForPlan(planId);
                 load();
                 Alert.alert(
-                  '\u039B\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF',
-                  posted > 0
-                    ? `\u039A\u03B1\u03C4\u03B1\u03C7\u03C9\u03C1\u03AE\u03B8\u03B7\u03BA\u03B1\u03BD ${posted} \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7(\u03B5\u03B9\u03C2).`
-                    : '\u0394\u03B5\u03BD \u03C5\u03C0\u03AE\u03C1\u03C7\u03B5 \u03BD\u03AD\u03B1 \u03BA\u03B1\u03C4\u03B1\u03C7\u03CE\u03C1\u03B7\u03C3\u03B7.',
+                  el.treatmentPlans.ledgerTitle,
+                  planPostPendingSuccess(posted),
                 );
               } catch (e) {
-                Alert.alert('\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1', e instanceof Error ? e.message : '');
+                Alert.alert(
+                  el.common.error,
+                  e instanceof Error ? e.message : '',
+                );
               }
             })();
           },
@@ -173,19 +173,19 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
     }
 
     Alert.alert(
-      '\u039F\u03BB\u03BF\u03BA\u03BB\u03AE\u03C1\u03C9\u03C3\u03B7 \u03BA\u03B1\u03B9 \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7',
-      `\u0398\u03B1 \u03C3\u03B7\u03BC\u03B5\u03B9\u03C9\u03B8\u03B5\u03AF \u03C9\u03C2 \u03BF\u03BB\u03BF\u03BA\u03BB\u03B7\u03C1\u03C9\u03BC\u03AD\u03BD\u03B7 \u03BA\u03B1\u03B9 \u03B8\u03B1 \u03BA\u03B1\u03C4\u03B1\u03C7\u03C9\u03C1\u03B7\u03B8\u03B5\u03AF \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7 ${formatChargeAmount(item.estimatedCost)} \u03C3\u03C4\u03BF \u039B\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF / \u03A0\u03BB\u03B7\u03C1\u03CE\u03BC\u03B5\u03B9\u03C2.\n\n${item.procedureType}`,
+      el.treatmentPlans.completeItemTitle,
+      planCompleteItemBody(formatChargeAmount(item.estimatedCost), item.procedureType),
       [
-        {text: '\u0391\u03BA\u03CD\u03C1\u03C9\u03C3\u03B7', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: '\u039C\u03CC\u03BD\u03BF \u03BF\u03BB\u03BF\u03BA\u03BB\u03AE\u03C1\u03C9\u03C3\u03B7',
+          text: el.treatmentPlans.markCompleteOnly,
           onPress: () => {
             updateTreatmentPlanItemStatus(item.id, 'completed');
             load();
           },
         },
         {
-          text: '\u039F\u03BB\u03BF\u03BA\u03BB\u03AE\u03C1\u03C9\u03C3\u03B7 + \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7',
+          text: el.treatmentPlans.completeAndCharge,
           onPress: () => {
             void (async () => {
               try {
@@ -194,12 +194,15 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 load();
                 if (posted) {
                   Alert.alert(
-                    '\u039B\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF',
-                    '\u0397 \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7 \u03BA\u03B1\u03C4\u03B1\u03C7\u03C9\u03C1\u03AE\u03B8\u03B7\u03BA\u03B5.',
+                    el.treatmentPlans.ledgerTitle,
+                    el.treatmentPlans.chargeRecorded,
                   );
                 }
               } catch (e) {
-                Alert.alert('\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1', e instanceof Error ? e.message : '');
+                Alert.alert(
+                  el.common.error,
+                  e instanceof Error ? e.message : '',
+                );
               }
             })();
           },
@@ -219,7 +222,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
         updateTreatmentPlan(planId, {status});
         load();
       } catch (e) {
-        Alert.alert('\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1', e instanceof Error ? e.message : '');
+        Alert.alert(el.common.error, e instanceof Error ? e.message : '');
       }
       return;
     }
@@ -229,28 +232,28 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
     const chargeCount = pending.itemCount;
 
     Alert.alert(
-      '\u039F\u03BB\u03BF\u03BA\u03BB\u03AE\u03C1\u03C9\u03C3\u03B7 \u03C3\u03C7\u03B5\u03B4\u03AF\u03BF\u03C5',
+      el.treatmentPlans.completePlanTitle,
       chargeCount > 0
-        ? `\u0398\u03AD\u03BB\u03B5\u03C4\u03B5 \u03BD\u03B1 \u03BF\u03BB\u03BF\u03BA\u03BB\u03B7\u03C1\u03CE\u03C3\u03B5\u03C4\u03B5 \u03CC\u03BB\u03BF \u03C4\u03BF \u03C3\u03C7\u03AD\u03B4\u03B9\u03BF;\n\n\u039C\u03B5 \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7: ${chargeCount} \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B5\u03C2, \u03C3\u03CD\u03BD\u03BF\u03BB\u03BF ${currencyEl(chargeTotal)} \u03C3\u03C4\u03BF \u039B\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF / \u03A0\u03BB\u03B7\u03C1\u03CE\u03BC\u03B5\u03B9\u03C2.`
-        : '\u0398\u03AD\u03BB\u03B5\u03C4\u03B5 \u03BD\u03B1 \u03BF\u03BB\u03BF\u03BA\u03BB\u03B7\u03C1\u03CE\u03C3\u03B5\u03C4\u03B5 \u03CC\u03BB\u03BF \u03C4\u03BF \u03C3\u03C7\u03AD\u03B4\u03B9\u03BF; (\u03CC\u03BB\u03B5\u03C2 \u03BF\u03B9 \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B5\u03C2 \u03B5\u03AF\u03BD\u03B1\u03B9 \u03AE\u03B4\u03B7 \u03C3\u03C4\u03BF \u03BB\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF.)',
+        ? planCompletePlanWithCharges(chargeCount, currencyEl(chargeTotal))
+        : el.treatmentPlans.completePlanNoCharges,
       [
-        {text: '\u0391\u03BA\u03CD\u03C1\u03C9\u03C3\u03B7', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: '\u039C\u03CC\u03BD\u03BF \u03BF\u03BB\u03BF\u03BA\u03BB\u03AE\u03C1\u03C9\u03C3\u03B7',
+          text: el.treatmentPlans.completePlanOnly,
           onPress: () => {
             try {
               updateTreatmentPlan(planId, {status: 'completed'});
               markAllPlanItemsCompleted(planId);
               load();
             } catch (e) {
-              Alert.alert('\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1', e instanceof Error ? e.message : '');
+              Alert.alert(el.common.error, e instanceof Error ? e.message : '');
             }
           },
         },
         ...(chargeCount > 0
           ? [
               {
-                text: '\u039F\u03BB\u03BF\u03BA\u03BB\u03AE\u03C1\u03C9\u03C3\u03B7 + \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7',
+                text: el.treatmentPlans.completePlanAndCharge,
                 onPress: () => {
                   void (async () => {
                     try {
@@ -258,11 +261,14 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                       const posted = await completeTreatmentPlanAndPostToLedger(planId);
                       load();
                       Alert.alert(
-                        '\u039F\u03BB\u03BF\u03BA\u03BB\u03B7\u03C1\u03CE\u03B8\u03B7\u03BA\u03B5',
-                        `\u039A\u03B1\u03C4\u03B1\u03C7\u03C9\u03C1\u03AE\u03B8\u03B7\u03BA\u03B1\u03BD ${posted} \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7(\u03B5\u03B9\u03C2) \u03C3\u03C4\u03BF \u03BB\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF.`,
+                        el.treatmentPlans.planCompleted,
+                        planCompletePlanSuccess(posted),
                       );
                     } catch (e) {
-                      Alert.alert('\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1', e instanceof Error ? e.message : '');
+                      Alert.alert(
+                        el.common.error,
+                        e instanceof Error ? e.message : '',
+                      );
                     }
                   })();
                 },
@@ -283,7 +289,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
       setPhaseModal(false);
       load();
     } catch (e) {
-      Alert.alert('\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1', e instanceof Error ? e.message : '');
+      Alert.alert(el.common.error, e instanceof Error ? e.message : '');
     } finally {
       setBusy(false);
     }
@@ -298,7 +304,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
         ? null
         : Number.parseFloat(itemCost.replace(',', '.'));
     if (itemCost.trim() !== '' && (cost == null || !Number.isFinite(cost))) {
-      Alert.alert('\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1', '\u0388\u03B3\u03BA\u03C5\u03C1\u03BF \u03C0\u03BF\u03C3\u03CC.');
+      Alert.alert(el.common.error, el.treatmentPlans.invalidCost);
       return;
     }
     setBusy(true);
@@ -313,7 +319,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
       setItemModal(null);
       load();
     } catch (e) {
-      Alert.alert('\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1', e instanceof Error ? e.message : '');
+      Alert.alert(el.common.error, e instanceof Error ? e.message : '');
     } finally {
       setBusy(false);
     }
@@ -329,20 +335,20 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
     const ledger = getPlanLedgerPostingSummary(planId);
     const details =
       phaseCount > 0
-        ? `\n\n\u03A0\u03B5\u03C1\u03B9\u03AD\u03C7\u03B5\u03B9 ${phaseCount} \u03C6\u03AC\u03C3\u03B5\u03B9\u03C2 \u03BA\u03B1\u03B9 ${itemCount} \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B5\u03C2. \u0397 \u03B5\u03BD\u03AD\u03C1\u03B3\u03B5\u03B9\u03B1 \u03B4\u03B5\u03BD \u03B1\u03BD\u03B1\u03B9\u03C1\u03B5\u03AF\u03C4\u03B1\u03B9.`
+        ? planDeletePlanDetails(phaseCount, itemCount)
         : '';
     const ledgerNote =
       ledger.postedToLedgerCount > 0
-        ? `\n\n\u0398\u03B1 \u03B1\u03C6\u03B1\u03B9\u03C1\u03B5\u03B8\u03BF\u03CD\u03BD \u03BA\u03B1\u03B9 ${ledger.postedToLedgerCount} \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7(\u03B5\u03B9\u03C2) \u03B1\u03C0\u03CC \u03C4\u03BF \u039B\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF / \u03A0\u03BB\u03B7\u03C1\u03CE\u03BC\u03B5\u03B9\u03C2.`
+        ? planDeletePlanLedgerNote(ledger.postedToLedgerCount)
         : '';
 
     Alert.alert(
-      '\u0394\u03B9\u03B1\u03B3\u03C1\u03B1\u03C6\u03AE \u03C3\u03C7\u03B5\u03B4\u03AF\u03BF\u03C5',
-      `\u039D\u03B1 \u03B4\u03B9\u03B1\u03B3\u03C1\u03B1\u03C6\u03B5\u03AF \u03BF\u03C1\u03B9\u03C3\u03C4\u03B9\u03BA\u03AC \u03C4\u03BF \u03C3\u03C7\u03AD\u03B4\u03B9\u03BF \u00AB${plan.title}\u00BB;${details}${ledgerNote}`,
+      el.treatmentPlans.deletePlan,
+      planDeletePlanBody(plan.title, details, ledgerNote),
       [
-        {text: '\u0391\u03BA\u03CD\u03C1\u03C9\u03C3\u03B7', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: '\u0394\u03B9\u03B1\u03B3\u03C1\u03B1\u03C6\u03AE',
+          text: el.common.delete,
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -351,7 +357,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 navigation.goBack();
               } catch (e) {
                 Alert.alert(
-                  '\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1',
+                  el.common.error,
                   e instanceof Error ? e.message : '',
                 );
               }
@@ -367,20 +373,22 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
     const postedCount = phase.items.filter((i) => i.treatmentId).length;
     const details =
       itemCount > 0
-        ? `\n\n\u0398\u03B1 \u03B4\u03B9\u03B1\u03B3\u03C1\u03B1\u03C6\u03BF\u03CD\u03BD \u03BA\u03B1\u03B9 ${itemCount} \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B5\u03C2 \u03C4\u03B7\u03C2 \u03C6\u03AC\u03C3\u03B7\u03C2. \u0397 \u03B5\u03BD\u03AD\u03C1\u03B3\u03B5\u03B9\u03B1 \u03B4\u03B5\u03BD \u03B1\u03BD\u03B1\u03B9\u03C1\u03B5\u03AF\u03C4\u03B1\u03B9.`
-        : '\n\n\u0397 \u03B5\u03BD\u03AD\u03C1\u03B3\u03B5\u03B9\u03B1 \u03B4\u03B5\u03BD \u03B1\u03BD\u03B1\u03B9\u03C1\u03B5\u03AF\u03C4\u03B1\u03B9.';
+        ? planDeletePhaseWithItems(itemCount)
+        : planDeletePhaseEmpty();
     const ledgerNote =
-      postedCount > 0
-        ? `\n\n\u0398\u03B1 \u03B1\u03C6\u03B1\u03B9\u03C1\u03B5\u03B8\u03BF\u03CD\u03BD \u03BA\u03B1\u03B9 ${postedCount} \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7(\u03B5\u03B9\u03C2) \u03B1\u03C0\u03CC \u03C4\u03BF \u039B\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF.`
-        : '';
+      postedCount > 0 ? planDeletePhaseLedgerNote(postedCount) : '';
 
     Alert.alert(
-      '\u0394\u03B9\u03B1\u03B3\u03C1\u03B1\u03C6\u03AE \u03C6\u03AC\u03C3\u03B7\u03C2',
-      `\u039D\u03B1 \u03B4\u03B9\u03B1\u03B3\u03C1\u03B1\u03C6\u03B5\u03AF \u03B7 \u03C6\u03AC\u03C3\u03B7 \u00AB${phase.phaseNumber}. ${phase.name}\u00BB;${details}${ledgerNote}`,
+      el.treatmentPlans.deletePhase,
+      planDeletePhaseBody(
+        `${phase.phaseNumber}. ${phase.name}`,
+        details,
+        ledgerNote,
+      ),
       [
-        {text: '\u0391\u03BA\u03CD\u03C1\u03C9\u03C3\u03B7', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: '\u0394\u03B9\u03B1\u03B3\u03C1\u03B1\u03C6\u03AE',
+          text: el.common.delete,
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -389,7 +397,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 load();
               } catch (e) {
                 Alert.alert(
-                  '\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1',
+                  el.common.error,
                   e instanceof Error ? e.message : '',
                 );
               }
@@ -402,16 +410,16 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
 
   const confirmDeleteItem = (item: TreatmentPlanItemRow) => {
     const ledgerNote = item.treatmentId
-      ? `\n\n\u0398\u03B1 \u03B1\u03C6\u03B1\u03B9\u03C1\u03B5\u03B8\u03B5\u03AF \u03BA\u03B1\u03B9 \u03B7 \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7 ${formatChargeAmount(item.estimatedCost)} \u03B1\u03C0\u03CC \u03C4\u03BF \u039B\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF.`
+      ? planDeleteItemLedgerNote(formatChargeAmount(item.estimatedCost))
       : '';
 
     Alert.alert(
-      '\u0391\u03C6\u03B1\u03AF\u03C1\u03B5\u03C3\u03B7 \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B1\u03C2',
-      `\u039D\u03B1 \u03B1\u03C6\u03B1\u03B9\u03C1\u03B5\u03B8\u03B5\u03AF \u00AB${item.procedureType}\u00BB;${ledgerNote}`,
+      el.treatmentPlans.removeItemTitle,
+      planDeleteItemBody(item.procedureType, ledgerNote),
       [
-        {text: '\u0391\u03BA\u03CD\u03C1\u03C9\u03C3\u03B7', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: '\u0391\u03C6\u03B1\u03AF\u03C1\u03B5\u03C3\u03B7',
+          text: el.treatmentPlans.removeItem,
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -420,7 +428,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 load();
               } catch (e) {
                 Alert.alert(
-                  '\u03A3\u03C6\u03AC\u03BB\u03BC\u03B1',
+                  el.common.error,
                   e instanceof Error ? e.message : '',
                 );
               }
@@ -454,7 +462,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
           {currencyEl(plan.totalEstimatedCost)}
         </Text>
         <Text className="mt-1 text-sm text-slate-500">
-          {STATUS_LABEL[plan.status]}
+          {treatmentPlanStatusLabel(plan.status)}
         </Text>
 
         <View className="mt-4 flex-row flex-wrap gap-2">
@@ -478,7 +486,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 className={`text-xs font-medium ${
                   plan.status === s ? 'text-blue-800' : 'text-slate-600'
                 }`}>
-                {STATUS_LABEL[s]}
+                {treatmentPlanStatusLabel(s)}
               </Text>
             </Pressable>
           ))}
@@ -496,16 +504,10 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
               onPress={confirmPostPendingToLedger}
               className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
               <Text className="text-sm font-semibold text-amber-900">
-                {
-                  '\u039F\u03BB\u03BF\u03BA\u03BB\u03B7\u03C1\u03C9\u03BC\u03AD\u03BD\u03B5\u03C2 \u03C7\u03C9\u03C1\u03AF\u03C2 \u03C7\u03C1\u03AD\u03C9\u03C3\u03B7 \u03C3\u03C4\u03BF \u03BB\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF'
-                }
+                {el.treatmentPlans.pendingNoChargeBanner}
               </Text>
               <Text className="mt-1 text-xs text-amber-800">
-                {unposted.length}{' '}
-                {'\u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B5\u03C2 \u00B7 '}
-                {currencyEl(total)}
-                {' \u00B7 '}
-                {'\u03A0\u03AC\u03C4\u03B1 \u03B3\u03B9\u03B1 \u03BA\u03B1\u03C4\u03B1\u03C7\u03CE\u03C1\u03B7\u03C3\u03B7'}
+                {planPendingBannerSub(unposted.length, currencyEl(total))}
               </Text>
             </Pressable>
           );
@@ -516,13 +518,13 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
           className="mt-5 flex-row items-center justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50 py-3">
           <MaterialIcons name="add" size={20} color="#1d4ed8" />
           <Text className="ml-1 font-semibold text-blue-800">
-            {'\u039D\u03AD\u03B1 \u03C6\u03AC\u03C3\u03B7'}
+            {el.treatmentPlans.newPhase}
           </Text>
         </Pressable>
 
         {(plan.phases ?? []).length === 0 ? (
           <Text className="mt-6 text-center text-slate-500">
-            {'\u03A0\u03C1\u03BF\u03C3\u03B8\u03AD\u03C3\u03C4\u03B5 \u03BC\u03AF\u03B1 \u03C6\u03AC\u03C3\u03B7 \u03BA\u03B1\u03B9 \u03C0\u03C1\u03BF\u03C3\u03B8\u03AD\u03C3\u03C4\u03B5 \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B5\u03C2.'}
+            {el.treatmentPlans.addPhaseHint}
           </Text>
         ) : (
           (plan.phases ?? []).map((phase) => (
@@ -541,13 +543,13 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                   </Pressable>
                 </View>
                 <Text className="mt-1 text-xs text-slate-500">
-                  {PRIORITY_LABEL[phase.priority]} · {phase.status}
+                  {phasePriorityLabel(phase.priority)} · {phase.status}
                 </Text>
               </View>
 
               {phase.items.length === 0 ? (
                 <Text className="px-4 py-3 text-sm text-slate-500">
-                  {'\u039A\u03B1\u03BC\u03AF\u03B1 \u03B8\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B1.'}
+                  {el.treatmentPlans.noItemsInPhase}
                 </Text>
               ) : (
                 phase.items.map((item) => (
@@ -559,7 +561,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                     </Text>
                     {item.toothNumbers.length > 0 ? (
                       <Text className="mt-0.5 text-xs text-slate-600">
-                        {'\u0394\u03CC\u03BD\u03C4\u03B9\u03B1: '}
+                        {el.treatmentPlans.teeth}
                         {item.toothNumbers.join(', ')}
                       </Text>
                     ) : null}
@@ -573,10 +575,8 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                           : '—'}
                       </Text>
                       <Text className="text-xs text-slate-500">
-                        {ITEM_STATUS_LABEL[item.status]}
-                        {item.treatmentId
-                          ? ' \u00B7 \u03A3\u03C4\u03BF \u03BB\u03BF\u03B3\u03B9\u03C3\u03C4\u03AE\u03C1\u03B9\u03BF'
-                          : ''}
+                        {planItemStatusLabel(item.status)}
+                        {item.treatmentId ? el.treatmentPlans.onLedger : ''}
                       </Text>
                     </View>
                     <View className="mt-2 flex-row flex-wrap gap-2">
@@ -590,7 +590,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                             item.status === st ? 'bg-blue-100' : 'bg-slate-100'
                           }`}>
                           <Text className="text-xs text-slate-700">
-                            {ITEM_STATUS_LABEL[st]}
+                            {planItemStatusLabel(st)}
                           </Text>
                         </Pressable>
                       ))}
@@ -598,7 +598,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                         onPress={() => confirmDeleteItem(item)}
                         className="rounded-lg bg-red-50 px-2 py-1">
                         <Text className="text-xs text-red-700">
-                          {'\u0391\u03C6\u03B1\u03AF\u03C1\u03B5\u03C3\u03B7'}
+                          {el.treatmentPlans.removeItem}
                         </Text>
                       </Pressable>
                     </View>
@@ -617,7 +617,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 className="flex-row items-center justify-center border-t border-slate-100 py-3 active:bg-slate-50">
                 <MaterialIcons name="add" size={18} color="#1d4ed8" />
                 <Text className="ml-1 text-sm font-semibold text-blue-700">
-                  {'\u0398\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B1 \u03C3\u03C4\u03B7 \u03C6\u03AC\u03C3\u03B7'}
+                  {el.treatmentPlans.treatmentInPhase}
                 </Text>
               </Pressable>
             </View>
@@ -628,7 +628,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
           onPress={confirmDeletePlan}
           className="mt-8 items-center rounded-xl border border-red-200 bg-red-50 py-3">
           <Text className="font-semibold text-red-700">
-            {'\u0394\u03B9\u03B1\u03B3\u03C1\u03B1\u03C6\u03AE \u03C3\u03C7\u03B5\u03B4\u03AF\u03BF\u03C5'}
+            {el.treatmentPlans.deletePlanBtn}
           </Text>
         </Pressable>
       </ScrollView>
@@ -644,15 +644,15 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
           <Pressable
             className="rounded-t-2xl bg-white p-5 pb-8"
             onPress={(e) => e.stopPropagation()}>
-            <Text className="text-lg font-bold">{'\u039D\u03AD\u03B1 \u03C6\u03AC\u03C3\u03B7'}</Text>
+            <Text className="text-lg font-bold">{el.treatmentPlans.newPhaseModal}</Text>
             <TextInput
               className="mt-4 rounded-lg border border-slate-200 px-3 py-2.5"
-              placeholder={'\u0388\u03BD\u03B1\u03C1\u03BE\u03B7 \u03C6\u03AC\u03C3\u03B7\u03C2'}
+              placeholder={el.treatmentPlans.phaseNamePlaceholder}
               value={phaseName}
               onChangeText={setPhaseName}
             />
             <Text className="mb-2 mt-3 text-sm text-slate-600">
-              {'\u03A0\u03C1\u03BF\u03C4\u03B5\u03C1\u03B1\u03B9\u03CC\u03C4\u03B7\u03C4\u03B1'}
+              {el.treatmentPlans.priorityLabel}
             </Text>
             <View className="flex-row flex-wrap gap-2">
               {(['urgent', 'high', 'medium', 'low'] as PhasePriority[]).map((p) => (
@@ -666,7 +666,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                     className={`text-xs font-medium ${
                       phasePriority === p ? 'text-white' : 'text-slate-700'
                     }`}>
-                    {PRIORITY_LABEL[p]}
+                    {phasePriorityLabel(p)}
                   </Text>
                 </Pressable>
               ))}
@@ -675,14 +675,14 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
               <Pressable
                 onPress={() => setPhaseModal(false)}
                 className="flex-1 rounded-xl border py-3">
-                <Text className="text-center font-semibold">{'\u0391\u03BA\u03CD\u03C1\u03C9\u03C3\u03B7'}</Text>
+                <Text className="text-center font-semibold">{el.common.cancel}</Text>
               </Pressable>
               <Pressable
                 onPress={savePhase}
                 disabled={busy}
                 className="flex-1 rounded-xl bg-blue-600 py-3">
                 <Text className="text-center font-semibold text-white">
-                  {'\u0391\u03C0\u03BF\u03B8\u03AE\u03BA\u03B5\u03C5\u03C3\u03B7'}
+                  {el.treatmentPlans.save}
                 </Text>
               </Pressable>
             </View>
@@ -705,10 +705,10 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
               keyboardShouldPersistTaps="handled"
               className="p-5 pb-8">
               <Text className="text-lg font-bold">
-                {'\u0398\u03B5\u03C1\u03B1\u03C0\u03B5\u03AF\u03B1'}
+                {el.treatmentPlans.treatmentModal}
               </Text>
               <Text className="mb-2 mt-3 text-sm font-medium text-slate-700">
-                {'\u03A4\u03CD\u03C0\u03BF\u03C2'}
+                {el.treatmentPlans.procedureType}
               </Text>
               <ScrollView className="max-h-40" nestedScrollEnabled>
                 {PROCEDURE_OPTIONS.map((proc) => (
@@ -725,18 +725,18 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 ))}
               </ScrollView>
               <Text className="mb-1 mt-2 text-sm font-medium text-slate-700">
-                {'\u0394\u03CC\u03BD\u03C4\u03B9\u03B1 (FDI, \u03C0.\u03C7. 11, 12 \u03AE 25)'}
+                {el.treatmentPlans.teethFdi}
               </Text>
               <TextInput
                 className="rounded-lg border border-slate-200 px-3 py-2"
                 value={itemTeeth}
                 onChangeText={setItemTeeth}
-                placeholder="11, 12"
+                placeholder={el.treatmentPlans.teethPlaceholder}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
               <Text className="mb-1 mt-2 text-sm font-medium text-slate-700">
-                {'\u03A0\u03B5\u03C1\u03B9\u03B3\u03C1\u03B1\u03C6\u03AE'}
+                {el.treatmentPlans.description}
               </Text>
               <TextInput
                 className="rounded-lg border border-slate-200 px-3 py-2"
@@ -744,7 +744,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 onChangeText={setItemDesc}
               />
               <Text className="mb-1 mt-2 text-sm font-medium text-slate-700">
-                {'\u0395\u03BA\u03C4\u03B9\u03BC\u03C9\u03BC\u03AD\u03BD\u03BF \u03BA\u03CC\u03C3\u03C4\u03BF\u03C2 (\u20AC)'}
+                {el.treatmentPlans.estimatedCost}
               </Text>
               <TextInput
                 className="rounded-lg border border-slate-200 px-3 py-2"
@@ -756,14 +756,14 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 <Pressable
                   onPress={() => setItemModal(null)}
                   className="flex-1 rounded-xl border py-3">
-                  <Text className="text-center font-semibold">{'\u0391\u03BA\u03CD\u03C1\u03C9\u03C3\u03B7'}</Text>
+                  <Text className="text-center font-semibold">{el.common.cancel}</Text>
                 </Pressable>
                 <Pressable
                   onPress={saveItem}
                   disabled={busy}
                   className="flex-1 rounded-xl bg-blue-600 py-3">
                   <Text className="text-center font-semibold text-white">
-                    {'\u0391\u03C0\u03BF\u03B8\u03AE\u03BA\u03B5\u03C5\u03C3\u03B7'}
+                    {el.treatmentPlans.save}
                   </Text>
                 </Pressable>
               </View>

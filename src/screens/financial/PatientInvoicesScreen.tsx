@@ -12,6 +12,8 @@ import {
   Alert,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import {useFocusEffect, useRoute} from '@react-navigation/native';
@@ -19,13 +21,21 @@ import {MaterialIcons} from '@expo/vector-icons';
 import {getPatientById} from '../../services/patient';
 import {
   createInvoice,
+  getInvoiceLines,
   getPatientInvoices,
   getTreatmentLineSuggestions,
+  parseInvoiceLineDrafts,
   recordPaymentForInvoice,
   updateInvoiceStatus,
   type InvoiceRow,
   type InvoiceStatus,
 } from '../../services/financial/invoice.service';
+import {shareInvoicePdf} from '../../services/financial/invoicePdf.service';
+import InvoiceLinesEditor, {
+  createEmptyLineDraft,
+  draftsFromSuggestions,
+  type InvoiceLineDraft,
+} from '../../components/financial/InvoiceLinesEditor';
 import {
   createReceipt,
   getPatientReceipts,
@@ -35,11 +45,18 @@ import {PAYMENT_METHODS} from '../../services/financial/payment.service';
 import {submitReceiptToMyData} from '../../services/financial/mydata.service';
 import {useAuthStore} from '../../store/auth.store';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {
+  el,
+  invoiceStatusLabel,
+  invoiceRecordPaymentBody,
+  paymentMethodLabel,
+  UI_LOCALE,
+} from '../../i18n';
 
 type TabKey = 'invoices' | 'receipts';
 
 const currencyEl = (n: number) =>
-  new Intl.NumberFormat('en-US', {
+  new Intl.NumberFormat(UI_LOCALE, {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 2,
@@ -47,19 +64,12 @@ const currencyEl = (n: number) =>
 
 const formatWhen = (iso: string) => {
   try {
-    return new Intl.DateTimeFormat('en-GB', {dateStyle: 'medium'}).format(
+    return new Intl.DateTimeFormat(UI_LOCALE, {dateStyle: 'medium'}).format(
       new Date(iso),
     );
   } catch {
     return iso;
   }
-};
-
-const STATUS_LABEL: Record<InvoiceStatus, string> = {
-  draft: 'Draft',
-  issued: 'Issued',
-  paid: 'Paid',
-  cancelled: 'Cancelled',
 };
 
 const STATUS_COLOR: Record<InvoiceStatus, string> = {
@@ -86,7 +96,10 @@ const PatientInvoicesScreen: React.FC = () => {
 
   const [invoiceModal, setInvoiceModal] = useState(false);
   const [receiptModal, setReceiptModal] = useState(false);
-  const [lineDesc, setLineDesc] = useState('Dental services');
+  const [invoiceLineDrafts, setInvoiceLineDrafts] = useState<InvoiceLineDraft[]>([
+    createEmptyLineDraft(),
+  ]);
+  const [lineDesc, setLineDesc] = useState('');
   const [lineAmount, setLineAmount] = useState('');
   const [payMethod, setPayMethod] = useState<string>(PAYMENT_METHODS.CASH);
   const [saving, setSaving] = useState(false);
@@ -121,44 +134,73 @@ const PatientInvoicesScreen: React.FC = () => {
 
   const openInvoiceModal = () => {
     const suggestions = getTreatmentLineSuggestions(patientId);
-    if (suggestions.length > 0) {
-      setLineDesc(suggestions[0].description);
-      setLineAmount(String(suggestions[0].unitPrice));
-    } else {
-      setLineDesc('Dental services');
-      setLineAmount('');
-    }
+    setInvoiceLineDrafts(
+      suggestions.length > 0
+        ? draftsFromSuggestions(suggestions)
+        : [
+            {
+              ...createEmptyLineDraft(),
+              description: el.invoices.defaultService,
+            },
+          ],
+    );
     setInvoiceModal(true);
   };
 
+  const importTreatmentsToDraft = () => {
+    const suggestions = getTreatmentLineSuggestions(patientId);
+    if (suggestions.length === 0) {
+      Alert.alert(el.common.error, el.invoices.importTreatmentsEmpty);
+      return;
+    }
+    setInvoiceLineDrafts(draftsFromSuggestions(suggestions));
+  };
+
   const saveInvoice = () => {
-    const amt = parseAmount(lineAmount);
-    if (!lineDesc.trim() || amt == null) {
-      Alert.alert('Validation', 'Enter description and a valid amount.');
+    const lines = parseInvoiceLineDrafts(invoiceLineDrafts);
+    if (!lines) {
+      Alert.alert(el.appointments.validationErrorTitle, el.invoices.validation);
       return;
     }
     setSaving(true);
     try {
       createInvoice({
         patientId,
-        lines: [{description: lineDesc.trim(), quantity: 1, unitPrice: amt}],
+        lines,
         status: 'issued',
         createdBy: user?.id ?? null,
       });
       setInvoiceModal(false);
       void load();
-      Alert.alert('Invoice created', 'The invoice has been saved.');
+      Alert.alert(el.common.success, el.invoices.invoiceCreated);
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not create invoice.');
+      Alert.alert(
+        el.common.error,
+        e instanceof Error ? e.message : el.invoices.invoiceCreateFailed,
+      );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onShareInvoicePdf = async (invoiceId: string) => {
+    try {
+      setBusyId(invoiceId);
+      await shareInvoicePdf(invoiceId);
+    } catch (e) {
+      Alert.alert(
+        el.common.error,
+        e instanceof Error ? e.message : el.invoices.pdfFailed,
+      );
+    } finally {
+      setBusyId(null);
     }
   };
 
   const saveReceipt = () => {
     const amt = parseAmount(lineAmount);
     if (!lineDesc.trim() || amt == null) {
-      Alert.alert('Validation', 'Enter description and a valid amount.');
+      Alert.alert(el.appointments.validationErrorTitle, el.invoices.validation);
       return;
     }
     setSaving(true);
@@ -172,9 +214,12 @@ const PatientInvoicesScreen: React.FC = () => {
       });
       setReceiptModal(false);
       void load();
-      Alert.alert('Receipt created', 'Receipt and payment have been recorded.');
+      Alert.alert(el.common.success, el.invoices.receiptCreated);
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not create receipt.');
+      Alert.alert(
+        el.common.error,
+        e instanceof Error ? e.message : el.invoices.receiptCreateFailed,
+      );
     } finally {
       setSaving(false);
     }
@@ -182,12 +227,12 @@ const PatientInvoicesScreen: React.FC = () => {
 
   const onPayInvoice = (inv: InvoiceRow) => {
     Alert.alert(
-      'Record payment',
-      `Record full payment of ${currencyEl(inv.totalAmount)} for ${inv.invoiceNumber}?`,
+      el.invoices.recordPaymentTitle,
+      invoiceRecordPaymentBody(currencyEl(inv.totalAmount), inv.invoiceNumber),
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: 'Record',
+          text: el.invoices.record,
           onPress: () => {
             try {
               recordPaymentForInvoice(
@@ -196,11 +241,11 @@ const PatientInvoicesScreen: React.FC = () => {
                 PAYMENT_METHODS.CASH,
               );
               void load();
-              Alert.alert('Paid', 'Payment linked to invoice.');
+              Alert.alert(el.invoices.paid, el.invoices.paidLinked);
             } catch (e) {
               Alert.alert(
-                'Error',
-                e instanceof Error ? e.message : 'Could not record payment.',
+                el.common.error,
+                e instanceof Error ? e.message : el.invoices.paymentRecordFailed,
               );
             }
           },
@@ -210,10 +255,13 @@ const PatientInvoicesScreen: React.FC = () => {
   };
 
   const onCancelInvoice = (inv: InvoiceRow) => {
-    Alert.alert('Cancel invoice', `Cancel ${inv.invoiceNumber}?`, [
-      {text: 'No', style: 'cancel'},
+    Alert.alert(
+      el.invoices.cancelInvoice,
+      `${el.invoices.cancelConfirm} ${inv.invoiceNumber};`,
+      [
+      {text: el.invoices.cancelInvoiceNo, style: 'cancel'},
       {
-        text: 'Cancel invoice',
+        text: el.invoices.cancelInvoice,
         style: 'destructive',
         onPress: () => {
           updateInvoiceStatus(inv.id, 'cancelled');
@@ -230,10 +278,10 @@ const PatientInvoicesScreen: React.FC = () => {
     try {
       setBusyId(receiptId);
       const mark = await submitReceiptToMyData(receiptId);
-      Alert.alert('myDATA', `Submitted (simulation). Mark: ${mark}`);
+      Alert.alert('myDATA', `${el.invoices.mydataSubmitted} ${mark}`);
       void load();
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Submission failed.');
+      Alert.alert(el.common.error, e instanceof Error ? e.message : el.invoices.submitFailed);
     } finally {
       setBusyId(null);
     }
@@ -242,6 +290,7 @@ const PatientInvoicesScreen: React.FC = () => {
   const renderFormModal = (
     visible: boolean,
     title: string,
+    isReceipt: boolean,
     onClose: () => void,
     onSave: () => void,
   ) => (
@@ -250,18 +299,18 @@ const PatientInvoicesScreen: React.FC = () => {
         <View className="rounded-t-2xl bg-white p-5 pb-8">
           <Text className="text-lg font-bold text-slate-900">{title}</Text>
           <Text className="mt-1 text-sm text-slate-600">
-            VAT 24% is calculated automatically on the net amount.
+            {el.invoices.vatHint}
           </Text>
 
-          <Text className="mt-4 text-sm font-medium text-slate-700">Description</Text>
+          <Text className="mt-4 text-sm font-medium text-slate-700">{el.invoices.description}</Text>
           <TextInput
             className="mt-1 rounded-lg border border-slate-200 px-3 py-2.5 text-base text-slate-900"
             value={lineDesc}
             onChangeText={setLineDesc}
-            placeholder="Service description"
+            placeholder={el.invoices.descriptionPlaceholder}
           />
 
-          <Text className="mt-3 text-sm font-medium text-slate-700">Net amount (EUR)</Text>
+          <Text className="mt-3 text-sm font-medium text-slate-700">{el.invoices.netAmount}</Text>
           <TextInput
             className="mt-1 rounded-lg border border-slate-200 px-3 py-2.5 text-base text-slate-900"
             value={lineAmount}
@@ -270,9 +319,9 @@ const PatientInvoicesScreen: React.FC = () => {
             placeholder="0.00"
           />
 
-          {title.includes('Receipt') ? (
+          {isReceipt ? (
             <>
-              <Text className="mt-3 text-sm font-medium text-slate-700">Payment method</Text>
+              <Text className="mt-3 text-sm font-medium text-slate-700">{el.clinic.method}</Text>
               <View className="mt-2 flex-row flex-wrap gap-2">
                 {Object.values(PAYMENT_METHODS).map((m) => (
                   <Pressable
@@ -287,7 +336,7 @@ const PatientInvoicesScreen: React.FC = () => {
                       className={`text-sm font-medium ${
                         payMethod === m ? 'text-white' : 'text-slate-700'
                       }`}>
-                      {m}
+                      {paymentMethodLabel(m)}
                     </Text>
                   </Pressable>
                 ))}
@@ -300,7 +349,7 @@ const PatientInvoicesScreen: React.FC = () => {
               onPress={onClose}
               disabled={saving}
               className="flex-1 rounded-xl border border-slate-200 py-3">
-              <Text className="text-center font-semibold text-slate-700">Cancel</Text>
+              <Text className="text-center font-semibold text-slate-700">{el.common.cancel}</Text>
             </Pressable>
             <Pressable
               onPress={onSave}
@@ -309,7 +358,7 @@ const PatientInvoicesScreen: React.FC = () => {
               {saving ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text className="text-center font-semibold text-white">Save</Text>
+                <Text className="text-center font-semibold text-white">{el.common.save}</Text>
               )}
             </Pressable>
           </View>
@@ -334,18 +383,15 @@ const PatientInvoicesScreen: React.FC = () => {
         className="flex-1 bg-slate-50"
         contentContainerStyle={{padding: pad, paddingBottom: 32}}>
         <Text className="text-lg font-semibold text-slate-900">
-          {patientName || 'Patient'} — Invoices & receipts
+          {patientName || el.common.patient} {el.invoices.headerSuffix}
         </Text>
-        <Text className="mt-1 text-sm text-slate-600">
-          Τιμολόγια (B2B) και αποδείξεις (retail). Numbers are sequential per year.
-        </Text>
+        <Text className="mt-1 text-sm text-slate-600">{el.invoices.intro}</Text>
 
         {!afmOk ? (
           <View className="mt-4 flex-row gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
             <MaterialIcons name="info-outline" size={22} color="#b45309" />
             <Text className="flex-1 text-sm text-amber-900">
-              Patient AFM missing — myDATA submission will stay disabled until AFM is set on
-              the profile.
+              {el.invoices.afmMissing}
             </Text>
           </View>
         ) : null}
@@ -362,7 +408,7 @@ const PatientInvoicesScreen: React.FC = () => {
                 className={`text-center text-sm font-semibold ${
                   tab === key ? 'text-white' : 'text-slate-600'
                 }`}>
-                {key === 'invoices' ? 'Invoices' : 'Receipts'}
+                {key === 'invoices' ? el.invoices.tabInvoices : el.invoices.tabReceipts}
               </Text>
             </Pressable>
           ))}
@@ -373,7 +419,7 @@ const PatientInvoicesScreen: React.FC = () => {
           className="mt-4 flex-row items-center justify-center rounded-xl bg-slate-900 py-3.5 active:bg-slate-800">
           <MaterialIcons name="add" size={22} color="#fff" />
           <Text className="ml-1 text-base font-semibold text-white">
-            {tab === 'invoices' ? 'New invoice' : 'New receipt'}
+            {tab === 'invoices' ? el.invoices.newInvoice : el.invoices.newReceipt}
           </Text>
         </Pressable>
 
@@ -398,7 +444,7 @@ const PatientInvoicesScreen: React.FC = () => {
                     <View
                       className={`rounded-full px-2.5 py-1 ${STATUS_COLOR[inv.status]}`}>
                       <Text className="text-xs font-semibold">
-                        {STATUS_LABEL[inv.status]}
+                        {invoiceStatusLabel(inv.status)}
                       </Text>
                     </View>
                   </View>
@@ -406,21 +452,42 @@ const PatientInvoicesScreen: React.FC = () => {
                     {currencyEl(inv.totalAmount)}
                   </Text>
                   <Text className="text-xs text-slate-500">
-                    Net {currencyEl(inv.subtotal)} + VAT {currencyEl(inv.vatAmount)}
+                    {el.invoices.netLabel} {currencyEl(inv.subtotal)} + {el.invoices.vatLabel}{' '}
+                    {currencyEl(inv.vatAmount)}
                   </Text>
+                  <Text className="mt-1 text-xs text-slate-500">
+                    {getInvoiceLines(inv.id).length} {el.invoices.linesCount}
+                  </Text>
+                  <Pressable
+                    disabled={busyId === inv.id}
+                    onPress={() => void onShareInvoicePdf(inv.id)}
+                    className="mt-3 flex-row items-center justify-center rounded-lg border border-slate-200 bg-slate-50 py-2.5 disabled:opacity-50">
+                    {busyId === inv.id ? (
+                      <ActivityIndicator size="small" color="#0f172a" />
+                    ) : (
+                      <>
+                        <MaterialIcons name="picture-as-pdf" size={18} color="#0f172a" />
+                        <Text className="ml-2 text-sm font-semibold text-slate-800">
+                          {el.invoices.sharePdf}
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
                   {inv.status === 'issued' ? (
-                    <View className="mt-3 flex-row gap-2">
+                    <View className="mt-2 flex-row gap-2">
                       <Pressable
                         onPress={() => onPayInvoice(inv)}
                         className="flex-1 rounded-lg border border-emerald-200 bg-emerald-50 py-2">
                         <Text className="text-center text-sm font-semibold text-emerald-800">
-                          Record payment
+                          {el.invoices.recordPayment}
                         </Text>
                       </Pressable>
                       <Pressable
                         onPress={() => onCancelInvoice(inv)}
                         className="rounded-lg border border-slate-200 px-3 py-2">
-                        <Text className="text-sm font-semibold text-slate-600">Cancel</Text>
+                        <Text className="text-sm font-semibold text-slate-600">
+                          {el.common.cancel}
+                        </Text>
                       </Pressable>
                     </View>
                   ) : null}
@@ -440,7 +507,7 @@ const PatientInvoicesScreen: React.FC = () => {
                   {rec.receiptNumber}
                 </Text>
                 <Text className="mt-1 text-xs text-slate-500">
-                  {formatWhen(rec.issueDate)} · {rec.paymentMethod}
+                  {formatWhen(rec.issueDate)} · {paymentMethodLabel(rec.paymentMethod)}
                 </Text>
                 <Text className="mt-2 text-lg font-bold text-slate-900">
                   {currencyEl(rec.totalAmount)}
@@ -463,7 +530,7 @@ const PatientInvoicesScreen: React.FC = () => {
                       <>
                         <MaterialIcons name="cloud-upload" size={18} color="#1d4ed8" />
                         <Text className="ml-2 text-sm font-semibold text-blue-800">
-                          Submit to myDATA
+                          {el.invoices.submitMydata}
                         </Text>
                       </>
                     )}
@@ -475,15 +542,60 @@ const PatientInvoicesScreen: React.FC = () => {
         )}
       </ScrollView>
 
-      {renderFormModal(
-        invoiceModal,
-        'New invoice (Τιμολόγιο)',
-        () => setInvoiceModal(false),
-        saveInvoice,
-      )}
+      <Modal
+        visible={invoiceModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setInvoiceModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1 justify-end bg-black/40">
+          <View className="max-h-[92%] rounded-t-2xl bg-white">
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              className="p-5 pb-4"
+              contentContainerStyle={{paddingBottom: 8}}>
+              <Text className="text-lg font-bold text-slate-900">
+                {el.invoices.newInvoiceTitle}
+              </Text>
+              <Text className="mt-1 text-sm text-slate-600">{el.invoices.vatHint}</Text>
+              <View className="mt-4">
+                <InvoiceLinesEditor
+                  lines={invoiceLineDrafts}
+                  onChange={setInvoiceLineDrafts}
+                  onImportTreatments={importTreatmentsToDraft}
+                />
+              </View>
+            </ScrollView>
+            <View className="flex-row gap-2 border-t border-slate-100 p-5">
+              <Pressable
+                onPress={() => setInvoiceModal(false)}
+                disabled={saving}
+                className="flex-1 rounded-xl border border-slate-200 py-3">
+                <Text className="text-center font-semibold text-slate-700">
+                  {el.common.cancel}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={saveInvoice}
+                disabled={saving}
+                className="flex-1 rounded-xl bg-slate-900 py-3 disabled:opacity-50">
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text className="text-center font-semibold text-white">
+                    {el.common.save}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
       {renderFormModal(
         receiptModal,
-        'New receipt (Απόδειξη)',
+        el.invoices.newReceiptTitle,
+        true,
         () => setReceiptModal(false),
         saveReceipt,
       )}
@@ -500,7 +612,7 @@ function EmptyState({kind}: {kind: 'invoice' | 'receipt'}) {
         color="#94a3b8"
       />
       <Text className="mt-3 text-center text-slate-600">
-        No {kind === 'invoice' ? 'invoices' : 'receipts'} yet.
+        {kind === 'invoice' ? el.invoices.emptyInvoices : el.invoices.emptyReceipts}
       </Text>
     </View>
   );

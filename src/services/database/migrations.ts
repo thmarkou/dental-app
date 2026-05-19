@@ -536,4 +536,77 @@ export const migrations: Migration[] = [
       );
     },
   },
+  {
+    version: 14,
+    up: (database) => {
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS practice_settings (
+          id TEXT PRIMARY KEY CHECK (id = 'default'),
+          legal_name TEXT NOT NULL DEFAULT '',
+          trade_name TEXT,
+          afm TEXT,
+          doy TEXT,
+          activity_code TEXT,
+          address_street TEXT,
+          address_city TEXT,
+          address_postal_code TEXT,
+          address_country TEXT NOT NULL DEFAULT 'Ελλάδα',
+          phone TEXT,
+          email TEXT,
+          website TEXT,
+          default_vat_rate REAL NOT NULL DEFAULT 24,
+          invoice_footer TEXT,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      database.execute(
+        `INSERT OR IGNORE INTO practice_settings (id, legal_name, updated_at)
+         VALUES ('default', '', datetime('now'));`,
+      );
+    },
+  },
+  {
+    version: 15,
+    up: (database) => {
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS inventory_items (
+          id TEXT PRIMARY KEY,
+          sku TEXT,
+          name TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT 'other',
+          unit TEXT NOT NULL DEFAULT 'τεμ',
+          quantity REAL NOT NULL DEFAULT 0,
+          min_quantity REAL NOT NULL DEFAULT 0,
+          unit_cost REAL,
+          supplier TEXT,
+          location TEXT,
+          notes TEXT,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS inventory_movements (
+          id TEXT PRIMARY KEY,
+          item_id TEXT NOT NULL,
+          movement_type TEXT NOT NULL CHECK (
+            movement_type IN ('purchase', 'usage', 'adjustment')
+          ),
+          quantity_delta REAL NOT NULL,
+          quantity_after REAL NOT NULL,
+          notes TEXT,
+          performed_by TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+        );
+      `);
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_inventory_movements_item ON inventory_movements(item_id, created_at);',
+      );
+    },
+  },
 ];

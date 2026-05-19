@@ -31,6 +31,7 @@ import Card from '../../components/common/Card';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {DatePickerField} from '../../components/common/DatePickerField';
 import {TimePickerField} from '../../components/common/TimePickerField';
+import {el, appointmentTypeLabel, appointmentStatusLabel} from '../../i18n';
 
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -87,7 +88,7 @@ const AddEditAppointmentScreen = () => {
       return result;
     } catch (error) {
       console.error('Error loading patients:', error);
-      Alert.alert('Error', 'Failed to load patients');
+      Alert.alert(el.common.error, el.appointments.loadPatientsFailed);
       return [];
     } finally {
       setLoadingPatients(false);
@@ -99,7 +100,7 @@ const AddEditAppointmentScreen = () => {
       setLoading(true);
       const appointment = await getAppointmentById(appointmentId);
       if (!appointment) {
-        Alert.alert('Error', 'Appointment not found');
+        Alert.alert(el.common.error, el.appointments.notFound);
         navigation.goBack();
         return;
       }
@@ -120,7 +121,7 @@ const AddEditAppointmentScreen = () => {
       setNotes(appointment.notes || '');
     } catch (error) {
       console.error('Error loading appointment:', error);
-      Alert.alert('Error', 'Failed to load appointment data');
+      Alert.alert(el.common.error, el.appointments.loadAppointmentFailed);
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -132,23 +133,23 @@ const AddEditAppointmentScreen = () => {
     const newErrors: Record<string, string> = {};
 
     if (!patientId) {
-      newErrors.patientId = 'Patient is required';
+      newErrors.patientId = el.appointments.patientRequired;
     }
 
     if (mode === 'add') {
       const sel = startOfDay(appointmentDate);
       const today = startOfDay(new Date());
       if (sel < today) {
-        newErrors.date = 'Date cannot be in the past';
+        newErrors.date = el.appointments.datePast;
       }
     }
 
     if (!Number.isFinite(startTimeAt.getTime())) {
-      newErrors.startTime = 'Start time is required';
+      newErrors.startTime = el.appointments.startTimeRequired;
     }
 
     if (!duration || parseInt(duration) <= 0) {
-      newErrors.duration = 'Duration must be greater than 0';
+      newErrors.duration = el.appointments.durationInvalid;
     }
 
     setErrors(newErrors);
@@ -158,12 +159,12 @@ const AddEditAppointmentScreen = () => {
   // Handle save
   const handleSave = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors in the form');
+      Alert.alert(el.appointments.validationErrorTitle, el.appointments.validationError);
       return;
     }
 
     if (!user) {
-      Alert.alert('Error', 'User not found');
+      Alert.alert(el.common.error, el.appointments.userNotFound);
       return;
     }
 
@@ -196,22 +197,19 @@ const AddEditAppointmentScreen = () => {
 
       if (mode === 'add') {
         await createAppointment(appointmentData, user.id);
-        Alert.alert('Success', 'Appointment created successfully', [
+        Alert.alert(el.common.success, el.appointments.createSuccess, [
           {text: 'OK', onPress: () => navigation.goBack()},
         ]);
       } else {
         const {createdBy: _createdBy, ...appointmentUpdate} = appointmentData;
         await updateAppointment(appointmentId, appointmentUpdate);
-        Alert.alert('Success', 'Appointment updated successfully', [
+        Alert.alert(el.common.success, el.appointments.updateSuccess, [
           {text: 'OK', onPress: () => navigation.goBack()},
         ]);
       }
     } catch (error) {
       console.error('Error saving appointment:', error);
-      Alert.alert(
-        'Error',
-        `Failed to ${mode === 'add' ? 'create' : 'update'} appointment. Please try again.`,
-      );
+      Alert.alert(el.common.error, el.appointments.saveFailed);
     } finally {
       setSaving(false);
     }
@@ -229,7 +227,7 @@ const AddEditAppointmentScreen = () => {
       <ScreenSafeArea variant="content">
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Loading appointment data...</Text>
+          <Text style={styles.loadingText}>{el.appointments.formLoading}</Text>
         </View>
       </ScreenSafeArea>
     );
@@ -269,11 +267,11 @@ const AddEditAppointmentScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Appointment Information</Text>
+          <Text style={styles.sectionTitle}>{el.appointments.appointmentInfo}</Text>
 
           {/* Patient Selection */}
           <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Patient *</Text>
+            <Text style={styles.label}>{el.common.patient} *</Text>
             <TouchableOpacity
               style={styles.patientSelector}
               onPress={() => setShowPatientPicker(!showPatientPicker)}>
@@ -284,7 +282,7 @@ const AddEditAppointmentScreen = () => {
                 ]}>
                 {resolvedPatient
                   ? `${resolvedPatient.firstName} ${resolvedPatient.lastName}`
-                  : 'Select Patient'}
+                  : el.appointments.selectPatient}
               </Text>
               <MaterialIcons
                 name={showPatientPicker ? 'expand-less' : 'expand-more'}
@@ -301,7 +299,7 @@ const AddEditAppointmentScreen = () => {
                 {loadingPatients ? (
                   <ActivityIndicator size="small" color="#007AFF" />
                 ) : patients.length === 0 ? (
-                  <Text style={styles.emptyText}>No patients found</Text>
+                  <Text style={styles.emptyText}>{el.patients.noPatients}</Text>
                 ) : (
                   <ScrollView style={styles.patientList} nestedScrollEnabled>
                     {patients.map(patient => (
@@ -329,7 +327,7 @@ const AddEditAppointmentScreen = () => {
           </View>
 
           <DatePickerField
-            label="Date *"
+            label={`${el.common.date} *`}
             value={appointmentDate}
             onChange={(d) => setAppointmentDate(startOfDay(d))}
             error={errors.date}
@@ -337,14 +335,14 @@ const AddEditAppointmentScreen = () => {
           />
 
           <TimePickerField
-            label="Start Time *"
+            label={`${el.appointments.startTime} *`}
             value={startTimeAt}
             onChange={setStartTimeAt}
             error={errors.startTime}
           />
 
           <Input
-            label="Duration (minutes) *"
+            label={`${el.appointments.duration} *`}
             value={duration}
             onChangeText={setDuration}
             error={errors.duration}
@@ -354,7 +352,7 @@ const AddEditAppointmentScreen = () => {
 
           {/* Appointment Type */}
           <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Type</Text>
+            <Text style={styles.label}>{el.common.type}</Text>
             <View style={styles.typeContainer}>
               {appointmentTypes.map(typeOption => (
                 <TouchableOpacity
@@ -369,10 +367,7 @@ const AddEditAppointmentScreen = () => {
                       styles.typeOptionText,
                       type === typeOption && styles.typeOptionTextSelected,
                     ]}>
-                    {typeOption
-                      .split('_')
-                      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                      .join(' ')}
+                    {appointmentTypeLabel(typeOption)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -381,7 +376,7 @@ const AddEditAppointmentScreen = () => {
 
           {/* Status */}
           <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Status</Text>
+            <Text style={styles.label}>{el.common.status}</Text>
             <View style={styles.statusContainer}>
               {appointmentStatuses.map(statusOption => (
                 <TouchableOpacity
@@ -397,7 +392,7 @@ const AddEditAppointmentScreen = () => {
                       status === statusOption &&
                         styles.statusOptionTextSelected,
                     ]}>
-                    {statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
+                    {appointmentStatusLabel(statusOption)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -405,10 +400,10 @@ const AddEditAppointmentScreen = () => {
           </View>
 
           <Input
-            label="Notes"
+            label={el.common.notes}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Additional notes..."
+            placeholder={el.appointments.notesPlaceholder}
             multiline
             numberOfLines={4}
             style={styles.notesInput}
@@ -417,7 +412,7 @@ const AddEditAppointmentScreen = () => {
 
         <View style={styles.buttonContainer}>
           <Button
-            title={mode === 'add' ? 'Create Appointment' : 'Update Appointment'}
+            title={mode === 'add' ? el.appointments.create : el.appointments.update}
             onPress={handleSave}
             loading={saving}
             disabled={saving}

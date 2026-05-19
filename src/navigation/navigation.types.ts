@@ -39,6 +39,7 @@ export type FinancialStackParamList = {
 
 export type ReportsStackParamList = {
   ReportsHome: undefined;
+  Inventory: undefined;
 };
 
 export type SettingsStackParamList = {

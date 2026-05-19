@@ -15,6 +15,7 @@ import {
   getAppointmentsCountForDate,
 } from '../../services/financial/payment.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el, UI_LOCALE} from '../../i18n';
 
 function todayLocalYmd(): string {
   const d = new Date();
@@ -46,7 +47,7 @@ const OverviewScreen: React.FC = () => {
       const ym = currentYearMonthLocal();
       const [yy, mm] = ym.split('-').map(Number);
       setMonthLabel(
-        new Intl.DateTimeFormat('en-US', {
+        new Intl.DateTimeFormat(UI_LOCALE, {
           month: 'long',
           year: 'numeric',
         }).format(new Date(yy, mm - 1, 1)),
@@ -71,16 +72,16 @@ const OverviewScreen: React.FC = () => {
       {!isDatabaseAvailable ? <DatabaseWarning /> : null}
       <View className="p-5 pb-10">
         <Text className="text-2xl font-bold text-slate-900">
-          Welcome, {user?.firstName} {user?.lastName}
+          {el.overview.welcome}, {user?.firstName} {user?.lastName}
         </Text>
         <Text className="mt-2 text-sm text-slate-600">
-          Practice summary — {monthLabel}
+          {el.overview.practiceSummary} — {monthLabel}
         </Text>
 
         <View className="mt-6 gap-4">
           <View className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <Text className="text-sm font-medium text-slate-500">
-              Total revenue (month)
+              {el.overview.monthRevenue}
             </Text>
             <Text className="mt-2 text-3xl font-bold text-blue-600">
               {formatEur(monthRevenue)}
@@ -89,19 +90,19 @@ const OverviewScreen: React.FC = () => {
 
           <View className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <Text className="text-sm font-medium text-slate-500">
-              Outstanding balances (total)
+              {el.overview.outstandingBalances}
             </Text>
             <Text className="mt-2 text-3xl font-bold text-amber-700">
               {formatEur(pendingTotal)}
             </Text>
             <Text className="mt-2 text-xs text-slate-500">
-              Charges minus payments, summed across patients with a positive balance.
+              {el.overview.outstandingHint}
             </Text>
           </View>
 
           <View className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <Text className="text-sm font-medium text-slate-500">
-              Appointments today
+              {el.overview.appointmentsToday}
             </Text>
             <Text className="mt-2 text-3xl font-bold text-emerald-700">
               {todayAppts}

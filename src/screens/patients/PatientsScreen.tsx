@@ -23,6 +23,7 @@ import Input from '../../components/common/Input';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el} from '../../i18n';
 
 const PatientsScreen = () => {
   const navigation = useNavigation<any>();
@@ -49,7 +50,7 @@ const PatientsScreen = () => {
       setPatients(result);
     } catch (error) {
       console.error('Error loading patients:', error);
-      Alert.alert('Error', 'Failed to load patients. Please try again.');
+      Alert.alert(el.common.error, el.patients.loadFailed);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -92,21 +93,21 @@ const PatientsScreen = () => {
   // Handle delete patient
   const handleDeletePatient = useCallback((patient: Patient) => {
     Alert.alert(
-      'Delete Patient',
-      `Are you sure you want to delete ${patient.firstName} ${patient.lastName}?`,
+      el.patients.deletePatient,
+      `${patient.firstName} ${patient.lastName} — ${el.patients.deletePatientConfirm}`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: 'Delete',
+          text: el.common.delete,
           style: 'destructive',
           onPress: async () => {
             try {
               await deletePatient(patient.id);
-              Alert.alert('Success', 'Patient deleted successfully');
+              Alert.alert(el.common.success, el.patients.deleteSuccess);
               loadPatients();
             } catch (error) {
               console.error('Error deleting patient:', error);
-              Alert.alert('Error', 'Failed to delete patient. Please try again.');
+              Alert.alert(el.common.error, el.patients.deleteFailed);
             }
           },
         },
@@ -189,7 +190,7 @@ const PatientsScreen = () => {
       return (
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.emptyText}>Loading patients...</Text>
+          <Text style={styles.emptyText}>{el.patients.loadingPatients}</Text>
         </View>
       );
     }
@@ -198,10 +199,8 @@ const PatientsScreen = () => {
       return (
         <View style={styles.emptyContainer}>
           <MaterialIcons name="search-off" size={64} color="#CCCCCC" />
-          <Text style={styles.emptyText}>No patients found</Text>
-          <Text style={styles.emptySubtext}>
-            Try a different search term
-          </Text>
+          <Text style={styles.emptyText}>{el.patients.noPatients}</Text>
+          <Text style={styles.emptySubtext}>{el.patients.noPatientsSearch}</Text>
         </View>
       );
     }
@@ -209,12 +208,10 @@ const PatientsScreen = () => {
     return (
       <View style={styles.emptyContainer}>
         <MaterialIcons name="people-outline" size={64} color="#CCCCCC" />
-        <Text style={styles.emptyText}>No patients yet</Text>
-        <Text style={styles.emptySubtext}>
-          Add your first patient to get started
-        </Text>
+        <Text style={styles.emptyText}>{el.patients.noPatientsYet}</Text>
+        <Text style={styles.emptySubtext}>{el.patients.addFirstPatient}</Text>
         <Button
-          title="Add Patient"
+          title={el.patients.addPatient}
           onPress={handleAddPatient}
           style={styles.addButtonEmpty}
         />
@@ -235,7 +232,7 @@ const PatientsScreen = () => {
             style={styles.searchIcon}
           />
           <Input
-            placeholder="Search patients by name, phone, email, or AMKA"
+            placeholder={el.patients.searchPlaceholder}
             value={searchQuery}
             onChangeText={handleSearch}
             style={styles.searchInput}

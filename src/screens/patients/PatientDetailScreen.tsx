@@ -23,6 +23,7 @@ import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import BalanceBadge from '../../components/financial/BalanceBadge';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el, UI_LOCALE} from '../../i18n';
 
 const PatientDetailScreen = () => {
   const navigation = useNavigation<any>();
@@ -48,15 +49,15 @@ const PatientDetailScreen = () => {
       setLoading(true);
       const patientData = await getPatientById(patientId);
       if (!patientData) {
-        Alert.alert('Error', 'Patient not found', [
-          {text: 'OK', onPress: () => navigation.goBack()},
+        Alert.alert(el.common.error, el.patients.patientNotFound, [
+          {text: el.common.ok, onPress: () => navigation.goBack()},
         ]);
         return;
       }
       setPatient(patientData);
     } catch (error) {
       console.error('Error loading patient:', error);
-      Alert.alert('Error', 'Failed to load patient data');
+      Alert.alert(el.common.error, el.patients.loadPatientFailed);
     } finally {
       setLoading(false);
     }
@@ -67,48 +68,44 @@ const PatientDetailScreen = () => {
   };
 
   const handleSignGDPRConsent = () => {
-    Alert.alert(
-      'GDPR consent',
-      'Confirm that the patient (or legal representative) has signed the privacy consent form.',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Record consent',
-          onPress: async () => {
-            try {
-              await updateGDPRConsent(patientId, true);
-              await loadPatient();
-              Alert.alert('Saved', 'GDPR consent has been recorded.');
-            } catch (e) {
-              console.error(e);
-              Alert.alert('Error', 'Could not update consent.');
-            }
-          },
+    Alert.alert(el.patients.gdprConfirmTitle, el.patients.gdprConfirmBody, [
+      {text: el.common.cancel, style: 'cancel'},
+      {
+        text: el.patients.recordConsent,
+        onPress: async () => {
+          try {
+            await updateGDPRConsent(patientId, true);
+            await loadPatient();
+            Alert.alert(el.common.success, el.patients.gdprSaved);
+          } catch (e) {
+            console.error(e);
+            Alert.alert(el.common.error, el.patients.gdprUpdateFailed);
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const handleDelete = () => {
     if (!patient) return;
 
     Alert.alert(
-      'Delete Patient',
-      `Are you sure you want to delete ${patient.firstName} ${patient.lastName}? This action cannot be undone.`,
+      el.patients.deletePatient,
+      `${patient.firstName} ${patient.lastName} — ${el.patients.deletePatientConfirm}`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: el.common.cancel, style: 'cancel'},
         {
-          text: 'Delete',
+          text: el.common.delete,
           style: 'destructive',
           onPress: async () => {
             try {
               await deletePatient(patientId);
-              Alert.alert('Success', 'Patient deleted successfully', [
-                {text: 'OK', onPress: () => navigation.goBack()},
+              Alert.alert(el.common.success, el.patients.deleteSuccess, [
+                {text: el.common.ok, onPress: () => navigation.goBack()},
               ]);
             } catch (error) {
               console.error('Error deleting patient:', error);
-              Alert.alert('Error', 'Failed to delete patient. Please try again.');
+              Alert.alert(el.common.error, el.patients.deleteFailed);
             }
           },
         },
@@ -117,7 +114,7 @@ const PatientDetailScreen = () => {
   };
 
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(UI_LOCALE, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -139,7 +136,7 @@ const PatientDetailScreen = () => {
       <ScreenSafeArea variant="content">
         <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading patient data...</Text>
+        <Text style={styles.loadingText}>{el.patients.loadingPatient}</Text>
       </View>
       </ScreenSafeArea>
     );
@@ -150,9 +147,9 @@ const PatientDetailScreen = () => {
       <ScreenSafeArea variant="content">
       <View style={styles.loadingContainer}>
         <MaterialIcons name="error-outline" size={64} color="#FF3B30" />
-        <Text style={styles.errorText}>Patient not found</Text>
+        <Text style={styles.errorText}>{el.patients.patientNotFound}</Text>
         <Button
-          title="Go Back"
+          title={el.patients.goBack}
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         />
@@ -185,7 +182,7 @@ const PatientDetailScreen = () => {
                 {patient.firstName} {patient.lastName}
               </Text>
               <Text style={styles.patientDetails}>
-                {age} years old • {patient.gender || 'N/A'}
+                {age} {el.patients.yearsOld} • {patient.gender || el.patients.notAvailable}
               </Text>
               <View style={styles.balanceBadgeWrap}>
                 <BalanceBadge patientId={patientId} />
@@ -198,16 +195,13 @@ const PatientDetailScreen = () => {
           <View style={styles.gdprBanner}>
             <MaterialIcons name="warning-amber" size={28} color="#B45309" />
             <View style={styles.gdprBannerText}>
-              <Text style={styles.gdprBannerTitle}>GDPR consent required</Text>
-              <Text style={styles.gdprBannerBody}>
-                No valid consent on file. Obtain and record signed consent before sensitive
-                processing.
-              </Text>
+              <Text style={styles.gdprBannerTitle}>{el.patients.gdprRequired}</Text>
+              <Text style={styles.gdprBannerBody}>{el.patients.gdprRequiredHint}</Text>
               <TouchableOpacity
                 style={styles.gdprButton}
                 onPress={handleSignGDPRConsent}
                 activeOpacity={0.8}>
-                <Text style={styles.gdprButtonText}>Sign consent</Text>
+                <Text style={styles.gdprButtonText}>{el.patients.signConsent}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -215,37 +209,37 @@ const PatientDetailScreen = () => {
 
         {/* Personal Information */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionTitle}>{el.patients.personalInformation}</Text>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Date of Birth</Text>
+            <Text style={styles.infoLabel}>{el.patients.dob}</Text>
             <Text style={styles.infoValue}>{formatDate(patient.dateOfBirth)}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Gender</Text>
+            <Text style={styles.infoLabel}>{el.patients.gender}</Text>
             <Text style={styles.infoValue}>
-              {patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : 'N/A'}
+              {patient.gender || el.patients.notAvailable}
             </Text>
           </View>
 
           {patient.amka && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>AMKA</Text>
+              <Text style={styles.infoLabel}>{el.patients.amka}</Text>
               <Text style={styles.infoValue}>{patient.amka}</Text>
             </View>
           )}
 
           {patient.afm && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>AFM</Text>
+              <Text style={styles.infoLabel}>{el.patients.afm}</Text>
               <Text style={styles.infoValue}>{patient.afm}</Text>
             </View>
           )}
 
           {patient.occupation && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Occupation</Text>
+              <Text style={styles.infoLabel}>{el.patients.occupation}</Text>
               <Text style={styles.infoValue}>{patient.occupation}</Text>
             </View>
           )}
@@ -253,7 +247,7 @@ const PatientDetailScreen = () => {
 
         {/* Contact Information */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Contact Information</Text>
+          <Text style={styles.sectionTitle}>{el.patients.contactInformation}</Text>
 
           <View style={styles.infoRow}>
             <MaterialIcons name="phone" size={20} color="#007AFF" />
@@ -292,10 +286,10 @@ const PatientDetailScreen = () => {
         {/* Emergency Contact */}
         {patient.emergencyContact && (
           <Card style={styles.card}>
-            <Text style={styles.sectionTitle}>Emergency Contact</Text>
+            <Text style={styles.sectionTitle}>{el.patients.emergencyContact}</Text>
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Name</Text>
+              <Text style={styles.infoLabel}>{el.patients.name}</Text>
               <Text style={styles.infoValue}>
                 {patient.emergencyContact.name}
               </Text>
@@ -303,7 +297,7 @@ const PatientDetailScreen = () => {
 
             {patient.emergencyContact.relationship && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Relationship</Text>
+                <Text style={styles.infoLabel}>{el.patients.relationship}</Text>
                 <Text style={styles.infoValue}>
                   {patient.emergencyContact.relationship}
                 </Text>
@@ -321,17 +315,17 @@ const PatientDetailScreen = () => {
 
         {/* Metadata */}
         <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Record Information</Text>
+          <Text style={styles.sectionTitle}>{el.patients.recordInformation}</Text>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Created</Text>
+            <Text style={styles.infoLabel}>{el.patients.created}</Text>
             <Text style={styles.infoValue}>
               {formatDate(patient.createdAt)}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Last Updated</Text>
+            <Text style={styles.infoLabel}>{el.patients.lastUpdated}</Text>
             <Text style={styles.infoValue}>
               {formatDate(patient.updatedAt)}
             </Text>
@@ -341,43 +335,43 @@ const PatientDetailScreen = () => {
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
           <Button
-            title="Dental Chart"
+            title={el.nav.dentalChart}
             onPress={() => navigation.navigate('PatientChart', {patientId})}
             variant="primary"
             style={styles.editButton}
           />
           <Button
-            title="Treatment plans"
+            title={el.nav.treatmentPlans}
             onPress={() => navigation.navigate('PatientTreatmentPlans', {patientId})}
             variant="outline"
             style={styles.editButton}
           />
           <Button
-            title="Account & payments"
+            title={el.nav.accountPayments}
             onPress={() => navigation.navigate('PatientLedger', {patientId})}
             variant="outline"
             style={styles.editButton}
           />
           <Button
-            title="Documents & X-rays"
+            title={el.nav.documentsXrays}
             onPress={() => navigation.navigate('PatientDocuments', {patientId})}
             variant="outline"
             style={styles.editButton}
           />
           <Button
-            title="Invoices & receipts"
+            title={el.nav.invoicesReceipts}
             onPress={() => navigation.navigate('PatientInvoices', {patientId})}
             variant="outline"
             style={styles.editButton}
           />
           <Button
-            title="Edit Patient"
+            title={el.patients.editPatient}
             onPress={handleEdit}
             variant="outline"
             style={styles.editButton}
           />
           <Button
-            title="Delete Patient"
+            title={el.patients.deletePatientBtn}
             onPress={handleDelete}
             variant="danger"
             style={styles.deleteButton}

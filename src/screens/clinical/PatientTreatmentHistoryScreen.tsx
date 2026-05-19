@@ -20,6 +20,7 @@ import {
 } from '../../services/clinical/treatment.service';
 import {getPatientById} from '../../services/patient';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {el, appointmentTypeLabel, appointmentStatusLabel} from '../../i18n';
 
 type Nav = NativeStackNavigationProp<PatientsStackParamList, 'PatientTreatmentHistory'>;
 
@@ -88,17 +89,18 @@ const PatientTreatmentHistoryScreen: React.FC = () => {
       <View className="mt-2 flex-row flex-wrap items-center gap-x-3 gap-y-1">
         {item.toothNumber != null ? (
           <Text className="text-sm font-medium text-slate-700">
-            Tooth <Text className="font-bold text-slate-900">{item.toothNumber}</Text>
+            {el.history.tooth}{' '}
+            <Text className="font-bold text-slate-900">{item.toothNumber}</Text>
           </Text>
         ) : (
           <View className="rounded-md bg-slate-200 px-2 py-1">
             <Text className="text-xs font-semibold uppercase tracking-wide text-slate-800">
-              General
+              {el.history.general}
             </Text>
           </View>
         )}
         <Text className="text-sm text-slate-700">
-          Cost:{' '}
+          {el.history.cost}:{' '}
           <Text className="font-semibold text-slate-900">
             {item.cost != null ? `€${item.cost.toFixed(2)}` : '—'}
           </Text>
@@ -112,17 +114,19 @@ const PatientTreatmentHistoryScreen: React.FC = () => {
           {item.notes}
         </Text>
       ) : (
-        <Text className="mt-3 text-sm italic text-slate-400">No notes</Text>
+        <Text className="mt-3 text-sm italic text-slate-400">{el.history.noNotes}</Text>
       )}
 
-      <Text className="mt-2 text-xs text-slate-400">Tap to edit or delete</Text>
+      <Text className="mt-2 text-xs text-slate-400">{el.history.editHint}</Text>
 
       {item.appointmentDate ? (
         <Text className="mt-2 text-xs text-slate-500">
-          Appointment: {item.appointmentDate}
+          {el.history.appointment}: {item.appointmentDate}
           {item.appointmentStartTime ? ` ${item.appointmentStartTime}` : ''}
-          {item.appointmentType ? ` • ${item.appointmentType}` : ''}
-          {item.appointmentStatus ? ` (${item.appointmentStatus})` : ''}
+          {item.appointmentType ? ` • ${appointmentTypeLabel(item.appointmentType)}` : ''}
+          {item.appointmentStatus
+            ? ` (${appointmentStatusLabel(item.appointmentStatus)})`
+            : ''}
         </Text>
       ) : null}
     </Pressable>
@@ -147,7 +151,7 @@ const PatientTreatmentHistoryScreen: React.FC = () => {
         keyExtractor={(it) => it.id}
         renderItem={renderItem}
         ListEmptyComponent={
-          <Text className="py-8 text-center text-slate-500">No treatments recorded yet.</Text>
+          <Text className="py-8 text-center text-slate-500">{el.history.noTreatments}</Text>
         }
         contentContainerStyle={{paddingBottom: 32}}
       />
