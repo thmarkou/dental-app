@@ -23,7 +23,15 @@ npx expo run:ios
 
 After reload, check the console:
 - ✅ `Database initialized successfully` = Database is working!
+- ✅ `Migration 19 completed` (or no migration line if already up to date)
 - ⚠️ `Database initialization skipped` = Still using old build, need reload
+
+**Simulator only (dev):** if migrations did not run, from project root:
+```bash
+node scripts/migrate-simulator-db.mjs
+```
+
+**Manual test checklist:** [MANUAL_TEST_CHECKLIST.md](./MANUAL_TEST_CHECKLIST.md)
 
 ## Common Issues
 

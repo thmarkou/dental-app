@@ -177,6 +177,11 @@ See `EXPO_BUILD_GUIDE.md` for detailed build instructions.
 
 ## Documentation
 
+- **Manual test checklist**: [MANUAL_TEST_CHECKLIST.md](./MANUAL_TEST_CHECKLIST.md) — χειροκίνητες δοκιμές πριν demo/release
+- **Progress summary**: [PROGRESS_SUMMARY.md](./PROGRESS_SUMMARY.md) — ιστορικό features
+- **Latest session**: [SESSION_2026-05-21.md](./SESSION_2026-05-21.md)
+- **Reload / migrations**: [RELOAD_INSTRUCTIONS.md](./RELOAD_INSTRUCTIONS.md)
+- **Backlog**: [BACKLOG_CLINICAL.md](./BACKLOG_CLINICAL.md) · [BACKLOG_APPOINTMENTS.md](./BACKLOG_APPOINTMENTS.md)
 - **Prompt Document**: `dental-practice-prompt-merged.md` - Complete prompt for cursor.ai
 - **Specification Document**: `dental-practice-specification.md` - Detailed technical specifications
 - **Build Guide**: `EXPO_BUILD_GUIDE.md` - Expo build instructions
