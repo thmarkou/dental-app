@@ -27,6 +27,10 @@ export interface OdontogramProps {
   onToothPress: (toothNumber: number) => void;
   /** Wider cells on tablets / landscape */
   comfortableLayout?: boolean;
+  /** Teeth with a pending item on the active treatment plan */
+  plannedTeeth?: ReadonlySet<number>;
+  /** Teeth to emphasize (e.g. navigation from plan detail) */
+  highlightTeeth?: ReadonlySet<number>;
 }
 
 const styles = StyleSheet.create({
@@ -203,6 +207,8 @@ export interface ToothCellProps {
   height: number;
   /** FDI number above (upper arch) or below (lower arch) the schematic tooth. */
   labelPosition: 'above' | 'below';
+  hasPlan?: boolean;
+  highlighted?: boolean;
 }
 
 function toothAccessibilityStatus(condition: ToothCondition): string {
@@ -225,6 +231,23 @@ const schematic = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
   },
+  bodyHighlight: {
+    borderWidth: 2,
+    borderColor: '#f59e0b',
+    borderRadius: 6,
+  },
+  planDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2563eb',
+    borderWidth: 1,
+    borderColor: '#fff',
+    zIndex: 2,
+  },
   missingXWrap: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
@@ -240,6 +263,8 @@ export const ToothCell: React.FC<ToothCellProps> = ({
   width,
   height,
   labelPosition,
+  hasPlan = false,
+  highlighted = false,
 }) => {
   const morph = useMemo(() => fdiToMorphology(toothNumber), [toothNumber]);
   const {crown: crownD, root: rootD} = useMemo(
@@ -310,7 +335,12 @@ export const ToothCell: React.FC<ToothCellProps> = ({
         accessibilityLabel={`Tooth ${toothNumber}, ${toothAccessibilityStatus(condition)}`}
         onPress={() => onPress(toothNumber)}
         hitSlop={{top: 6, bottom: 6, left: 4, right: 4}}
-        style={[schematic.body, {width, height}]}>
+        style={[
+          schematic.body,
+          {width, height},
+          highlighted ? schematic.bodyHighlight : null,
+        ]}>
+        {hasPlan ? <View style={schematic.planDot} /> : null}
         {missing ? (
           <View style={{width, height, backgroundColor: '#f1f5f9'}}>
             <Svg width={width} height={height} viewBox={`0 0 ${SILHOUETTE_VB.w} ${SILHOUETTE_VB.h}`}>

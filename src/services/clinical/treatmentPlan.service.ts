@@ -4,7 +4,11 @@
 
 import {getDatabase} from '../database';
 import {uuidv4} from '../../utils/uuid';
-import {deleteTreatment, recordTreatment} from './treatment.service';
+import {
+  deleteTreatment,
+  isGeneralProcedureType,
+  recordTreatment,
+} from './treatment.service';
 
 export type TreatmentPlanStatus =
   | 'draft'
@@ -28,7 +32,19 @@ export interface TreatmentPlanItemRow {
   estimatedDuration: number;
   status: PlanItemStatus;
   treatmentId: string | null;
+  /** All ledger treatment rows when item spans multiple teeth. */
+  treatmentIds: string[];
   sortOrder: number;
+}
+
+export interface OpenPlanItemForChart {
+  itemId: string;
+  planId: string;
+  planTitle: string;
+  procedureType: string;
+  toothNumbers: number[];
+  estimatedCost: number | null;
+  status: PlanItemStatus;
 }
 
 export interface TreatmentPlanPhaseRow {
@@ -95,7 +111,156 @@ function teethToJson(teeth: number[] | undefined): string | null {
   return JSON.stringify(teeth);
 }
 
+function parseTreatmentIdsJson(raw: unknown): string[] {
+  if (raw == null || String(raw).trim() === '') {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(String(raw)) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.map((id) => String(id)).filter((id) => id.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+function treatmentIdsToJson(ids: string[]): string | null {
+  if (ids.length === 0) {
+    return null;
+  }
+  return JSON.stringify(ids);
+}
+
+export function isPlanItemOnLedger(item: Pick<
+  TreatmentPlanItemRow,
+  'treatmentId' | 'treatmentIds'
+>): boolean {
+  return !!(item.treatmentId || item.treatmentIds.length > 0);
+}
+
+/** Resolves all treatments linked to a plan item (legacy id, JSON array, plan_item_id FK). */
+export function getPostedTreatmentIdsForPlanItem(itemId: string): string[] {
+  const db = getDatabase();
+  const row = db.execute(
+    'SELECT treatment_id, treatment_ids FROM treatment_plan_items WHERE id = ?',
+    [itemId],
+  ).rows?._array?.[0] as Record<string, unknown> | undefined;
+
+  const ids = new Set<string>();
+  if (row?.treatment_id != null) {
+    ids.add(String(row.treatment_id));
+  }
+  for (const id of parseTreatmentIdsJson(row?.treatment_ids)) {
+    ids.add(id);
+  }
+
+  const fkRows =
+    db.execute('SELECT id FROM treatments WHERE plan_item_id = ?', [itemId])
+      .rows?._array ?? [];
+  for (const fr of fkRows as {id?: string}[]) {
+    if (fr.id) {
+      ids.add(String(fr.id));
+    }
+  }
+  return [...ids];
+}
+
+function collectLedgerTreatmentIdsFromItemRows(
+  rows: Array<Record<string, unknown>>,
+): {patientId: string; treatmentIds: string[]} {
+  let patientId = '';
+  const treatmentIds = new Set<string>();
+  for (const row of rows) {
+    if (!patientId && row.patient_id != null) {
+      patientId = String(row.patient_id);
+    }
+    if (row.treatment_id != null) {
+      treatmentIds.add(String(row.treatment_id));
+    }
+    for (const id of parseTreatmentIdsJson(row.treatment_ids)) {
+      treatmentIds.add(id);
+    }
+  }
+  return {patientId, treatmentIds: [...treatmentIds]};
+}
+
+function collectLedgerTreatmentIdsForPlan(planId: string): {
+  patientId: string;
+  treatmentIds: string[];
+} {
+  const db = getDatabase();
+  const itemRows =
+    db.execute(
+      `SELECT i.treatment_id, i.treatment_ids, pl.patient_id
+       FROM treatment_plan_items i
+       INNER JOIN treatment_plan_phases ph ON ph.id = i.phase_id
+       INNER JOIN treatment_plans pl ON pl.id = ph.plan_id
+       WHERE ph.plan_id = ?`,
+      [planId],
+    ).rows?._array ?? [];
+
+  const viaFk =
+    db.execute(
+      `SELECT t.id AS treatment_id, pl.patient_id
+       FROM treatments t
+       INNER JOIN treatment_plan_items i ON i.id = t.plan_item_id
+       INNER JOIN treatment_plan_phases ph ON ph.id = i.phase_id
+       INNER JOIN treatment_plans pl ON pl.id = ph.plan_id
+       WHERE ph.plan_id = ?`,
+      [planId],
+    ).rows?._array ?? [];
+
+  const collected = collectLedgerTreatmentIdsFromItemRows(
+    itemRows as Record<string, unknown>[],
+  );
+  const merged = new Set(collected.treatmentIds);
+  let resolvedPatientId = collected.patientId;
+  for (const row of viaFk as Record<string, unknown>[]) {
+    if (!resolvedPatientId && row.patient_id != null) {
+      resolvedPatientId = String(row.patient_id);
+    }
+    if (row.treatment_id != null) {
+      merged.add(String(row.treatment_id));
+    }
+  }
+  return {patientId: resolvedPatientId, treatmentIds: [...merged]};
+}
+
+export function planProcedureMatchesChart(
+  planProcedure: string,
+  chartProcedure: string,
+): boolean {
+  return planProcedure.trim() === chartProcedure.trim();
+}
+
+export function findMatchingOpenPlanItems(
+  items: OpenPlanItemForChart[],
+  toothNumber: number | null,
+  procedureType: string,
+): OpenPlanItemForChart[] {
+  const isGeneral = isGeneralProcedureType(procedureType);
+  return items.filter((item) => {
+    if (!planProcedureMatchesChart(item.procedureType, procedureType)) {
+      return false;
+    }
+    if (isGeneral) {
+      return item.toothNumbers.length === 0;
+    }
+    if (toothNumber == null) {
+      return false;
+    }
+    return item.toothNumbers.includes(toothNumber);
+  });
+}
+
 function mapItemRow(row: Record<string, unknown>): TreatmentPlanItemRow {
+  const treatmentIds = parseTreatmentIdsJson(row.treatment_ids);
+  const treatmentId =
+    row.treatment_id != null
+      ? String(row.treatment_id)
+      : treatmentIds[0] ?? null;
   return {
     id: String(row.id),
     phaseId: String(row.phase_id),
@@ -106,7 +271,8 @@ function mapItemRow(row: Record<string, unknown>): TreatmentPlanItemRow {
     estimatedDuration:
       row.estimated_duration != null ? Number(row.estimated_duration) : 30,
     status: row.status as PlanItemStatus,
-    treatmentId: row.treatment_id != null ? String(row.treatment_id) : null,
+    treatmentId,
+    treatmentIds,
     sortOrder: row.sort_order != null ? Number(row.sort_order) : 0,
   };
 }
@@ -467,19 +633,34 @@ export const deleteTreatmentPlanAlternative = async (
 
   const linkRows =
     db.execute(
-      `SELECT DISTINCT i.treatment_id, pl.patient_id
+      `SELECT i.treatment_id, i.treatment_ids, pl.patient_id
        FROM treatment_plan_items i
        INNER JOIN treatment_plan_phases ph ON ph.id = i.phase_id
        INNER JOIN treatment_plans pl ON pl.id = ph.plan_id
-       WHERE ph.alternative_id = ? AND i.treatment_id IS NOT NULL`,
+       WHERE ph.alternative_id = ?`,
       [alternativeId],
     ).rows?._array ?? [];
 
-  const {patientId, treatmentIds} = collectLinkedTreatmentIds(
+  const {patientId, treatmentIds} = collectLedgerTreatmentIdsFromItemRows(
     linkRows as Record<string, unknown>[],
   );
-  if (patientId && treatmentIds.length > 0) {
-    await deleteLinkedLedgerTreatments(patientId, treatmentIds);
+  const fkRows =
+    db.execute(
+      `SELECT t.id AS treatment_id, pl.patient_id
+       FROM treatments t
+       INNER JOIN treatment_plan_items i ON i.id = t.plan_item_id
+       INNER JOIN treatment_plan_phases ph ON ph.id = i.phase_id
+       INNER JOIN treatment_plans pl ON pl.id = ph.plan_id
+       WHERE ph.alternative_id = ?`,
+      [alternativeId],
+    ).rows?._array ?? [];
+  const fkCollected = collectLedgerTreatmentIdsFromItemRows(
+    fkRows as Record<string, unknown>[],
+  );
+  const mergedIds = new Set([...treatmentIds, ...fkCollected.treatmentIds]);
+  const pid = patientId || fkCollected.patientId;
+  if (pid && mergedIds.size > 0) {
+    await deleteLinkedLedgerTreatments(pid, [...mergedIds]);
   }
 
   const wasSelected = db.execute(
@@ -587,12 +768,15 @@ function buildPlanItemLedgerNotes(
   planTitle: string,
   description: string | null,
   toothNumbers: number[],
+  singleTooth?: number,
 ): string {
   const parts = [`\u03A3\u03C7\u03AD\u03B4\u03B9\u03BF: ${planTitle}`];
   if (description?.trim()) {
     parts.push(description.trim());
   }
-  if (toothNumbers.length > 1) {
+  if (singleTooth != null) {
+    parts.push(`\u0394\u03CC\u03BD\u03C4\u03B9: ${singleTooth}`);
+  } else if (toothNumbers.length > 1) {
     parts.push(
       `\u0394\u03CC\u03BD\u03C4\u03B9\u03B1: ${toothNumbers.join(', ')}`,
     );
@@ -600,40 +784,115 @@ function buildPlanItemLedgerNotes(
   return parts.join(' \u00B7 ');
 }
 
+function splitEstimatedCost(
+  total: number | null,
+  count: number,
+): number | null {
+  if (total == null || count <= 0) {
+    return null;
+  }
+  return Math.round((total / count) * 100) / 100;
+}
+
 /**
- * Creates a treatments row (ledger charge) for a completed plan item and links treatment_id.
- * Idempotent when treatment_id is already set.
+ * Creates one or more treatments rows for a completed plan item (multi-tooth → N charges).
+ * Idempotent when already linked. Returns number of new ledger rows created.
  */
 export const fulfillPlanItemToLedger = async (
   itemId: string,
-): Promise<boolean> => {
+): Promise<number> => {
   const ctx = loadPlanItemLedgerContext(itemId);
-  if (!ctx || ctx.status !== 'completed' || ctx.treatmentId) {
-    return false;
+  if (!ctx || ctx.status !== 'completed') {
+    return 0;
   }
 
-  const notes = buildPlanItemLedgerNotes(
-    ctx.planTitle,
-    ctx.description,
-    ctx.toothNumbers,
-  );
-  const toothNumber =
-    ctx.toothNumbers.length === 1 ? ctx.toothNumbers[0]! : ctx.toothNumbers[0] ?? null;
+  const existing = getPostedTreatmentIdsForPlanItem(itemId);
+  if (existing.length > 0) {
+    return 0;
+  }
 
-  const treatment = await recordTreatment({
-    patientId: ctx.patientId,
-    toothNumber,
-    treatmentType: ctx.procedureType,
-    cost: ctx.estimatedCost,
-    notes,
-  });
+  const isGeneral = isGeneralProcedureType(ctx.procedureType);
+  const billTargets: (number | null)[] =
+    isGeneral || ctx.toothNumbers.length === 0
+      ? [null]
+      : ctx.toothNumbers;
+
+  const count = billTargets.length;
+  const costEach = splitEstimatedCost(ctx.estimatedCost, count);
+  const createdIds: string[] = [];
+
+  for (const tooth of billTargets) {
+    const notes = buildPlanItemLedgerNotes(
+      ctx.planTitle,
+      ctx.description,
+      ctx.toothNumbers,
+      count > 1 && tooth != null ? tooth : undefined,
+    );
+    const treatment = await recordTreatment({
+      patientId: ctx.patientId,
+      toothNumber: tooth,
+      treatmentType: ctx.procedureType,
+      cost: costEach,
+      notes,
+      planItemId: itemId,
+    });
+    createdIds.push(treatment.id);
+  }
 
   const db = getDatabase();
   db.execute(
-    'UPDATE treatment_plan_items SET treatment_id = ? WHERE id = ?',
-    [treatment.id, itemId],
+    'UPDATE treatment_plan_items SET treatment_id = ?, treatment_ids = ? WHERE id = ?',
+    [
+      createdIds[0] ?? null,
+      treatmentIdsToJson(createdIds),
+      itemId,
+    ],
   );
-  return true;
+  return createdIds.length;
+};
+
+/** Open plan items for odontogram overlay (selected alternative, not yet on ledger). */
+export const getOpenPlanItemsForPatient = (
+  patientId: string,
+): OpenPlanItemForChart[] => {
+  const db = getDatabase();
+  const rows =
+    db.execute(
+      `SELECT i.id AS item_id, i.procedure_type, i.tooth_numbers, i.estimated_cost,
+              i.status, i.treatment_id, i.treatment_ids,
+              pl.id AS plan_id, pl.title AS plan_title
+       FROM treatment_plan_items i
+       INNER JOIN treatment_plan_phases ph ON ph.id = i.phase_id
+       INNER JOIN treatment_plans pl ON pl.id = ph.plan_id
+       INNER JOIN treatment_plan_alternatives alt
+         ON alt.id = ph.alternative_id AND alt.is_selected = 1
+       WHERE pl.patient_id = ?
+         AND pl.status IN ('presented', 'approved', 'in_progress')
+         AND i.status IN ('pending', 'scheduled')`,
+      [patientId],
+    ).rows?._array ?? [];
+
+  const result: OpenPlanItemForChart[] = [];
+  for (const row of rows as Record<string, unknown>[]) {
+    const itemId = String(row.item_id);
+    const hasLedger =
+      row.treatment_id != null ||
+      parseTreatmentIdsJson(row.treatment_ids).length > 0;
+    if (hasLedger) {
+      continue;
+    }
+    result.push({
+      itemId,
+      planId: String(row.plan_id),
+      planTitle: String(row.plan_title),
+      procedureType: String(row.procedure_type),
+      toothNumbers: parseTeethJson(row.tooth_numbers),
+      estimatedCost:
+        row.estimated_cost != null ? Number(row.estimated_cost) : null,
+      status: row.status as PlanItemStatus,
+    });
+  }
+  return result;
 };
 
 export interface PendingLedgerPostItem {
@@ -681,10 +940,10 @@ export const getPlanLedgerPostingSummary = (
         continue;
       }
       activeItemCount += 1;
-      if (item.treatmentId) {
+      if (isPlanItemOnLedger(item)) {
         postedToLedgerCount += 1;
       }
-      if (item.status === 'completed' && !item.treatmentId) {
+      if (item.status === 'completed' && !isPlanItemOnLedger(item)) {
         unpostedCompletedCount += 1;
       }
     }
@@ -705,7 +964,7 @@ export const getPendingLedgerPostsForPlan = (
   const items: PendingLedgerPostItem[] = [];
   for (const phase of allPhasesFromPlan(plan)) {
     for (const item of phase.items) {
-      if (item.status === 'cancelled' || item.treatmentId) {
+      if (item.status === 'cancelled' || isPlanItemOnLedger(item)) {
         continue;
       }
       items.push({
@@ -756,7 +1015,7 @@ export const postPendingLedgerItemsForPlan = async (
     if (item.status !== 'completed') {
       continue;
     }
-    if (await fulfillPlanItemToLedger(item.id)) {
+    if ((await fulfillPlanItemToLedger(item.id)) > 0) {
       posted += 1;
     }
   }
@@ -773,28 +1032,12 @@ export const completeTreatmentPlanAndPostToLedger = async (
   let posted = 0;
   const pending = getPendingLedgerPostsForPlan(planId);
   for (const item of pending.items) {
-    if (await fulfillPlanItemToLedger(item.id)) {
+    if ((await fulfillPlanItemToLedger(item.id)) > 0) {
       posted += 1;
     }
   }
   return posted;
 };
-
-function collectLinkedTreatmentIds(
-  rows: Array<Record<string, unknown>>,
-): {patientId: string; treatmentIds: string[]} {
-  let patientId = '';
-  const treatmentIds: string[] = [];
-  for (const row of rows) {
-    if (!patientId && row.patient_id != null) {
-      patientId = String(row.patient_id);
-    }
-    if (row.treatment_id != null) {
-      treatmentIds.push(String(row.treatment_id));
-    }
-  }
-  return {patientId, treatmentIds};
-}
 
 async function deleteLinkedLedgerTreatments(
   patientId: string,
@@ -812,19 +1055,7 @@ async function deleteLinkedLedgerTreatments(
 /** Removes plan and any ledger charges created from its items (treatment_id link). */
 export const deleteTreatmentPlan = async (planId: string): Promise<void> => {
   const db = getDatabase();
-  const linkRows =
-    db.execute(
-      `SELECT DISTINCT i.treatment_id, pl.patient_id
-       FROM treatment_plan_items i
-       INNER JOIN treatment_plan_phases ph ON ph.id = i.phase_id
-       INNER JOIN treatment_plans pl ON pl.id = ph.plan_id
-       WHERE ph.plan_id = ? AND i.treatment_id IS NOT NULL`,
-      [planId],
-    ).rows?._array ?? [];
-
-  const {patientId, treatmentIds} = collectLinkedTreatmentIds(
-    linkRows as Record<string, unknown>[],
-  );
+  const {patientId, treatmentIds} = collectLedgerTreatmentIdsForPlan(planId);
   if (patientId && treatmentIds.length > 0) {
     await deleteLinkedLedgerTreatments(patientId, treatmentIds);
   }
@@ -886,19 +1117,34 @@ export const deleteTreatmentPlanPhase = async (phaseId: string): Promise<void> =
 
   const linkRows =
     db.execute(
-      `SELECT i.treatment_id, pl.patient_id
+      `SELECT i.treatment_id, i.treatment_ids, pl.patient_id
        FROM treatment_plan_items i
        INNER JOIN treatment_plan_phases ph ON ph.id = i.phase_id
        INNER JOIN treatment_plans pl ON pl.id = ph.plan_id
-       WHERE i.phase_id = ? AND i.treatment_id IS NOT NULL`,
+       WHERE i.phase_id = ?`,
       [phaseId],
     ).rows?._array ?? [];
 
-  const {patientId, treatmentIds} = collectLinkedTreatmentIds(
+  const {patientId, treatmentIds} = collectLedgerTreatmentIdsFromItemRows(
     linkRows as Record<string, unknown>[],
   );
-  if (patientId && treatmentIds.length > 0) {
-    await deleteLinkedLedgerTreatments(patientId, treatmentIds);
+  const fkRows =
+    db.execute(
+      `SELECT t.id AS treatment_id, pl.patient_id
+       FROM treatments t
+       INNER JOIN treatment_plan_items i ON i.id = t.plan_item_id
+       INNER JOIN treatment_plan_phases ph ON ph.id = i.phase_id
+       INNER JOIN treatment_plans pl ON pl.id = ph.plan_id
+       WHERE i.phase_id = ?`,
+      [phaseId],
+    ).rows?._array ?? [];
+  const fkCollected = collectLedgerTreatmentIdsFromItemRows(
+    fkRows as Record<string, unknown>[],
+  );
+  const mergedIds = new Set([...treatmentIds, ...fkCollected.treatmentIds]);
+  const pid = patientId || fkCollected.patientId;
+  if (pid && mergedIds.size > 0) {
+    await deleteLinkedLedgerTreatments(pid, [...mergedIds]);
   }
 
   db.execute('DELETE FROM treatment_plan_phases WHERE id = ?', [phaseId]);
@@ -987,7 +1233,7 @@ export const updateTreatmentPlanItemStatus = (
 export const deleteTreatmentPlanItem = async (itemId: string): Promise<void> => {
   const db = getDatabase();
   const row = db.execute(
-    `SELECT p.plan_id, i.treatment_id, pl.patient_id
+    `SELECT p.plan_id, pl.patient_id
      FROM treatment_plan_items i
      INNER JOIN treatment_plan_phases p ON p.id = i.phase_id
      INNER JOIN treatment_plans pl ON pl.id = p.plan_id
@@ -995,14 +1241,12 @@ export const deleteTreatmentPlanItem = async (itemId: string): Promise<void> => 
     [itemId],
   ).rows?._array?.[0] as {
     plan_id?: string;
-    treatment_id?: string;
     patient_id?: string;
   } | undefined;
 
-  if (row?.treatment_id && row.patient_id) {
-    await deleteLinkedLedgerTreatments(String(row.patient_id), [
-      String(row.treatment_id),
-    ]);
+  const treatmentIds = getPostedTreatmentIdsForPlanItem(itemId);
+  if (row?.patient_id && treatmentIds.length > 0) {
+    await deleteLinkedLedgerTreatments(String(row.patient_id), treatmentIds);
   }
 
   db.execute('DELETE FROM treatment_plan_items WHERE id = ?', [itemId]);

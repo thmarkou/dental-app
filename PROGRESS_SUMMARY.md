@@ -11,7 +11,8 @@
 - **Ρυθμίσεις ιατρείου**: migration v14, φόρμα στο Settings, εκδότης στο PDF
 - **Αποθήκη**: migration v15, οθόνη από Αναφορές, Πρόσθεσε/Αφαίρεσε, όριο προειδοποίησης
 - **Fix**: `env.config` dev defaults (όχι crash Release), SQLite `rows._array` στην αποθήκη
-- **Επόμενο**: αποδείξεις πολυγραμμικές, clinic flow `scheduled`, myDATA (τελευταίο)
+- **Επόμενο (κλινική):** bug πολλών δοντιών στο ledger, σύνδεση odontogram ↔ σχέδιο — βλ. **[BACKLOG_CLINICAL.md](./BACKLOG_CLINICAL.md)**
+- **Τελευταίο:** myDATA (AADE)
 
 ---
 

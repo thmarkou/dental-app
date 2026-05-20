@@ -176,6 +176,8 @@ export interface RecordTreatmentInput {
    * Optional override for chart condition when treatmentType alone is ambiguous.
    */
   chartConditionOverride?: ToothCondition | null;
+  /** Links ledger row to a treatment_plan_items row (anti double-charge). */
+  planItemId?: string | null;
 }
 
 /** Fields that may be updated on an existing treatment row */
@@ -418,8 +420,9 @@ export const recordTreatment = async (
   await db.transaction(async (tx) => {
     tx.execute(
       `INSERT INTO treatments (
-        id, patient_id, appointment_id, tooth_number, surface, service_id, cost, notes, created_at, procedure_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, patient_id, appointment_id, tooth_number, surface, service_id, cost, notes,
+        created_at, procedure_type, plan_item_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         treatmentData.patientId,
@@ -431,6 +434,7 @@ export const recordTreatment = async (
         treatmentData.notes ?? null,
         createdAt,
         treatmentData.treatmentType,
+        treatmentData.planItemId ?? null,
       ],
     );
 

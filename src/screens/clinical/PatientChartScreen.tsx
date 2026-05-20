@@ -2,7 +2,7 @@
  * Patient dental chart (odontogram) with treatment recording modal.
  */
 
-import React, {useCallback, useEffect, useLayoutEffect, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,13 @@ import {
   type ClinicalHistoryRow,
   type TreatmentRow,
 } from '../../services/clinical/treatment.service';
+import {
+  findMatchingOpenPlanItems,
+  fulfillPlanItemToLedger,
+  getOpenPlanItemsForPatient,
+  updateTreatmentPlanItemStatus,
+  type OpenPlanItemForChart,
+} from '../../services/clinical/treatmentPlan.service';
 import {getPatientById} from '../../services/patient';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {el} from '../../i18n';
@@ -81,9 +88,10 @@ function findLatestSiteTreatmentForTooth(
 const PatientChartScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute();
-  const {patientId, openTreatmentId} = route.params as {
+  const {patientId, openTreatmentId, highlightTeeth} = route.params as {
     patientId: string;
     openTreatmentId?: string;
+    highlightTeeth?: number[];
   };
   const {width} = useWindowDimensions();
 
@@ -106,29 +114,52 @@ const PatientChartScreen: React.FC = () => {
   const [costText, setCostText] = useState('');
   const [saving, setSaving] = useState(false);
   const [toothPresent, setToothPresent] = useState(true);
+  const [openPlanItems, setOpenPlanItems] = useState<OpenPlanItemForChart[]>([]);
+  const [modalPlanMatches, setModalPlanMatches] = useState<OpenPlanItemForChart[]>(
+    [],
+  );
+
+  const plannedTeethSet = useMemo(() => {
+    const set = new Set<number>();
+    for (const item of openPlanItems) {
+      for (const t of item.toothNumbers) {
+        set.add(t);
+      }
+    }
+    return set;
+  }, [openPlanItems]);
+
+  const highlightTeethSet = useMemo(
+    () => new Set(highlightTeeth ?? []),
+    [highlightTeeth],
+  );
 
   const refreshClinicalData = useCallback(async () => {
-    const [rows, history] = await Promise.all([
+    const [rows, history, planItems] = await Promise.all([
       getPatientChart(patientId),
       getPatientHistory(patientId),
+      Promise.resolve(getOpenPlanItemsForPatient(patientId)),
     ]);
     setChartRows(rows);
     setPatientTreatments(history);
+    setOpenPlanItems(planItems);
   }, [patientId]);
 
   const loadAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [patient, rows, history] = await Promise.all([
+      const [patient, rows, history, planItems] = await Promise.all([
         getPatientById(patientId),
         getPatientChart(patientId),
         getPatientHistory(patientId),
+        Promise.resolve(getOpenPlanItemsForPatient(patientId)),
       ]);
       if (patient) {
         setPatientName(`${patient.firstName} ${patient.lastName}`);
       }
       setChartRows(rows);
       setPatientTreatments(history);
+      setOpenPlanItems(planItems);
     } catch (e) {
       console.error(e);
       Alert.alert(el.common.error, el.chart.loadFailed);
@@ -222,6 +253,13 @@ const PatientChartScreen: React.FC = () => {
     setSelectedTooth(null);
     setEditingTreatmentId(null);
     setSelectedTreatment(GENERAL_TREATMENT_DEFAULT);
+    setModalPlanMatches(
+      findMatchingOpenPlanItems(
+        openPlanItems,
+        null,
+        GENERAL_TREATMENT_DEFAULT,
+      ),
+    );
     setNotes('');
     setCostText('');
     setModalVisible(true);
@@ -230,12 +268,19 @@ const PatientChartScreen: React.FC = () => {
   const openToothModal = async (toothNumber: number) => {
     setModalMode('tooth');
     setSelectedTooth(toothNumber);
+    setModalPlanMatches(
+      findMatchingOpenPlanItems(openPlanItems, toothNumber, TOOTH_TREATMENT_DEFAULT),
+    );
     const latest = findLatestSiteTreatmentForTooth(patientTreatments, toothNumber);
     if (latest) {
       setEditingTreatmentId(latest.id);
       const proc = latest.procedureType?.trim() || TOOTH_TREATMENT_DEFAULT;
-      setSelectedTreatment(
-        TOOTH_TREATMENT_VALUES.has(proc) ? proc : TOOTH_TREATMENT_DEFAULT,
+      const procResolved = TOOTH_TREATMENT_VALUES.has(proc)
+        ? proc
+        : TOOTH_TREATMENT_DEFAULT;
+      setSelectedTreatment(procResolved);
+      setModalPlanMatches(
+        findMatchingOpenPlanItems(openPlanItems, toothNumber, procResolved),
       );
       setNotes(latest.notes ?? '');
       setCostText(
@@ -246,6 +291,13 @@ const PatientChartScreen: React.FC = () => {
     } else {
       setEditingTreatmentId(null);
       setSelectedTreatment(TOOTH_TREATMENT_DEFAULT);
+      setModalPlanMatches(
+        findMatchingOpenPlanItems(
+          openPlanItems,
+          toothNumber,
+          TOOTH_TREATMENT_DEFAULT,
+        ),
+      );
       setNotes('');
       setCostText('');
     }
@@ -258,19 +310,31 @@ const PatientChartScreen: React.FC = () => {
     setModalVisible(false);
     setSelectedTooth(null);
     setEditingTreatmentId(null);
+    setModalPlanMatches([]);
   };
 
-  const currentConditionLabel =
-    selectedTooth == null
-      ? '—'
-      : (() => {
-          const coerced = coerceToothCondition(
-            chartRows.find((r) => r.toothNumber === selectedTooth)?.condition,
-          );
-          return coerced === TOOTH_CONDITIONS.CLEANING ? 'Healthy' : coerced;
-        })();
+  const completeFromPlanItem = async (planItem: OpenPlanItemForChart) => {
+    try {
+      setSaving(true);
+      updateTreatmentPlanItemStatus(planItem.itemId, 'completed');
+      const posted = await fulfillPlanItemToLedger(planItem.itemId);
+      await refreshClinicalData();
+      closeModal();
+      Alert.alert(
+        el.common.success,
+        posted > 0
+          ? el.chart.completeFromPlanSuccess
+          : el.treatmentPlans.markCompleteOnly,
+      );
+    } catch (e) {
+      console.error(e);
+      Alert.alert(el.common.error, e instanceof Error ? e.message : el.chart.saveFailed);
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const submitTreatment = async () => {
+  const runRecordTreatment = async () => {
     const cost =
       costText.trim() === '' ? null : Number.parseFloat(costText.replace(',', '.'));
     if (costText.trim() !== '' && (cost == null || Number.isNaN(cost))) {
@@ -335,6 +399,51 @@ const PatientChartScreen: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const currentConditionLabel =
+    selectedTooth == null
+      ? '—'
+      : (() => {
+          const coerced = coerceToothCondition(
+            chartRows.find((r) => r.toothNumber === selectedTooth)?.condition,
+          );
+          return coerced === TOOTH_CONDITIONS.CLEANING ? 'Healthy' : coerced;
+        })();
+
+  const submitTreatment = () => {
+    if (editingTreatmentId) {
+      void runRecordTreatment();
+      return;
+    }
+
+    const tooth = modalMode === 'tooth' ? selectedTooth : null;
+    const matches = findMatchingOpenPlanItems(
+      openPlanItems,
+      tooth,
+      selectedTreatment,
+    );
+    if (matches.length === 0) {
+      void runRecordTreatment();
+      return;
+    }
+
+    const planTitle = matches[0]!.planTitle;
+    Alert.alert(
+      el.chart.planMatchTitle,
+      el.chart.planMatchBody.replace('{plan}', planTitle),
+      [
+        {text: el.common.cancel, style: 'cancel'},
+        {
+          text: el.chart.planMatchContinue,
+          onPress: () => void runRecordTreatment(),
+        },
+        {
+          text: el.chart.planMatchUsePlan,
+          onPress: () => void completeFromPlanItem(matches[0]!),
+        },
+      ],
+    );
   };
 
   const handleDeleteTreatment = () => {
@@ -456,7 +565,15 @@ const PatientChartScreen: React.FC = () => {
           chartRows={chartRows}
           onToothPress={openToothModal}
           comfortableLayout={width >= 720}
+          plannedTeeth={plannedTeethSet}
+          highlightTeeth={highlightTeethSet}
         />
+
+        {plannedTeethSet.size > 0 ? (
+          <Text className="mt-2 text-center text-xs text-slate-500">
+            {el.chart.plannedLegend}
+          </Text>
+        ) : null}
 
         <OdontogramLegend />
       </ScrollView>
@@ -505,6 +622,29 @@ const PatientChartScreen: React.FC = () => {
               </>
             )}
 
+            {!editingTreatmentId && modalPlanMatches.length > 0 ? (
+              <View className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3">
+                <Text className="text-sm font-semibold text-blue-900">
+                  {el.chart.fromPlanSection}
+                </Text>
+                {modalPlanMatches.map((pi) => (
+                  <View key={pi.itemId} className="mt-2">
+                    <Text className="text-xs text-blue-900">
+                      {pi.planTitle} · {pi.procedureType}
+                    </Text>
+                    <Pressable
+                      onPress={() => void completeFromPlanItem(pi)}
+                      disabled={saving}
+                      className="mt-2 items-center rounded-lg bg-blue-600 py-2.5 active:bg-blue-700 disabled:opacity-50">
+                      <Text className="text-xs font-semibold text-white">
+                        {el.chart.completeFromPlan}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
             <Text className="mb-2 mt-4 text-sm font-semibold text-slate-700">
               {modalMode === 'general'
                 ? editingTreatmentId
@@ -526,7 +666,18 @@ const PatientChartScreen: React.FC = () => {
                   {TOOTH_TREATMENT_OPTIONS.map((opt) => (
                     <Pressable
                       key={opt.value}
-                      onPress={() => setSelectedTreatment(opt.value)}
+                      onPress={() => {
+                        setSelectedTreatment(opt.value);
+                        if (!editingTreatmentId && selectedTooth != null) {
+                          setModalPlanMatches(
+                            findMatchingOpenPlanItems(
+                              openPlanItems,
+                              selectedTooth,
+                              opt.value,
+                            ),
+                          );
+                        }
+                      }}
                       className={`w-full rounded-xl border-2 px-3 py-2.5 ${
                         selectedTreatment === opt.value
                           ? 'border-blue-600 bg-blue-50'
@@ -551,7 +702,14 @@ const PatientChartScreen: React.FC = () => {
                   {GENERAL_TREATMENT_OPTIONS.map((opt) => (
                     <Pressable
                       key={opt.value}
-                      onPress={() => setSelectedTreatment(opt.value)}
+                      onPress={() => {
+                        setSelectedTreatment(opt.value);
+                        if (!editingTreatmentId) {
+                          setModalPlanMatches(
+                            findMatchingOpenPlanItems(openPlanItems, null, opt.value),
+                          );
+                        }
+                      }}
                       className={`max-w-[320px] rounded-xl border-2 px-3 py-2 ${
                         selectedTreatment === opt.value
                           ? 'border-emerald-600 bg-emerald-50'

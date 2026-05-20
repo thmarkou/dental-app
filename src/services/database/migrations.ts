@@ -656,4 +656,18 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 17,
+    up: (database) => {
+      database.execute(
+        'ALTER TABLE treatment_plan_items ADD COLUMN treatment_ids TEXT;',
+      );
+      database.execute(
+        'ALTER TABLE treatments ADD COLUMN plan_item_id TEXT;',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_treatments_plan_item ON treatments(plan_item_id);',
+      );
+    },
+  },
 ];

@@ -12,7 +12,11 @@ export type PatientsStackParamList = {
   PatientsList: undefined;
   PatientDetail: {patientId: string};
   AddEditPatient: {mode: 'add' | 'edit'; patientId?: string};
-  PatientChart: {patientId: string; openTreatmentId?: string};
+  PatientChart: {
+    patientId: string;
+    openTreatmentId?: string;
+    highlightTeeth?: number[];
+  };
   PatientTreatmentHistory: {patientId: string};
   PatientLedger: {patientId: string};
   PatientDocuments: {patientId: string};

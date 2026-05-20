@@ -33,6 +33,7 @@ import {
   deleteTreatmentPlanPhase,
   fulfillPlanItemToLedger,
   getPendingLedgerPostsForPlan,
+  isPlanItemOnLedger,
   getPlanLedgerPostingSummary,
   getTreatmentPlanById,
   markAllPlanItemsCompleted,
@@ -50,6 +51,7 @@ import {
   type TreatmentPlanStatus,
 } from '../../services/clinical/treatmentPlan.service';
 import {shareTreatmentPlanPdf} from '../../services/clinical/treatmentPlanPdf.service';
+import {isGeneralProcedureType} from '../../services/clinical/treatment.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {
   el,
@@ -92,7 +94,10 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
       NativeStackNavigationProp<PatientsStackParamList, 'PatientTreatmentPlanDetail'>
     >();
   const route = useRoute();
-  const {planId} = route.params as {patientId: string; planId: string};
+  const {patientId, planId} = route.params as {
+    patientId: string;
+    planId: string;
+  };
   const {width} = useWindowDimensions();
   const pad = width >= 900 ? 24 : 16;
 
@@ -175,15 +180,24 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
       load();
       return;
     }
-    if (item.treatmentId) {
+    if (isPlanItemOnLedger(item)) {
       updateTreatmentPlanItemStatus(item.id, 'completed');
       load();
       return;
     }
 
+    const ledgerCharges =
+      !isGeneralProcedureType(item.procedureType) && item.toothNumbers.length > 1
+        ? item.toothNumbers.length
+        : 1;
+
     Alert.alert(
       el.treatmentPlans.completeItemTitle,
-      planCompleteItemBody(formatChargeAmount(item.estimatedCost), item.procedureType),
+      planCompleteItemBody(
+        formatChargeAmount(item.estimatedCost),
+        item.procedureType,
+        ledgerCharges,
+      ),
       [
         {text: el.common.cancel, style: 'cancel'},
         {
@@ -201,10 +215,12 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                 updateTreatmentPlanItemStatus(item.id, 'completed');
                 const posted = await fulfillPlanItemToLedger(item.id);
                 load();
-                if (posted) {
+                if (posted > 0) {
                   Alert.alert(
                     el.treatmentPlans.ledgerTitle,
-                    el.treatmentPlans.chargeRecorded,
+                    posted > 1
+                      ? planPostPendingSuccess(posted)
+                      : el.treatmentPlans.chargeRecorded,
                   );
                 }
               } catch (e) {
@@ -515,7 +531,7 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
   };
 
   const confirmDeleteItem = (item: TreatmentPlanItemRow) => {
-    const ledgerNote = item.treatmentId
+    const ledgerNote = isPlanItemOnLedger(item)
       ? planDeleteItemLedgerNote(formatChargeAmount(item.estimatedCost))
       : '';
 
@@ -738,10 +754,24 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                       {item.procedureType}
                     </Text>
                     {item.toothNumbers.length > 0 ? (
-                      <Text className="mt-0.5 text-xs text-slate-600">
-                        {el.treatmentPlans.teeth}
-                        {item.toothNumbers.join(', ')}
-                      </Text>
+                      <View className="mt-0.5 flex-row flex-wrap items-center gap-2">
+                        <Text className="text-xs text-slate-600">
+                          {el.treatmentPlans.teeth}
+                          {item.toothNumbers.join(', ')}
+                        </Text>
+                        <Pressable
+                          onPress={() =>
+                            navigation.navigate('PatientChart', {
+                              patientId,
+                              highlightTeeth: item.toothNumbers,
+                            })
+                          }
+                          hitSlop={6}>
+                          <Text className="text-xs font-semibold text-blue-700">
+                            {el.treatmentPlans.viewOnChart}
+                          </Text>
+                        </Pressable>
+                      </View>
                     ) : null}
                     {item.description ? (
                       <Text className="mt-1 text-xs text-slate-600">{item.description}</Text>
@@ -754,7 +784,14 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
                       </Text>
                       <Text className="text-xs text-slate-500">
                         {planItemStatusLabel(item.status)}
-                        {item.treatmentId ? el.treatmentPlans.onLedger : ''}
+                        {isPlanItemOnLedger(item)
+                          ? item.treatmentIds.length > 1
+                            ? el.treatmentPlans.onLedgerMulti.replace(
+                                '{count}',
+                                String(item.treatmentIds.length),
+                              )
+                            : el.treatmentPlans.onLedger
+                          : ''}
                       </Text>
                     </View>
                     <View className="mt-2 flex-row flex-wrap gap-2">

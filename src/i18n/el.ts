@@ -533,6 +533,16 @@ export const el = {
     deleteToothConfirm:
       'Να αφαιρεθεί αυτή η εγγραφή; Το chart θα ακολουθήσει την τελευταία θεραπεία του δοντιού.',
     deletedChartUpdated: 'Η θεραπεία αφαιρέθηκε. Το chart ενημερώθηκε.',
+    plannedLegend: 'Μπλε κουκκίδα = προγραμματισμένη θεραπεία από ενεργό σχέδιο',
+    fromPlanSection: 'Από σχέδιο θεραπείας',
+    completeFromPlan: 'Ολοκλήρωση από σχέδιο',
+    completeFromPlanSuccess: 'Η θεραπεία του σχεδίου ολοκληρώθηκε και καταχωρήθηκε.',
+    adHocDespitePlan: 'Νέα καταχώρηση (χωρίς σχέδιο)',
+    planMatchTitle: 'Υπάρχει στο σχέδιο',
+    planMatchBody:
+      'Η ίδια πράξη είναι ήδη στο σχέδιο «{plan}». Προτιμήστε ολοκλήρωση από το σχέδιο για να αποφύγετε διπλή χρέωση.',
+    planMatchUsePlan: 'Από σχέδιο',
+    planMatchContinue: 'Συνέχεια χωρίς σχέδιο',
   },
 
   history: {
@@ -840,6 +850,9 @@ export const el = {
     pdfAlternativeSection: 'Πρόταση',
     pdfAlternativeTotal: 'Σύνολο πρότασης',
     pdfSelectedAlternative: 'Επιλεγμένη πρόταση',
+    multiLedgerCharges: 'Θα καταχωρηθούν {count} χρεώσεις (μία ανά δόντι).',
+    viewOnChart: 'Δες στον οδοντογράφο',
+    onLedgerMulti: ' · {count} χρεώσεις',
   },
 
   paymentMethods: {
@@ -935,8 +948,17 @@ export function planPostPendingSuccess(posted: number): string {
     : el.treatmentPlans.noNewPostings;
 }
 
-export function planCompleteItemBody(amount: string, procedure: string): string {
-  return `${el.treatmentPlans.completeItemIntro.replace('{amount}', amount)}\n\n${procedure}`;
+export function planCompleteItemBody(
+  amount: string,
+  procedure: string,
+  ledgerChargeCount = 1,
+): string {
+  const intro = el.treatmentPlans.completeItemIntro.replace('{amount}', amount);
+  const multi =
+    ledgerChargeCount > 1
+      ? `\n\n${el.treatmentPlans.multiLedgerCharges.replace('{count}', String(ledgerChargeCount))}`
+      : '';
+  return `${intro}${multi}\n\n${procedure}`;
 }
 
 export function planCompletePlanWithCharges(count: number, total: string): string {

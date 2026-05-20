@@ -286,6 +286,8 @@ export const ArcOdontogram: React.FC<OdontogramProps> = ({
   chartRows,
   onToothPress,
   comfortableLayout: comfortableProp,
+  plannedTeeth,
+  highlightTeeth,
 }) => {
   const {width: screenW} = useWindowDimensions();
   const comfortable = comfortableProp ?? screenW >= 720;
@@ -418,6 +420,8 @@ export const ArcOdontogram: React.FC<OdontogramProps> = ({
                   width={cellW}
                   height={cellH}
                   labelPosition={lowerArch ? 'below' : 'above'}
+                  hasPlan={plannedTeeth?.has(tooth) ?? false}
+                  highlighted={highlightTeeth?.has(tooth) ?? false}
                 />
               </View>
             );
