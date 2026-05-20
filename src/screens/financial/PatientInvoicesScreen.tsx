@@ -11,7 +11,6 @@ import {
   Pressable,
   Alert,
   Modal,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
@@ -31,6 +30,7 @@ import {
   type InvoiceStatus,
 } from '../../services/financial/invoice.service';
 import {shareInvoicePdf} from '../../services/financial/invoicePdf.service';
+import {shareReceiptPdf} from '../../services/financial/receiptPdf.service';
 import InvoiceLinesEditor, {
   createEmptyLineDraft,
   draftsFromSuggestions,
@@ -39,8 +39,11 @@ import InvoiceLinesEditor, {
 import {
   createReceipt,
   getPatientReceipts,
+  getReceiptLines,
+  parseReceiptLineDrafts,
   type ReceiptRow,
 } from '../../services/financial/receipt.service';
+import {getPracticeSettings} from '../../services/settings/practiceSettings.service';
 import {PAYMENT_METHODS} from '../../services/financial/payment.service';
 import {submitReceiptToMyData} from '../../services/financial/mydata.service';
 import {useAuthStore} from '../../store/auth.store';
@@ -99,9 +102,11 @@ const PatientInvoicesScreen: React.FC = () => {
   const [invoiceLineDrafts, setInvoiceLineDrafts] = useState<InvoiceLineDraft[]>([
     createEmptyLineDraft(),
   ]);
-  const [lineDesc, setLineDesc] = useState('');
-  const [lineAmount, setLineAmount] = useState('');
+  const [receiptLineDrafts, setReceiptLineDrafts] = useState<InvoiceLineDraft[]>([
+    createEmptyLineDraft(),
+  ]);
   const [payMethod, setPayMethod] = useState<string>(PAYMENT_METHODS.CASH);
+  const defaultVatRate = getPracticeSettings().defaultVatRate;
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -127,11 +132,6 @@ const PatientInvoicesScreen: React.FC = () => {
     }, [load]),
   );
 
-  const parseAmount = (raw: string): number | null => {
-    const n = Number.parseFloat(raw.replace(',', '.'));
-    return Number.isFinite(n) && n > 0 ? n : null;
-  };
-
   const openInvoiceModal = () => {
     const suggestions = getTreatmentLineSuggestions(patientId);
     setInvoiceLineDrafts(
@@ -147,13 +147,38 @@ const PatientInvoicesScreen: React.FC = () => {
     setInvoiceModal(true);
   };
 
-  const importTreatmentsToDraft = () => {
+  const importTreatmentsToInvoiceDraft = () => {
     const suggestions = getTreatmentLineSuggestions(patientId);
     if (suggestions.length === 0) {
       Alert.alert(el.common.error, el.invoices.importTreatmentsEmpty);
       return;
     }
     setInvoiceLineDrafts(draftsFromSuggestions(suggestions));
+  };
+
+  const openReceiptModal = () => {
+    const suggestions = getTreatmentLineSuggestions(patientId);
+    setReceiptLineDrafts(
+      suggestions.length > 0
+        ? draftsFromSuggestions(suggestions)
+        : [
+            {
+              ...createEmptyLineDraft(),
+              description: el.receipts.defaultService,
+            },
+          ],
+    );
+    setPayMethod(PAYMENT_METHODS.CASH);
+    setReceiptModal(true);
+  };
+
+  const importTreatmentsToReceiptDraft = () => {
+    const suggestions = getTreatmentLineSuggestions(patientId);
+    if (suggestions.length === 0) {
+      Alert.alert(el.common.error, el.receipts.importTreatmentsEmpty);
+      return;
+    }
+    setReceiptLineDrafts(draftsFromSuggestions(suggestions));
   };
 
   const saveInvoice = () => {
@@ -197,18 +222,33 @@ const PatientInvoicesScreen: React.FC = () => {
     }
   };
 
+  const onShareReceiptPdf = async (receiptId: string) => {
+    try {
+      setBusyId(receiptId);
+      await shareReceiptPdf(receiptId);
+    } catch (e) {
+      Alert.alert(
+        el.common.error,
+        e instanceof Error ? e.message : el.receipts.pdfFailed,
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const saveReceipt = () => {
-    const amt = parseAmount(lineAmount);
-    if (!lineDesc.trim() || amt == null) {
-      Alert.alert(el.appointments.validationErrorTitle, el.invoices.validation);
+    const lines = parseReceiptLineDrafts(receiptLineDrafts);
+    if (!lines) {
+      Alert.alert(el.appointments.validationErrorTitle, el.receipts.validation);
       return;
     }
     setSaving(true);
     try {
       createReceipt({
         patientId,
-        lines: [{description: lineDesc.trim(), quantity: 1, unitPrice: amt}],
+        lines,
         paymentMethod: payMethod,
+        vatRate: defaultVatRate,
         recordPayment: true,
         createdBy: user?.id ?? null,
       });
@@ -287,86 +327,6 @@ const PatientInvoicesScreen: React.FC = () => {
     }
   };
 
-  const renderFormModal = (
-    visible: boolean,
-    title: string,
-    isReceipt: boolean,
-    onClose: () => void,
-    onSave: () => void,
-  ) => (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/40">
-        <View className="rounded-t-2xl bg-white p-5 pb-8">
-          <Text className="text-lg font-bold text-slate-900">{title}</Text>
-          <Text className="mt-1 text-sm text-slate-600">
-            {el.invoices.vatHint}
-          </Text>
-
-          <Text className="mt-4 text-sm font-medium text-slate-700">{el.invoices.description}</Text>
-          <TextInput
-            className="mt-1 rounded-lg border border-slate-200 px-3 py-2.5 text-base text-slate-900"
-            value={lineDesc}
-            onChangeText={setLineDesc}
-            placeholder={el.invoices.descriptionPlaceholder}
-          />
-
-          <Text className="mt-3 text-sm font-medium text-slate-700">{el.invoices.netAmount}</Text>
-          <TextInput
-            className="mt-1 rounded-lg border border-slate-200 px-3 py-2.5 text-base text-slate-900"
-            value={lineAmount}
-            onChangeText={setLineAmount}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
-          />
-
-          {isReceipt ? (
-            <>
-              <Text className="mt-3 text-sm font-medium text-slate-700">{el.clinic.method}</Text>
-              <View className="mt-2 flex-row flex-wrap gap-2">
-                {Object.values(PAYMENT_METHODS).map((m) => (
-                  <Pressable
-                    key={m}
-                    onPress={() => setPayMethod(m)}
-                    className={`rounded-lg border px-3 py-2 ${
-                      payMethod === m
-                        ? 'border-slate-900 bg-slate-900'
-                        : 'border-slate-200 bg-slate-50'
-                    }`}>
-                    <Text
-                      className={`text-sm font-medium ${
-                        payMethod === m ? 'text-white' : 'text-slate-700'
-                      }`}>
-                      {paymentMethodLabel(m)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          ) : null}
-
-          <View className="mt-6 flex-row gap-2">
-            <Pressable
-              onPress={onClose}
-              disabled={saving}
-              className="flex-1 rounded-xl border border-slate-200 py-3">
-              <Text className="text-center font-semibold text-slate-700">{el.common.cancel}</Text>
-            </Pressable>
-            <Pressable
-              onPress={onSave}
-              disabled={saving}
-              className="flex-1 rounded-xl bg-slate-900 py-3 disabled:opacity-50">
-              {saving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text className="text-center font-semibold text-white">{el.common.save}</Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
   if (loading) {
     return (
       <ScreenSafeArea variant="content">
@@ -415,7 +375,7 @@ const PatientInvoicesScreen: React.FC = () => {
         </View>
 
         <Pressable
-          onPress={tab === 'invoices' ? openInvoiceModal : () => setReceiptModal(true)}
+          onPress={tab === 'invoices' ? openInvoiceModal : openReceiptModal}
           className="mt-4 flex-row items-center justify-center rounded-xl bg-slate-900 py-3.5 active:bg-slate-800">
           <MaterialIcons name="add" size={22} color="#fff" />
           <Text className="ml-1 text-base font-semibold text-white">
@@ -512,6 +472,28 @@ const PatientInvoicesScreen: React.FC = () => {
                 <Text className="mt-2 text-lg font-bold text-slate-900">
                   {currencyEl(rec.totalAmount)}
                 </Text>
+                <Text className="text-xs text-slate-500">
+                  {el.invoices.netLabel} {currencyEl(rec.subtotal)} + {el.invoices.vatLabel}{' '}
+                  {currencyEl(rec.vatAmount)}
+                </Text>
+                <Text className="mt-1 text-xs text-slate-500">
+                  {getReceiptLines(rec.id).length} {el.receipts.linesCount}
+                </Text>
+                <Pressable
+                  disabled={busyId === rec.id}
+                  onPress={() => void onShareReceiptPdf(rec.id)}
+                  className="mt-3 flex-row items-center justify-center rounded-lg border border-slate-200 bg-slate-50 py-2.5 disabled:opacity-50">
+                  {busyId === rec.id ? (
+                    <ActivityIndicator size="small" color="#0f172a" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="picture-as-pdf" size={18} color="#0f172a" />
+                      <Text className="ml-2 text-sm font-semibold text-slate-800">
+                        {el.receipts.sharePdf}
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
                 {rec.mydataMark ? (
                   <View className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
                     <Text className="text-xs font-semibold text-emerald-800">myDATA</Text>
@@ -563,7 +545,7 @@ const PatientInvoicesScreen: React.FC = () => {
                 <InvoiceLinesEditor
                   lines={invoiceLineDrafts}
                   onChange={setInvoiceLineDrafts}
-                  onImportTreatments={importTreatmentsToDraft}
+                  onImportTreatments={importTreatmentsToInvoiceDraft}
                 />
               </View>
             </ScrollView>
@@ -592,13 +574,83 @@ const PatientInvoicesScreen: React.FC = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-      {renderFormModal(
-        receiptModal,
-        el.invoices.newReceiptTitle,
-        true,
-        () => setReceiptModal(false),
-        saveReceipt,
-      )}
+      <Modal
+        visible={receiptModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setReceiptModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1 justify-end bg-black/40">
+          <View className="max-h-[92%] rounded-t-2xl bg-white">
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              className="p-5 pb-4"
+              contentContainerStyle={{paddingBottom: 8}}>
+              <Text className="text-lg font-bold text-slate-900">
+                {el.receipts.newReceiptTitle}
+              </Text>
+              <Text className="mt-1 text-sm text-slate-600">{el.invoices.vatHint}</Text>
+              <Text className="mt-1 text-sm text-slate-600">{el.receipts.paymentHint}</Text>
+
+              <Text className="mt-4 text-sm font-medium text-slate-700">
+                {el.clinic.method}
+              </Text>
+              <View className="mt-2 flex-row flex-wrap gap-2">
+                {Object.values(PAYMENT_METHODS).map((m) => (
+                  <Pressable
+                    key={m}
+                    onPress={() => setPayMethod(m)}
+                    className={`rounded-lg border px-3 py-2 ${
+                      payMethod === m
+                        ? 'border-slate-900 bg-slate-900'
+                        : 'border-slate-200 bg-slate-50'
+                    }`}>
+                    <Text
+                      className={`text-sm font-medium ${
+                        payMethod === m ? 'text-white' : 'text-slate-700'
+                      }`}>
+                      {paymentMethodLabel(m)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <View className="mt-4">
+                <InvoiceLinesEditor
+                  variant="receipt"
+                  lines={receiptLineDrafts}
+                  onChange={setReceiptLineDrafts}
+                  onImportTreatments={importTreatmentsToReceiptDraft}
+                  vatRate={defaultVatRate}
+                />
+              </View>
+            </ScrollView>
+            <View className="flex-row gap-2 border-t border-slate-100 p-5">
+              <Pressable
+                onPress={() => setReceiptModal(false)}
+                disabled={saving}
+                className="flex-1 rounded-xl border border-slate-200 py-3">
+                <Text className="text-center font-semibold text-slate-700">
+                  {el.common.cancel}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={saveReceipt}
+                disabled={saving}
+                className="flex-1 rounded-xl bg-slate-900 py-3 disabled:opacity-50">
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text className="text-center font-semibold text-white">
+                    {el.common.save}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ScreenSafeArea>
   );
 };

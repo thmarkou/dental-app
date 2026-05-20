@@ -7,6 +7,37 @@ import {uuidv4} from '../../utils/uuid';
 import {allocateFiscalNumber} from './fiscalSequence.service';
 import {DEFAULT_VAT_RATE} from './invoice.service';
 import {getPaymentById} from './payment.service';
+import {getPracticeSettings} from '../settings/practiceSettings.service';
+
+export function parseReceiptLineDrafts(
+  drafts: {description: string; quantity: string; unitPrice: string}[],
+): ReceiptLineInput[] | null {
+  const lines: ReceiptLineInput[] = [];
+  for (const draft of drafts) {
+    const description = draft.description.trim();
+    if (!description) {
+      return null;
+    }
+    const qty = Number.parseFloat(draft.quantity.replace(',', '.'));
+    const unit = Number.parseFloat(draft.unitPrice.replace(',', '.'));
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unit) || unit < 0) {
+      return null;
+    }
+    lines.push({description, quantity: qty, unitPrice: unit});
+  }
+  return lines.length > 0 ? lines : null;
+}
+
+export function previewReceiptTotals(
+  lines: ReceiptLineInput[],
+  defaultVatRate?: number,
+): {subtotal: number; vatAmount: number; totalAmount: number} {
+  const rate =
+    defaultVatRate ??
+    getPracticeSettings().defaultVatRate ??
+    DEFAULT_VAT_RATE;
+  return computeReceiptTotals(lines, rate);
+}
 
 export interface ReceiptLineInput {
   description: string;
@@ -181,7 +212,10 @@ export const createReceipt = (input: CreateReceiptInput): ReceiptRow => {
   }
 
   const db = getDatabase();
-  const vatRate = input.vatRate ?? DEFAULT_VAT_RATE;
+  const vatRate =
+    input.vatRate ??
+    getPracticeSettings().defaultVatRate ??
+    DEFAULT_VAT_RATE;
   const {subtotal, vatAmount, totalAmount} = computeReceiptTotals(
     input.lines,
     vatRate,

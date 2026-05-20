@@ -10,6 +10,7 @@ import {
   previewInvoiceTotals,
   type InvoiceLineInput,
 } from '../../services/financial/invoice.service';
+import {previewReceiptTotals} from '../../services/financial/receipt.service';
 import {el, UI_LOCALE} from '../../i18n';
 
 export interface InvoiceLineDraft {
@@ -47,11 +48,51 @@ const currencyEl = (n: number) =>
     minimumFractionDigits: 2,
   }).format(n);
 
+type LinesEditorCopy = {
+  importTreatments: string;
+  lineNumber: string;
+  description: string;
+  descriptionPlaceholder: string;
+  quantity: string;
+  unitPrice: string;
+  addLine: string;
+  netLabel: string;
+  vatLabel: string;
+  totalLabel: string;
+};
+
+const invoiceCopy = (): LinesEditorCopy => ({
+  importTreatments: el.invoices.importTreatments,
+  lineNumber: el.invoices.lineNumber,
+  description: el.invoices.description,
+  descriptionPlaceholder: el.invoices.descriptionPlaceholder,
+  quantity: el.invoices.quantity,
+  unitPrice: el.invoices.unitPrice,
+  addLine: el.invoices.addLine,
+  netLabel: el.invoices.netLabel,
+  vatLabel: el.invoices.vatLabel,
+  totalLabel: el.invoices.pdfTotal,
+});
+
+const receiptCopy = (): LinesEditorCopy => ({
+  importTreatments: el.receipts.importTreatments,
+  lineNumber: el.receipts.lineNumber,
+  description: el.receipts.description,
+  descriptionPlaceholder: el.receipts.descriptionPlaceholder,
+  quantity: el.receipts.quantity,
+  unitPrice: el.receipts.unitPrice,
+  addLine: el.receipts.addLine,
+  netLabel: el.receipts.netLabel,
+  vatLabel: el.receipts.vatLabel,
+  totalLabel: el.receipts.totalLabel,
+});
+
 interface InvoiceLinesEditorProps {
   lines: InvoiceLineDraft[];
   onChange: (lines: InvoiceLineDraft[]) => void;
   onImportTreatments?: () => void;
   vatRate?: number;
+  variant?: 'invoice' | 'receipt';
 }
 
 const InvoiceLinesEditor: React.FC<InvoiceLinesEditorProps> = ({
@@ -59,7 +100,9 @@ const InvoiceLinesEditor: React.FC<InvoiceLinesEditorProps> = ({
   onChange,
   onImportTreatments,
   vatRate = DEFAULT_VAT_RATE,
+  variant = 'invoice',
 }) => {
+  const copy = variant === 'receipt' ? receiptCopy() : invoiceCopy();
   const parsedForPreview = useMemo(() => {
     const inputs: InvoiceLineInput[] = [];
     for (const row of lines) {
@@ -77,8 +120,10 @@ const InvoiceLinesEditor: React.FC<InvoiceLinesEditorProps> = ({
     if (inputs.length === 0) {
       return null;
     }
-    return previewInvoiceTotals(inputs, vatRate);
-  }, [lines, vatRate]);
+    return variant === 'receipt'
+      ? previewReceiptTotals(inputs, vatRate)
+      : previewInvoiceTotals(inputs, vatRate);
+  }, [lines, vatRate, variant]);
 
   const updateLine = (id: string, patch: Partial<InvoiceLineDraft>) => {
     onChange(lines.map((row) => (row.id === id ? {...row, ...patch} : row)));
@@ -101,7 +146,7 @@ const InvoiceLinesEditor: React.FC<InvoiceLinesEditorProps> = ({
           className="mb-3 flex-row items-center justify-center rounded-lg border border-dashed border-blue-300 bg-blue-50 py-2.5">
           <MaterialIcons name="playlist-add" size={20} color="#1d4ed8" />
           <Text className="ml-2 text-sm font-semibold text-blue-800">
-            {el.invoices.importTreatments}
+            {copy.importTreatments}
           </Text>
         </Pressable>
       ) : null}
@@ -112,7 +157,7 @@ const InvoiceLinesEditor: React.FC<InvoiceLinesEditorProps> = ({
           className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
           <View className="mb-2 flex-row items-center justify-between">
             <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {el.invoices.lineNumber} {index + 1}
+              {copy.lineNumber} {index + 1}
             </Text>
             {lines.length > 1 ? (
               <Pressable onPress={() => removeLine(row.id)} hitSlop={8}>
@@ -122,19 +167,19 @@ const InvoiceLinesEditor: React.FC<InvoiceLinesEditorProps> = ({
           </View>
 
           <Text className="text-xs font-medium text-slate-600">
-            {el.invoices.description}
+            {copy.description}
           </Text>
           <TextInput
             className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
             value={row.description}
             onChangeText={(text) => updateLine(row.id, {description: text})}
-            placeholder={el.invoices.descriptionPlaceholder}
+            placeholder={copy.descriptionPlaceholder}
           />
 
           <View className="mt-2 flex-row gap-2">
             <View className="flex-1">
               <Text className="text-xs font-medium text-slate-600">
-                {el.invoices.quantity}
+                {copy.quantity}
               </Text>
               <TextInput
                 className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
@@ -145,7 +190,7 @@ const InvoiceLinesEditor: React.FC<InvoiceLinesEditorProps> = ({
             </View>
             <View className="flex-[2]">
               <Text className="text-xs font-medium text-slate-600">
-                {el.invoices.unitPrice}
+                {copy.unitPrice}
               </Text>
               <TextInput
                 className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
@@ -164,21 +209,21 @@ const InvoiceLinesEditor: React.FC<InvoiceLinesEditorProps> = ({
         className="flex-row items-center justify-center rounded-lg border border-slate-200 bg-white py-2.5">
         <MaterialIcons name="add" size={20} color="#0f172a" />
         <Text className="ml-1 text-sm font-semibold text-slate-800">
-          {el.invoices.addLine}
+          {copy.addLine}
         </Text>
       </Pressable>
 
       {parsedForPreview ? (
         <View className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
           <View className="flex-row justify-between">
-            <Text className="text-sm text-slate-600">{el.invoices.netLabel}</Text>
+            <Text className="text-sm text-slate-600">{copy.netLabel}</Text>
             <Text className="text-sm font-semibold text-slate-900">
               {currencyEl(parsedForPreview.subtotal)}
             </Text>
           </View>
           <View className="mt-1 flex-row justify-between">
             <Text className="text-sm text-slate-600">
-              {el.invoices.vatLabel} ({vatRate}%)
+              {copy.vatLabel} ({vatRate}%)
             </Text>
             <Text className="text-sm font-semibold text-slate-900">
               {currencyEl(parsedForPreview.vatAmount)}
@@ -186,7 +231,7 @@ const InvoiceLinesEditor: React.FC<InvoiceLinesEditorProps> = ({
           </View>
           <View className="mt-2 flex-row justify-between border-t border-slate-100 pt-2">
             <Text className="text-base font-semibold text-slate-900">
-              {el.invoices.pdfTotal}
+              {copy.totalLabel}
             </Text>
             <Text className="text-base font-bold text-slate-900">
               {currencyEl(parsedForPreview.totalAmount)}
