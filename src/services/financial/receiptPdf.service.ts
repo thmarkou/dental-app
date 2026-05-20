@@ -11,6 +11,7 @@ import {
   getPracticeSettings,
 } from '../settings/practiceSettings.service';
 import type {Patient} from '../../types/patient';
+import {getInvoiceById} from './invoice.service';
 import {
   getReceiptById,
   type ReceiptLineRow,
@@ -119,6 +120,17 @@ export function buildReceiptHtml(
   const patientAddress = formatPatientAddress(patient);
   const patientAfm = patient.afm?.trim() ?? '';
   const payLabel = paymentMethodLabel(receipt.paymentMethod);
+  const linkedInvoice = receipt.invoiceId
+    ? getInvoiceById(receipt.invoiceId)
+    : null;
+  const linkedInvoiceHtml = linkedInvoice
+    ? `<p class="muted">${escapeHtml(
+        el.invoices.linkedInvoice.replace(
+          '{number}',
+          linkedInvoice.invoiceNumber,
+        ),
+      )}</p>`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="el">
@@ -246,6 +258,7 @@ export function buildReceiptHtml(
     <div class="block meta">
       <p class="number">${escapeHtml(receipt.receiptNumber)}</p>
       <p>${escapeHtml(el.receipts.pdfIssueDate)}: ${escapeHtml(formatDate(receipt.issueDate))}</p>
+      ${linkedInvoiceHtml}
       <span class="badge">${escapeHtml(el.receipts.pdfPayment)}: ${escapeHtml(payLabel)}</span>
     </div>
   </div>

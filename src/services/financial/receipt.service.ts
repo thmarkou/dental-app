@@ -5,8 +5,12 @@
 import {getDatabase} from '../database';
 import {uuidv4} from '../../utils/uuid';
 import {allocateFiscalNumber} from './fiscalSequence.service';
-import {DEFAULT_VAT_RATE} from './invoice.service';
-import {getPaymentById} from './payment.service';
+import {
+  DEFAULT_VAT_RATE,
+  getInvoiceById,
+  type InvoiceRow,
+} from './invoice.service';
+import {getPaymentById, getPaymentsForInvoice} from './payment.service';
 import {getPracticeSettings} from '../settings/practiceSettings.service';
 
 export function parseReceiptLineDrafts(
@@ -187,6 +191,74 @@ export const getReceiptById = (receiptId: string): ReceiptRow | null => {
   return receipt;
 };
 
+export const getReceiptByInvoiceId = (
+  invoiceId: string,
+): ReceiptRow | null => {
+  const db = getDatabase();
+  const row = db.execute(
+    'SELECT * FROM receipts WHERE invoice_id = ? ORDER BY created_at DESC LIMIT 1',
+    [invoiceId],
+  ).rows?._array?.[0] as Record<string, unknown> | undefined;
+  if (!row) {
+    return null;
+  }
+  const receipt = mapReceiptRow(row);
+  receipt.lines = getReceiptLines(receipt.id);
+  return receipt;
+};
+
+export interface InvoiceFinancialLink {
+  totalPaid: number;
+  balance: number;
+  receipt: ReceiptRow | null;
+  canIssueReceipt: boolean;
+  paymentIdForReceipt: string | null;
+}
+
+export const getInvoiceFinancialLink = (
+  invoiceId: string,
+): InvoiceFinancialLink | null => {
+  const invoice = getInvoiceById(invoiceId);
+  if (!invoice) {
+    return null;
+  }
+  const payments = getPaymentsForInvoice(invoiceId);
+  const totalPaid = roundMoney(
+    payments.reduce((sum, p) => sum + p.amount, 0),
+  );
+  const balance = roundMoney(Math.max(0, invoice.totalAmount - totalPaid));
+  const receipt = getReceiptByInvoiceId(invoiceId);
+  const paymentWithoutReceipt = payments.find(
+    (p) => !p.receiptId && !p.receiptIssued,
+  );
+  const canIssueReceipt =
+    receipt == null &&
+    balance <= 0.01 &&
+    invoice.status === 'paid' &&
+    paymentWithoutReceipt != null;
+
+  return {
+    totalPaid,
+    balance,
+    receipt,
+    canIssueReceipt,
+    paymentIdForReceipt: paymentWithoutReceipt?.id ?? null,
+  };
+};
+
+function receiptLinesFromInvoice(invoice: InvoiceRow): ReceiptLineInput[] {
+  const lines = invoice.lines ?? [];
+  if (lines.length === 0) {
+    throw new Error('Invoice has no lines');
+  }
+  return lines.map((line) => ({
+    description: line.description,
+    quantity: line.quantity,
+    unitPrice: line.unitPrice,
+    vatRate: invoice.vatRate,
+  }));
+}
+
 export const getPatientReceipts = (patientId: string): ReceiptRow[] => {
   const db = getDatabase();
   const rows =
@@ -311,6 +383,120 @@ export const createReceipt = (input: CreateReceiptInput): ReceiptRow => {
   return getReceiptById(id)!;
 };
 
+/**
+ * Issue a receipt from a paid invoice (copies invoice lines, links payment).
+ */
+export const createReceiptForInvoice = (
+  invoiceId: string,
+  options?: {paymentId?: string; createdBy?: string | null},
+): ReceiptRow => {
+  const existing = getReceiptByInvoiceId(invoiceId);
+  if (existing) {
+    throw new Error('This invoice already has a receipt.');
+  }
+
+  const invoice = getInvoiceById(invoiceId);
+  if (!invoice) {
+    throw new Error('Invoice not found');
+  }
+  if (invoice.status !== 'paid') {
+    throw new Error('Invoice must be paid before issuing a receipt.');
+  }
+
+  const link = getInvoiceFinancialLink(invoiceId);
+  if (!link?.canIssueReceipt && !options?.paymentId) {
+    throw new Error('No eligible payment for receipt.');
+  }
+
+  let paymentId = options?.paymentId ?? link?.paymentIdForReceipt ?? null;
+  if (!paymentId) {
+    throw new Error('Payment not found for invoice.');
+  }
+  if (paymentHasReceipt(paymentId)) {
+    throw new Error('This payment already has a receipt.');
+  }
+
+  const payment = getPaymentById(paymentId);
+  if (!payment || payment.invoiceId !== invoiceId) {
+    throw new Error('Payment does not belong to this invoice.');
+  }
+
+  const lines = receiptLinesFromInvoice(invoice);
+  const db = getDatabase();
+  const vatRate =
+    invoice.vatRate ??
+    getPracticeSettings().defaultVatRate ??
+    DEFAULT_VAT_RATE;
+  const {subtotal, vatAmount, totalAmount} = computeReceiptTotals(lines, vatRate);
+  const id = uuidv4();
+  const receiptNumber = allocateFiscalNumber('receipt');
+  const now = new Date().toISOString();
+  const issueDate = now.slice(0, 10);
+
+  db.execute('BEGIN TRANSACTION;');
+  try {
+    db.execute(
+      `INSERT INTO receipts (
+        id, receipt_number, patient_id, invoice_id, payment_id, issue_date,
+        subtotal, vat_rate, vat_amount, total_amount, payment_method,
+        notes, created_by, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        receiptNumber,
+        invoice.patientId,
+        invoiceId,
+        paymentId,
+        issueDate,
+        subtotal,
+        vatRate,
+        vatAmount,
+        totalAmount,
+        payment.paymentMethod,
+        `Receipt for invoice ${invoice.invoiceNumber}`,
+        options?.createdBy ?? null,
+        now,
+      ],
+    );
+
+    lines.forEach((line, index) => {
+      const lineId = uuidv4();
+      const net = roundMoney(line.quantity * line.unitPrice);
+      const lineVatRate = line.vatRate ?? vatRate;
+      const lineVat = roundMoney((net * lineVatRate) / 100);
+      const lineTotal = roundMoney(net + lineVat);
+      db.execute(
+        `INSERT INTO receipt_lines (
+          id, receipt_id, description, quantity, unit_price, vat_rate, vat_amount, line_total, sort_order
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          lineId,
+          id,
+          line.description.trim(),
+          line.quantity,
+          line.unitPrice,
+          lineVatRate,
+          lineVat,
+          lineTotal,
+          index,
+        ],
+      );
+    });
+
+    db.execute(
+      'UPDATE payments SET receipt_id = ?, receipt_issued = 1 WHERE id = ?',
+      [id, paymentId],
+    );
+
+    db.execute('COMMIT;');
+  } catch (e) {
+    db.execute('ROLLBACK;');
+    throw e;
+  }
+
+  return getReceiptById(id)!;
+};
+
 /** Issue a receipt for an existing payment that has no receipt yet. */
 export const createReceiptForPayment = (
   paymentId: string,
@@ -323,6 +509,13 @@ export const createReceiptForPayment = (
   const payment = getPaymentById(paymentId);
   if (!payment) {
     throw new Error('Payment not found');
+  }
+
+  if (payment.invoiceId) {
+    return createReceiptForInvoice(payment.invoiceId, {
+      paymentId,
+      createdBy,
+    });
   }
 
   const db = getDatabase();
@@ -348,7 +541,7 @@ export const createReceiptForPayment = (
         id,
         receiptNumber,
         payment.patientId,
-        null,
+        payment.invoiceId,
         paymentId,
         issueDate,
         subtotal,

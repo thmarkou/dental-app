@@ -338,16 +338,34 @@ const InventoryScreen: React.FC = () => {
             </Text>
             <Text className="text-xs text-slate-500">{el.inventory.subtitle}</Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={openAdd}
-            className="flex-row items-center rounded-lg bg-slate-900 px-3 py-2 active:opacity-90">
-            <MaterialIcons name="add" size={20} color="#fff" />
-            <Text className="ml-1 text-sm font-semibold text-white">
-              {el.inventory.addItem}
-            </Text>
-          </Pressable>
+          <View className="flex-row gap-2">
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('ProcedureInventoryLinks')}
+              className="flex-row items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 active:bg-slate-100">
+              <MaterialIcons name="link" size={20} color="#334155" />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openAdd}
+              className="flex-row items-center rounded-lg bg-slate-900 px-3 py-2 active:opacity-90">
+              <MaterialIcons name="add" size={20} color="#fff" />
+              <Text className="ml-1 text-sm font-semibold text-white">
+                {el.inventory.addItem}
+              </Text>
+            </Pressable>
+          </View>
         </View>
+
+        <Pressable
+          onPress={() => navigation.navigate('ProcedureInventoryLinks')}
+          className="mx-3 mt-2 flex-row items-center rounded-xl border border-indigo-100 bg-indigo-50/80 px-3 py-2.5 active:bg-indigo-100">
+          <MaterialIcons name="medical-services" size={20} color="#4f46e5" />
+          <Text className="ml-2 flex-1 text-sm text-indigo-900">
+            {el.procedureInventory.openFromInventory}
+          </Text>
+          <MaterialIcons name="chevron-right" size={22} color="#6366f1" />
+        </Pressable>
 
         {!isDatabaseAvailable && (
           <View className="px-3 pt-2">

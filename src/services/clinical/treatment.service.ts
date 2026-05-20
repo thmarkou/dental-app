@@ -57,6 +57,11 @@ export const GENERAL_PROCEDURE_VALUES = [
 export const TOOTH_SITE_PROCEDURE_SET = new Set<string>(TOOTH_SITE_PROCEDURE_VALUES);
 export const GENERAL_PROCEDURE_SET = new Set<string>(GENERAL_PROCEDURE_VALUES);
 
+/** All selectable procedure types (tooth + general) for inventory BOM linking. */
+export function getAllCatalogProcedureTypes(): string[] {
+  return [...TOOTH_SITE_PROCEDURE_VALUES, ...GENERAL_PROCEDURE_VALUES];
+}
+
 /** Legacy single-tooth labels still found in older rows */
 const LEGACY_SITE_PROCEDURE_VALUES = [
   'Caries',

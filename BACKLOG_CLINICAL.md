@@ -191,7 +191,7 @@ flowchart TD
 | ✅ | **Bug πολλών δοντιών** στο ledger (v17 `treatment_ids`) | υλοποιήθηκε |
 | ✅ | **Odontogram ↔ plan** (`plan_item_id`, overlay, guards) | υλοποιήθηκε |
 | — | Appointments grid + υπενθυμίσεις | [BACKLOG_APPOINTMENTS.md](./BACKLOG_APPOINTMENTS.md) |
-| Χαμηλή | Αποθήκη ↔ κατάλογος θεραπειών | — |
+| ✅ | Αποθήκη ↔ κατάλογος θεραπειών (BOM v19, αφαίρεση με επιβεβαίωση) | υλοποιήθηκε |
 | **Τέλος** | Πραγματικό myDATA (AADE) | αναβολή |
 
 ---

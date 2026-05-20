@@ -75,6 +75,10 @@ function mapMovement(row: Record<string, unknown>): InventoryMovement {
       row.performed_by != null && String(row.performed_by).trim() !== ''
         ? String(row.performed_by)
         : null,
+    treatmentId:
+      row.treatment_id != null && String(row.treatment_id).trim() !== ''
+        ? String(row.treatment_id)
+        : null,
     createdAt: String(row.created_at),
   };
 }
@@ -290,8 +294,8 @@ export async function recordStockMovement(
     db.execute(
       `INSERT INTO inventory_movements (
         id, item_id, movement_type, quantity_delta, quantity_after,
-        notes, performed_by, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        notes, performed_by, treatment_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         movementId,
         input.itemId,
@@ -300,6 +304,7 @@ export async function recordStockMovement(
         quantityAfter,
         input.notes?.trim() || null,
         input.performedBy?.trim() || null,
+        input.treatmentId?.trim() || null,
         now,
       ],
     );

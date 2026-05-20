@@ -44,6 +44,7 @@ export interface InventoryMovement {
   quantityAfter: number;
   notes: string | null;
   performedBy: string | null;
+  treatmentId: string | null;
   createdAt: string;
 }
 
@@ -82,4 +83,5 @@ export interface RecordStockMovementInput {
   amount: number;
   notes?: string | null;
   performedBy?: string | null;
+  treatmentId?: string | null;
 }

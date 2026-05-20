@@ -713,4 +713,30 @@ export const migrations: Migration[] = [
       );
     },
   },
+  {
+    version: 19,
+    up: (database) => {
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS procedure_inventory_bom (
+          id TEXT PRIMARY KEY,
+          procedure_type TEXT NOT NULL,
+          inventory_item_id TEXT NOT NULL,
+          quantity REAL NOT NULL DEFAULT 1 CHECK (quantity > 0),
+          created_at TEXT NOT NULL,
+          UNIQUE (procedure_type, inventory_item_id),
+          FOREIGN KEY (inventory_item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+        );
+      `);
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_bom_procedure ON procedure_inventory_bom(procedure_type);',
+      );
+      try {
+        database.execute(
+          'ALTER TABLE inventory_movements ADD COLUMN treatment_id TEXT;',
+        );
+      } catch {
+        // column may exist
+      }
+    },
+  },
 ];

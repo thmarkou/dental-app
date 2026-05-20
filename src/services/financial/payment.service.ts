@@ -35,6 +35,8 @@ export interface PaymentRow {
   notes: string | null;
   /** AADE / myDATA submission reference when recorded */
   mydataMark: string | null;
+  invoiceId: string | null;
+  receiptId: string | null;
 }
 
 export type LedgerEntryKind = 'debit' | 'credit';
@@ -184,6 +186,8 @@ export const recordPayment = (paymentData: RecordPaymentInput): PaymentRow => {
     receiptIssued: receiptIssued === 1,
     notes,
     mydataMark: null,
+    invoiceId: null,
+    receiptId: null,
   };
 };
 
@@ -202,8 +206,29 @@ function mapPaymentRow(row: Record<string, unknown>): PaymentRow {
       row.mydata_mark != null && String(row.mydata_mark).trim() !== ''
         ? String(row.mydata_mark)
         : null,
+    invoiceId:
+      row.invoice_id != null && String(row.invoice_id).trim() !== ''
+        ? String(row.invoice_id)
+        : null,
+    receiptId:
+      row.receipt_id != null && String(row.receipt_id).trim() !== ''
+        ? String(row.receipt_id)
+        : null,
   };
 }
+
+export const getPaymentsForInvoice = (invoiceId: string): PaymentRow[] => {
+  const db = getDatabase();
+  const rows =
+    db.execute(
+      `SELECT id, patient_id, amount, payment_method, transaction_date,
+              receipt_issued, notes, mydata_mark, invoice_id, receipt_id
+       FROM payments WHERE invoice_id = ?
+       ORDER BY transaction_date DESC`,
+      [invoiceId],
+    ).rows?._array ?? [];
+  return rows.map((r: Record<string, unknown>) => mapPaymentRow(r));
+};
 
 /**
  * Load a single payment row (for myDATA and detail views).
@@ -211,7 +236,8 @@ function mapPaymentRow(row: Record<string, unknown>): PaymentRow {
 export const getPaymentById = (paymentId: string): PaymentRow | null => {
   const db = getDatabase();
   const row = db.execute(
-    `SELECT id, patient_id, amount, payment_method, transaction_date, receipt_issued, notes, mydata_mark
+    `SELECT id, patient_id, amount, payment_method, transaction_date, receipt_issued,
+            notes, mydata_mark, invoice_id, receipt_id
      FROM payments WHERE id = ?`,
     [paymentId],
   ).rows?._array?.[0] as Record<string, unknown> | undefined;

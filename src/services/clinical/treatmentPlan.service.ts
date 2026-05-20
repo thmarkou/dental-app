@@ -4,6 +4,8 @@
 
 import {getDatabase} from '../database';
 import {uuidv4} from '../../utils/uuid';
+import {offerInventoryDeductionForTreatment} from '../inventory/procedureInventory.service';
+import {getPatientById} from '../patient';
 import {
   deleteTreatment,
   isGeneralProcedureType,
@@ -848,6 +850,20 @@ export const fulfillPlanItemToLedger = async (
       itemId,
     ],
   );
+
+  if (createdIds.length > 0) {
+    const patient = await getPatientById(ctx.patientId);
+    const patientLabel = patient
+      ? `${patient.firstName} ${patient.lastName}`.trim()
+      : undefined;
+    offerInventoryDeductionForTreatment({
+      procedureType: ctx.procedureType,
+      treatmentId: createdIds[0]!,
+      multiplier: createdIds.length,
+      patientLabel,
+    });
+  }
+
   return createdIds.length;
 };
 

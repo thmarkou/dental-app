@@ -273,7 +273,7 @@ export const recordPaymentForInvoice = (
   invoiceId: string,
   amount: number,
   paymentMethod: string,
-): void => {
+): string => {
   const invoice = getInvoiceById(invoiceId);
   if (!invoice) {
     throw new Error('Invoice not found');
@@ -319,4 +319,6 @@ export const recordPaymentForInvoice = (
     db.execute('ROLLBACK;');
     throw e;
   }
+
+  return paymentId;
 };

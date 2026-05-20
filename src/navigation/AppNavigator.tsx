@@ -21,6 +21,7 @@ import AppointmentsScreen from '../screens/appointments/AppointmentsScreen';
 import GlobalTransactionsScreen from '../screens/financial/GlobalTransactionsScreen';
 import ReportsScreen from '../screens/admin/ReportsScreen';
 import InventoryScreen from '../screens/admin/InventoryScreen';
+import ProcedureInventoryLinksScreen from '../screens/admin/ProcedureInventoryLinksScreen';
 import SettingsScreen from '../screens/settings/SettingsScreen';
 
 // Patient screens
@@ -256,6 +257,10 @@ const ReportsStackNavigator = () => (
   <ReportsStack.Navigator screenOptions={{headerShown: false}}>
     <ReportsStack.Screen name="ReportsHome" component={ReportsScreen} />
     <ReportsStack.Screen name="Inventory" component={InventoryScreen} />
+    <ReportsStack.Screen
+      name="ProcedureInventoryLinks"
+      component={ProcedureInventoryLinksScreen}
+    />
   </ReportsStack.Navigator>
 );
 

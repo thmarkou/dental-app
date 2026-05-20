@@ -47,6 +47,8 @@ import {
   type OpenPlanItemForChart,
 } from '../../services/clinical/treatmentPlan.service';
 import {getPatientById} from '../../services/patient';
+import {offerInventoryDeductionForTreatment} from '../../services/inventory/procedureInventory.service';
+import {useAuthStore} from '../../store/auth.store';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {el} from '../../i18n';
 
@@ -94,6 +96,7 @@ const PatientChartScreen: React.FC = () => {
     highlightTeeth?: number[];
   };
   const {width} = useWindowDimensions();
+  const {user} = useAuthStore();
 
   const [modalMode, setModalMode] = useState<'tooth' | 'general'>('tooth');
 
@@ -348,6 +351,7 @@ const PatientChartScreen: React.FC = () => {
 
     try {
       setSaving(true);
+      let newTreatmentId: string | null = null;
       if (modalMode === 'general') {
         if (editingTreatmentId) {
           await updateTreatment(editingTreatmentId, {
@@ -357,13 +361,14 @@ const PatientChartScreen: React.FC = () => {
             cost,
           });
         } else {
-          await recordTreatment({
+          const created = await recordTreatment({
             patientId,
             toothNumber: null,
             treatmentType: selectedTreatment,
             notes: notes.trim() === '' ? null : notes.trim(),
             cost,
           });
+          newTreatmentId = created.id;
         }
       } else if (selectedTooth != null) {
         if (editingTreatmentId) {
@@ -374,17 +379,26 @@ const PatientChartScreen: React.FC = () => {
             cost,
           });
         } else {
-          await recordTreatment({
+          const created = await recordTreatment({
             patientId,
             toothNumber: selectedTooth,
             treatmentType: selectedTreatment,
             notes: notes.trim() === '' ? null : notes.trim(),
             cost,
           });
+          newTreatmentId = created.id;
         }
       }
       await refreshClinicalData();
       closeModal();
+      if (newTreatmentId) {
+        offerInventoryDeductionForTreatment({
+          procedureType: selectedTreatment,
+          treatmentId: newTreatmentId,
+          patientLabel: patientName || undefined,
+          performedBy: user?.id ?? null,
+        });
+      }
       Alert.alert(
         el.common.success,
         modalMode === 'general'

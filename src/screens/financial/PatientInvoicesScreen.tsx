@@ -38,11 +38,15 @@ import InvoiceLinesEditor, {
 } from '../../components/financial/InvoiceLinesEditor';
 import {
   createReceipt,
+  createReceiptForInvoice,
+  getInvoiceFinancialLink,
   getPatientReceipts,
   getReceiptLines,
   parseReceiptLineDrafts,
+  type InvoiceFinancialLink,
   type ReceiptRow,
 } from '../../services/financial/receipt.service';
+import {getInvoiceById} from '../../services/financial/invoice.service';
 import {getPracticeSettings} from '../../services/settings/practiceSettings.service';
 import {PAYMENT_METHODS} from '../../services/financial/payment.service';
 import {submitReceiptToMyData} from '../../services/financial/mydata.service';
@@ -94,6 +98,9 @@ const PatientInvoicesScreen: React.FC = () => {
   const [afmOk, setAfmOk] = useState(true);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
+  const [invoiceLinks, setInvoiceLinks] = useState<
+    Record<string, InvoiceFinancialLink | null>
+  >({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -117,8 +124,14 @@ const PatientInvoicesScreen: React.FC = () => {
         setPatientName(`${patient.firstName} ${patient.lastName}`);
         setAfmOk(/^\d{9}$/.test((patient.afm ?? '').trim()));
       }
-      setInvoices(getPatientInvoices(patientId));
+      const invs = getPatientInvoices(patientId);
+      setInvoices(invs);
       setReceipts(getPatientReceipts(patientId));
+      const links: Record<string, InvoiceFinancialLink | null> = {};
+      for (const inv of invs) {
+        links[inv.id] = getInvoiceFinancialLink(inv.id);
+      }
+      setInvoiceLinks(links);
     } catch (e) {
       console.error(e);
     } finally {
@@ -265,6 +278,39 @@ const PatientInvoicesScreen: React.FC = () => {
     }
   };
 
+  const promptIssueReceipt = (invoiceId: string) => {
+    Alert.alert(
+      el.invoices.issueReceiptPromptTitle,
+      el.invoices.issueReceiptPromptBody,
+      [
+        {text: el.invoices.issueReceiptLater, style: 'cancel'},
+        {
+          text: el.invoices.issueReceiptYes,
+          onPress: () => void issueReceiptFromInvoice(invoiceId),
+        },
+      ],
+    );
+  };
+
+  const issueReceiptFromInvoice = async (invoiceId: string) => {
+    try {
+      setBusyId(invoiceId);
+      createReceiptForInvoice(invoiceId, {createdBy: user?.id ?? null});
+      await load();
+      Alert.alert(el.common.success, el.invoices.receiptFromInvoiceSuccess);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      Alert.alert(
+        el.common.error,
+        msg.includes('already has a receipt')
+          ? el.invoices.invoiceAlreadyHasReceipt
+          : el.invoices.receiptFromInvoiceFailed,
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const onPayInvoice = (inv: InvoiceRow) => {
     Alert.alert(
       el.invoices.recordPaymentTitle,
@@ -281,7 +327,16 @@ const PatientInvoicesScreen: React.FC = () => {
                 PAYMENT_METHODS.CASH,
               );
               void load();
-              Alert.alert(el.invoices.paid, el.invoices.paidLinked);
+              Alert.alert(el.invoices.paid, el.invoices.paidLinked, [
+                {
+                  text: el.invoices.issueReceiptLater,
+                  style: 'cancel',
+                },
+                {
+                  text: el.invoices.issueReceiptYes,
+                  onPress: () => promptIssueReceipt(inv.id),
+                },
+              ]);
             } catch (e) {
               Alert.alert(
                 el.common.error,
@@ -418,6 +473,23 @@ const PatientInvoicesScreen: React.FC = () => {
                   <Text className="mt-1 text-xs text-slate-500">
                     {getInvoiceLines(inv.id).length} {el.invoices.linesCount}
                   </Text>
+                  {invoiceLinks[inv.id] &&
+                  invoiceLinks[inv.id]!.totalPaid > 0 &&
+                  inv.status !== 'cancelled' ? (
+                    <Text className="mt-1 text-xs text-slate-600">
+                      {el.invoices.paidAmount
+                        .replace('{paid}', currencyEl(invoiceLinks[inv.id]!.totalPaid))
+                        .replace('{total}', currencyEl(inv.totalAmount))}
+                    </Text>
+                  ) : null}
+                  {invoiceLinks[inv.id]?.receipt ? (
+                    <Text className="mt-1 text-xs font-medium text-emerald-700">
+                      {el.invoices.linkedReceipt.replace(
+                        '{number}',
+                        invoiceLinks[inv.id]!.receipt!.receiptNumber,
+                      )}
+                    </Text>
+                  ) : null}
                   <Pressable
                     disabled={busyId === inv.id}
                     onPress={() => void onShareInvoicePdf(inv.id)}
@@ -451,6 +523,23 @@ const PatientInvoicesScreen: React.FC = () => {
                       </Pressable>
                     </View>
                   ) : null}
+                  {invoiceLinks[inv.id]?.canIssueReceipt ? (
+                    <Pressable
+                      disabled={busyId === inv.id}
+                      onPress={() => void issueReceiptFromInvoice(inv.id)}
+                      className="mt-2 flex-row items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 py-2.5 disabled:opacity-50">
+                      {busyId === inv.id ? (
+                        <ActivityIndicator size="small" color="#4f46e5" />
+                      ) : (
+                        <>
+                          <MaterialIcons name="receipt-long" size={18} color="#4f46e5" />
+                          <Text className="ml-2 text-sm font-semibold text-indigo-800">
+                            {el.invoices.issueReceiptFromInvoice}
+                          </Text>
+                        </>
+                      )}
+                    </Pressable>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -479,6 +568,14 @@ const PatientInvoicesScreen: React.FC = () => {
                 <Text className="mt-1 text-xs text-slate-500">
                   {getReceiptLines(rec.id).length} {el.receipts.linesCount}
                 </Text>
+                {rec.invoiceId ? (
+                  <Text className="mt-1 text-xs font-medium text-blue-700">
+                    {el.invoices.linkedInvoice.replace(
+                      '{number}',
+                      getInvoiceById(rec.invoiceId)?.invoiceNumber ?? '—',
+                    )}
+                  </Text>
+                ) : null}
                 <Pressable
                   disabled={busyId === rec.id}
                   onPress={() => void onShareReceiptPdf(rec.id)}

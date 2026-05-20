@@ -12,6 +12,8 @@
 - **Αποθήκη**: migration v15, οθόνη από Αναφορές, Πρόσθεσε/Αφαίρεσε, όριο προειδοποίησης
 - **Fix**: `env.config` dev defaults (όχι crash Release), SQLite `rows._array` στην αποθήκη
 - **Ραντεβού:** πλέγμα polish + υπενθυμίσεις Push/SMS (migration v18) — **[BACKLOG_APPOINTMENTS.md](./BACKLOG_APPOINTMENTS.md)**
+- **Αποθήκη ↔ θεραπείες:** BOM ανά procedure (v19), αφαίρεση με επιβεβαίωση στο chart / σχέδιο
+- **Τιμολόγιο ↔ απόδειξη:** έκδοση απόδειξης από πληρωμένο τιμολόγιο, σύνδεση payment/receipt/invoice
 - **Ολοκληρώθηκε (κλινική):** πολλά δόντια στο ledger, odontogram ↔ σχέδιο (`d35efb9`) — **[BACKLOG_CLINICAL.md](./BACKLOG_CLINICAL.md)**
 - **Τελευταίο:** myDATA (AADE)
 
