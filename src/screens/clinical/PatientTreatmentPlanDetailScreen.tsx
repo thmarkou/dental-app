@@ -26,7 +26,9 @@ import {
   addTreatmentPlanItem,
   addTreatmentPlanPhase,
   completeTreatmentPlanAndPostToLedger,
+  createTreatmentPlanAlternative,
   deleteTreatmentPlan,
+  deleteTreatmentPlanAlternative,
   deleteTreatmentPlanItem,
   deleteTreatmentPlanPhase,
   fulfillPlanItemToLedger,
@@ -36,15 +38,18 @@ import {
   markAllPlanItemsCompleted,
   parseTeethInput,
   postPendingLedgerItemsForPlan,
+  selectTreatmentPlanAlternative,
   updateTreatmentPlan,
   updateTreatmentPlanItemStatus,
   type PhasePriority,
   type PlanItemStatus,
+  type TreatmentPlanAlternativeRow,
   type TreatmentPlanItemRow,
   type TreatmentPlanPhaseRow,
   type TreatmentPlanRow,
   type TreatmentPlanStatus,
 } from '../../services/clinical/treatmentPlan.service';
+import {shareTreatmentPlanPdf} from '../../services/clinical/treatmentPlanPdf.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {
   el,
@@ -102,6 +107,10 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
   const [itemDesc, setItemDesc] = useState('');
   const [itemCost, setItemCost] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [altModal, setAltModal] = useState(false);
+  const [altName, setAltName] = useState('');
+  const [altDesc, setAltDesc] = useState('');
 
   const load = useCallback(() => {
     try {
@@ -285,7 +294,12 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
     }
     setBusy(true);
     try {
-      addTreatmentPlanPhase(planId, phaseName, phasePriority);
+      addTreatmentPlanPhase(
+        planId,
+        phaseName,
+        phasePriority,
+        plan?.selectedAlternativeId ?? undefined,
+      );
       setPhaseModal(false);
       load();
     } catch (e) {
@@ -293,6 +307,81 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
     } finally {
       setBusy(false);
     }
+  };
+
+  const onSelectAlternative = (altId: string) => {
+    if (plan?.selectedAlternativeId === altId) {
+      return;
+    }
+    try {
+      selectTreatmentPlanAlternative(planId, altId);
+      load();
+    } catch (e) {
+      Alert.alert(el.common.error, e instanceof Error ? e.message : '');
+    }
+  };
+
+  const openAddAlternative = () => {
+    setAltName('');
+    setAltDesc('');
+    setAltModal(true);
+  };
+
+  const saveAlternative = () => {
+    if (!altName.trim()) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const created = createTreatmentPlanAlternative(
+        planId,
+        altName,
+        altDesc || null,
+        false,
+      );
+      selectTreatmentPlanAlternative(planId, created.id);
+      setAltModal(false);
+      load();
+    } catch (e) {
+      Alert.alert(el.common.error, e instanceof Error ? e.message : '');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmDeleteAlternative = (alt: TreatmentPlanAlternativeRow) => {
+    const altCount = plan?.alternatives?.length ?? 0;
+    if (altCount <= 1) {
+      Alert.alert(el.common.error, el.treatmentPlans.cannotDeleteLastAlternative);
+      return;
+    }
+    Alert.alert(
+      el.treatmentPlans.deleteAlternative,
+      `${alt.name}\n\n${el.treatmentPlans.deleteAlternativeBody}`,
+      [
+        {text: el.common.cancel, style: 'cancel'},
+        {
+          text: el.common.delete,
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                await deleteTreatmentPlanAlternative(alt.id);
+                load();
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : '';
+                Alert.alert(
+                  el.common.error,
+                  msg.includes('only alternative')
+                    ? el.treatmentPlans.cannotDeleteLastAlternative
+                    : msg,
+                );
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   const saveItem = () => {
@@ -329,9 +418,12 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
     if (!plan) {
       return;
     }
-    const phaseCount = plan.phases?.length ?? 0;
-    const itemCount =
-      plan.phases?.reduce((sum, ph) => sum + ph.items.length, 0) ?? 0;
+    const allPhases =
+      plan.alternatives && plan.alternatives.length > 0
+        ? plan.alternatives.flatMap((a) => a.phases)
+        : (plan.phases ?? []);
+    const phaseCount = allPhases.length;
+    const itemCount = allPhases.reduce((sum, ph) => sum + ph.items.length, 0);
     const ledger = getPlanLedgerPostingSummary(planId);
     const details =
       phaseCount > 0
@@ -408,6 +500,20 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
     );
   };
 
+  const onSharePdf = async () => {
+    try {
+      setPdfBusy(true);
+      await shareTreatmentPlanPdf(planId);
+    } catch (e) {
+      Alert.alert(
+        el.common.error,
+        e instanceof Error ? e.message : el.treatmentPlans.pdfFailed,
+      );
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const confirmDeleteItem = (item: TreatmentPlanItemRow) => {
     const ledgerNote = item.treatmentId
       ? planDeleteItemLedgerNote(formatChargeAmount(item.estimatedCost))
@@ -461,9 +567,81 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
         <Text className="mt-3 text-lg font-bold text-slate-900">
           {currencyEl(plan.totalEstimatedCost)}
         </Text>
+        <Text className="mt-1 text-xs text-slate-500">
+          {el.treatmentPlans.selectedAlternative}
+          {plan.alternatives?.find((a) => a.isSelected)?.name
+            ? `: ${plan.alternatives.find((a) => a.isSelected)!.name}`
+            : ''}
+        </Text>
         <Text className="mt-1 text-sm text-slate-500">
           {treatmentPlanStatusLabel(plan.status)}
         </Text>
+
+        {(plan.alternatives?.length ?? 0) > 0 ? (
+          <View className="mt-4">
+            <Text className="mb-2 text-sm font-semibold text-slate-700">
+              {el.treatmentPlans.alternatives}
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row gap-2">
+                {(plan.alternatives ?? []).map((alt) => {
+                  const selected = alt.id === plan.selectedAlternativeId;
+                  return (
+                    <Pressable
+                      key={alt.id}
+                      onPress={() => onSelectAlternative(alt.id)}
+                      onLongPress={() => confirmDeleteAlternative(alt)}
+                      className={`min-w-[120px] rounded-xl border px-3 py-2 ${
+                        selected
+                          ? 'border-blue-600 bg-blue-50'
+                          : 'border-slate-200 bg-white'
+                      }`}>
+                      <Text
+                        className={`text-sm font-semibold ${
+                          selected ? 'text-blue-900' : 'text-slate-800'
+                        }`}
+                        numberOfLines={2}>
+                        {alt.name}
+                      </Text>
+                      <Text className="mt-1 text-xs text-slate-600">
+                        {currencyEl(alt.totalEstimatedCost)}
+                      </Text>
+                      {selected ? (
+                        <Text className="mt-1 text-[10px] font-medium text-blue-700">
+                          {el.treatmentPlans.selectedAlternative}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <Pressable
+              onPress={openAddAlternative}
+              className="mt-2 flex-row items-center self-start rounded-lg border border-dashed border-slate-300 px-3 py-2">
+              <MaterialIcons name="add" size={18} color="#475569" />
+              <Text className="ml-1 text-sm font-medium text-slate-700">
+                {el.treatmentPlans.newAlternative}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        <Pressable
+          disabled={pdfBusy}
+          onPress={() => void onSharePdf()}
+          className="mt-4 flex-row items-center justify-center rounded-xl border border-slate-200 bg-white py-3 shadow-sm disabled:opacity-50">
+          {pdfBusy ? (
+            <ActivityIndicator size="small" color="#0f172a" />
+          ) : (
+            <>
+              <MaterialIcons name="picture-as-pdf" size={22} color="#0f172a" />
+              <Text className="ml-2 text-sm font-semibold text-slate-800">
+                {el.treatmentPlans.sharePdf}
+              </Text>
+            </>
+          )}
+        </Pressable>
 
         <View className="mt-4 flex-row flex-wrap gap-2">
           {(
@@ -632,6 +810,52 @@ const PatientTreatmentPlanDetailScreen: React.FC = () => {
           </Text>
         </Pressable>
       </ScrollView>
+
+      <Modal
+        visible={altModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAltModal(false)}>
+        <Pressable
+          className="flex-1 justify-end bg-black/40"
+          onPress={() => setAltModal(false)}>
+          <Pressable
+            className="rounded-t-2xl bg-white p-5 pb-8"
+            onPress={(e) => e.stopPropagation()}>
+            <Text className="text-lg font-bold">
+              {el.treatmentPlans.alternativeModalTitle}
+            </Text>
+            <TextInput
+              className="mt-4 rounded-lg border border-slate-200 px-3 py-2.5"
+              placeholder={el.treatmentPlans.alternativeNamePlaceholder}
+              value={altName}
+              onChangeText={setAltName}
+            />
+            <TextInput
+              className="mt-3 rounded-lg border border-slate-200 px-3 py-2.5"
+              placeholder={el.treatmentPlans.alternativeDescriptionOptional}
+              value={altDesc}
+              onChangeText={setAltDesc}
+              multiline
+            />
+            <View className="mt-5 flex-row gap-2">
+              <Pressable
+                onPress={() => setAltModal(false)}
+                className="flex-1 rounded-xl border py-3">
+                <Text className="text-center font-semibold">{el.common.cancel}</Text>
+              </Pressable>
+              <Pressable
+                onPress={saveAlternative}
+                disabled={busy}
+                className="flex-1 rounded-xl bg-blue-600 py-3">
+                <Text className="text-center font-semibold text-white">
+                  {el.treatmentPlans.save}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={phaseModal}

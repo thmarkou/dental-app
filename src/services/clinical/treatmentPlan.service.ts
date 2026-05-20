@@ -34,12 +34,24 @@ export interface TreatmentPlanItemRow {
 export interface TreatmentPlanPhaseRow {
   id: string;
   planId: string;
+  alternativeId: string;
   phaseNumber: number;
   name: string;
   priority: PhasePriority;
   status: PhaseStatus;
   sortOrder: number;
   items: TreatmentPlanItemRow[];
+}
+
+export interface TreatmentPlanAlternativeRow {
+  id: string;
+  planId: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+  totalEstimatedCost: number;
+  isSelected: boolean;
+  phases: TreatmentPlanPhaseRow[];
 }
 
 export interface TreatmentPlanRow {
@@ -53,6 +65,9 @@ export interface TreatmentPlanRow {
   approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  selectedAlternativeId: string | null;
+  alternatives?: TreatmentPlanAlternativeRow[];
+  /** Phases of the selected alternative (convenience for existing callers). */
   phases?: TreatmentPlanPhaseRow[];
 }
 
@@ -103,6 +118,7 @@ function mapPhaseRow(
   return {
     id: String(row.id),
     planId: String(row.plan_id),
+    alternativeId: String(row.alternative_id ?? ''),
     phaseNumber: Number(row.phase_number),
     name: String(row.name),
     priority: row.priority as PhasePriority,
@@ -110,6 +126,85 @@ function mapPhaseRow(
     sortOrder: row.sort_order != null ? Number(row.sort_order) : 0,
     items,
   };
+}
+
+function mapAlternativeRow(row: Record<string, unknown>): Omit<
+  TreatmentPlanAlternativeRow,
+  'phases'
+> {
+  return {
+    id: String(row.id),
+    planId: String(row.plan_id),
+    name: String(row.name),
+    description:
+      row.description != null && String(row.description).trim() !== ''
+        ? String(row.description)
+        : null,
+    sortOrder: row.sort_order != null ? Number(row.sort_order) : 0,
+    totalEstimatedCost:
+      row.total_estimated_cost != null ? Number(row.total_estimated_cost) : 0,
+    isSelected: Number(row.is_selected ?? 0) === 1,
+  };
+}
+
+function loadPhasesForAlternative(
+  alternativeId: string,
+  planId: string,
+): TreatmentPlanPhaseRow[] {
+  const db = getDatabase();
+  const phaseRows =
+    db.execute(
+      `SELECT * FROM treatment_plan_phases
+       WHERE alternative_id = ? ORDER BY sort_order ASC, phase_number ASC`,
+      [alternativeId],
+    ).rows?._array ?? [];
+
+  return phaseRows.map((pr: Record<string, unknown>) => {
+    const phaseId = String(pr.id);
+    const itemRows =
+      db.execute(
+        `SELECT * FROM treatment_plan_items WHERE phase_id = ? ORDER BY sort_order ASC, id ASC`,
+        [phaseId],
+      ).rows?._array ?? [];
+    const items = itemRows.map((ir: Record<string, unknown>) => mapItemRow(ir));
+    const phase = mapPhaseRow(pr, items);
+    return {...phase, planId, alternativeId};
+  });
+}
+
+function loadAlternativesForPlan(planId: string): TreatmentPlanAlternativeRow[] {
+  const db = getDatabase();
+  const altRows =
+    db.execute(
+      `SELECT * FROM treatment_plan_alternatives
+       WHERE plan_id = ? ORDER BY sort_order ASC, created_at ASC`,
+      [planId],
+    ).rows?._array ?? [];
+
+  return altRows.map((ar: Record<string, unknown>) => {
+    const alt = mapAlternativeRow(ar);
+    return {
+      ...alt,
+      phases: loadPhasesForAlternative(alt.id, planId),
+    };
+  });
+}
+
+export function recalculateAlternativeTotal(alternativeId: string): number {
+  const db = getDatabase();
+  const row = db.execute(
+    `SELECT COALESCE(SUM(i.estimated_cost), 0) AS total
+     FROM treatment_plan_items i
+     INNER JOIN treatment_plan_phases p ON p.id = i.phase_id
+     WHERE p.alternative_id = ? AND i.status != 'cancelled'`,
+    [alternativeId],
+  ).rows?._array?.[0] as {total?: number} | undefined;
+  const total = row?.total != null ? Number(row.total) : 0;
+  db.execute(
+    'UPDATE treatment_plan_alternatives SET total_estimated_cost = ? WHERE id = ?',
+    [total, alternativeId],
+  );
+  return total;
 }
 
 function mapPlanRow(row: Record<string, unknown>): TreatmentPlanRow {
@@ -125,26 +220,58 @@ function mapPlanRow(row: Record<string, unknown>): TreatmentPlanRow {
     approvedAt: row.approved_at != null ? String(row.approved_at) : null,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+    selectedAlternativeId: null,
   };
 }
 
 export function recalculatePlanTotal(planId: string): number {
   const db = getDatabase();
-  const row = db.execute(
-    `SELECT COALESCE(SUM(i.estimated_cost), 0) AS total
-     FROM treatment_plan_items i
-     INNER JOIN treatment_plan_phases p ON p.id = i.phase_id
-     WHERE p.plan_id = ? AND i.status != 'cancelled'`,
-    [planId],
-  ).rows?._array?.[0] as {total?: number} | undefined;
-  const total = row?.total != null ? Number(row.total) : 0;
+  const altRows =
+    db.execute(
+      'SELECT id, is_selected FROM treatment_plan_alternatives WHERE plan_id = ?',
+      [planId],
+    ).rows?._array ?? [];
+
+  let selectedTotal = 0;
+  let hasSelected = false;
+  for (const ar of altRows as {id?: string; is_selected?: number}[]) {
+    const altId = String(ar.id);
+    const total = recalculateAlternativeTotal(altId);
+    if (Number(ar.is_selected ?? 0) === 1) {
+      selectedTotal = total;
+      hasSelected = true;
+    }
+  }
+
+  if (!hasSelected && altRows.length > 0) {
+    selectedTotal = recalculateAlternativeTotal(String(altRows[0].id));
+  }
+
   const now = new Date().toISOString();
   db.execute(
     'UPDATE treatment_plans SET total_estimated_cost = ?, updated_at = ? WHERE id = ?',
-    [total, now, planId],
+    [selectedTotal, now, planId],
   );
-  return total;
+  return selectedTotal;
 }
+
+export const getSelectedAlternativeId = (planId: string): string | null => {
+  const db = getDatabase();
+  const row = db.execute(
+    `SELECT id FROM treatment_plan_alternatives
+     WHERE plan_id = ? AND is_selected = 1 LIMIT 1`,
+    [planId],
+  ).rows?._array?.[0] as {id?: string} | undefined;
+  if (row?.id) {
+    return String(row.id);
+  }
+  const fallback = db.execute(
+    `SELECT id FROM treatment_plan_alternatives
+     WHERE plan_id = ? ORDER BY sort_order ASC LIMIT 1`,
+    [planId],
+  ).rows?._array?.[0] as {id?: string} | undefined;
+  return fallback?.id ? String(fallback.id) : null;
+};
 
 export const getPatientTreatmentPlans = (
   patientId: string,
@@ -169,28 +296,21 @@ export const getTreatmentPlanById = (
     return null;
   }
   const plan = mapPlanRow(planRow);
-
-  const phaseRows =
-    db.execute(
-      `SELECT * FROM treatment_plan_phases WHERE plan_id = ? ORDER BY sort_order ASC, phase_number ASC`,
-      [planId],
-    ).rows?._array ?? [];
-
-  plan.phases = phaseRows.map((pr: Record<string, unknown>) => {
-    const phaseId = String(pr.id);
-    const itemRows =
-      db.execute(
-        `SELECT * FROM treatment_plan_items WHERE phase_id = ? ORDER BY sort_order ASC, id ASC`,
-        [phaseId],
-      ).rows?._array ?? [];
-    const items = itemRows.map((ir: Record<string, unknown>) =>
-      mapItemRow(ir),
-    );
-    return mapPhaseRow(pr, items);
-  });
-
+  plan.alternatives = loadAlternativesForPlan(planId);
+  const selected =
+    plan.alternatives.find((a) => a.isSelected) ?? plan.alternatives[0] ?? null;
+  plan.selectedAlternativeId = selected?.id ?? null;
+  plan.phases = selected?.phases ?? [];
   return plan;
 };
+
+/** All phases across every alternative (ledger / delete summaries). */
+function allPhasesFromPlan(plan: TreatmentPlanRow): TreatmentPlanPhaseRow[] {
+  if (plan.alternatives && plan.alternatives.length > 0) {
+    return plan.alternatives.flatMap((alt) => alt.phases);
+  }
+  return plan.phases ?? [];
+}
 
 export interface CreateTreatmentPlanInput {
   patientId: string;
@@ -220,7 +340,172 @@ export const createTreatmentPlan = (
       now,
     ],
   );
+  createTreatmentPlanAlternative(id, 'Κύρια επιλογή', null, true);
   return getTreatmentPlanById(id)!;
+};
+
+export const createTreatmentPlanAlternative = (
+  planId: string,
+  name: string,
+  description?: string | null,
+  selectIt = false,
+): TreatmentPlanAlternativeRow => {
+  const db = getDatabase();
+  const countRow = db.execute(
+    'SELECT COUNT(*) AS c FROM treatment_plan_alternatives WHERE plan_id = ?',
+    [planId],
+  ).rows?._array?.[0] as {c?: number} | undefined;
+  const sortOrder = countRow?.c != null ? Number(countRow.c) : 0;
+  const id = uuidv4();
+  const now = new Date().toISOString();
+
+  if (selectIt) {
+    db.execute(
+      'UPDATE treatment_plan_alternatives SET is_selected = 0 WHERE plan_id = ?',
+      [planId],
+    );
+  }
+
+  db.execute(
+    `INSERT INTO treatment_plan_alternatives (
+      id, plan_id, name, description, sort_order, total_estimated_cost,
+      is_selected, created_at
+    ) VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
+    [
+      id,
+      planId,
+      name.trim(),
+      description?.trim() || null,
+      sortOrder,
+      selectIt ? 1 : 0,
+      now,
+    ],
+  );
+
+  recalculatePlanTotal(planId);
+  db.execute('UPDATE treatment_plans SET updated_at = ? WHERE id = ?', [now, planId]);
+
+  return {
+    ...mapAlternativeRow({
+      id,
+      plan_id: planId,
+      name: name.trim(),
+      description: description?.trim() || null,
+      sort_order: sortOrder,
+      total_estimated_cost: 0,
+      is_selected: selectIt ? 1 : 0,
+    }),
+    phases: [],
+  };
+};
+
+export const updateTreatmentPlanAlternative = (
+  alternativeId: string,
+  patch: {name?: string; description?: string | null},
+): void => {
+  const db = getDatabase();
+  const row = db.execute(
+    'SELECT * FROM treatment_plan_alternatives WHERE id = ?',
+    [alternativeId],
+  ).rows?._array?.[0] as Record<string, unknown> | undefined;
+  if (!row) {
+    throw new Error('Alternative not found');
+  }
+  const alt = mapAlternativeRow(row);
+  db.execute(
+    `UPDATE treatment_plan_alternatives SET name = ?, description = ? WHERE id = ?`,
+    [
+      patch.name?.trim() ?? alt.name,
+      patch.description !== undefined
+        ? patch.description?.trim() || null
+        : alt.description,
+      alternativeId,
+    ],
+  );
+  db.execute('UPDATE treatment_plans SET updated_at = ? WHERE id = ?', [
+    new Date().toISOString(),
+    alt.planId,
+  ]);
+};
+
+export const selectTreatmentPlanAlternative = (
+  planId: string,
+  alternativeId: string,
+): void => {
+  const db = getDatabase();
+  db.execute(
+    'UPDATE treatment_plan_alternatives SET is_selected = 0 WHERE plan_id = ?',
+    [planId],
+  );
+  db.execute(
+    'UPDATE treatment_plan_alternatives SET is_selected = 1 WHERE id = ? AND plan_id = ?',
+    [alternativeId, planId],
+  );
+  recalculatePlanTotal(planId);
+};
+
+export const deleteTreatmentPlanAlternative = async (
+  alternativeId: string,
+): Promise<void> => {
+  const db = getDatabase();
+  const altRow = db.execute(
+    'SELECT plan_id FROM treatment_plan_alternatives WHERE id = ?',
+    [alternativeId],
+  ).rows?._array?.[0] as {plan_id?: string} | undefined;
+  if (!altRow?.plan_id) {
+    return;
+  }
+  const planId = String(altRow.plan_id);
+
+  const countRow = db.execute(
+    'SELECT COUNT(*) AS c FROM treatment_plan_alternatives WHERE plan_id = ?',
+    [planId],
+  ).rows?._array?.[0] as {c?: number} | undefined;
+  if ((countRow?.c != null ? Number(countRow.c) : 0) <= 1) {
+    throw new Error('Cannot delete the only alternative');
+  }
+
+  const linkRows =
+    db.execute(
+      `SELECT DISTINCT i.treatment_id, pl.patient_id
+       FROM treatment_plan_items i
+       INNER JOIN treatment_plan_phases ph ON ph.id = i.phase_id
+       INNER JOIN treatment_plans pl ON pl.id = ph.plan_id
+       WHERE ph.alternative_id = ? AND i.treatment_id IS NOT NULL`,
+      [alternativeId],
+    ).rows?._array ?? [];
+
+  const {patientId, treatmentIds} = collectLinkedTreatmentIds(
+    linkRows as Record<string, unknown>[],
+  );
+  if (patientId && treatmentIds.length > 0) {
+    await deleteLinkedLedgerTreatments(patientId, treatmentIds);
+  }
+
+  const wasSelected = db.execute(
+    'SELECT is_selected FROM treatment_plan_alternatives WHERE id = ?',
+    [alternativeId],
+  ).rows?._array?.[0] as {is_selected?: number} | undefined;
+
+  db.execute('DELETE FROM treatment_plan_alternatives WHERE id = ?', [
+    alternativeId,
+  ]);
+
+  if (Number(wasSelected?.is_selected ?? 0) === 1) {
+    const next = db.execute(
+      `SELECT id FROM treatment_plan_alternatives
+       WHERE plan_id = ? ORDER BY sort_order ASC LIMIT 1`,
+      [planId],
+    ).rows?._array?.[0] as {id?: string} | undefined;
+    if (next?.id) {
+      db.execute(
+        'UPDATE treatment_plan_alternatives SET is_selected = 1 WHERE id = ?',
+        [String(next.id)],
+      );
+    }
+  }
+
+  recalculatePlanTotal(planId);
 };
 
 export const updateTreatmentPlan = (
@@ -390,7 +675,7 @@ export const getPlanLedgerPostingSummary = (
   let postedToLedgerCount = 0;
   let unpostedCompletedCount = 0;
 
-  for (const phase of plan.phases ?? []) {
+  for (const phase of allPhasesFromPlan(plan)) {
     for (const item of phase.items) {
       if (item.status === 'cancelled') {
         continue;
@@ -418,7 +703,7 @@ export const getPendingLedgerPostsForPlan = (
   }
 
   const items: PendingLedgerPostItem[] = [];
-  for (const phase of plan.phases ?? []) {
+  for (const phase of allPhasesFromPlan(plan)) {
     for (const item of phase.items) {
       if (item.status === 'cancelled' || item.treatmentId) {
         continue;
@@ -446,7 +731,7 @@ export const markAllPlanItemsCompleted = (planId: string): void => {
     throw new Error('Treatment plan not found');
   }
 
-  for (const phase of plan.phases ?? []) {
+  for (const phase of allPhasesFromPlan(plan)) {
     for (const item of phase.items) {
       if (item.status === 'cancelled') {
         continue;
@@ -551,11 +836,17 @@ export const addTreatmentPlanPhase = (
   planId: string,
   name: string,
   priority: PhasePriority = 'medium',
+  alternativeId?: string,
 ): TreatmentPlanPhaseRow => {
   const db = getDatabase();
+  const altId = alternativeId ?? getSelectedAlternativeId(planId);
+  if (!altId) {
+    throw new Error('No treatment plan alternative');
+  }
+
   const countRow = db.execute(
-    'SELECT COUNT(*) AS c FROM treatment_plan_phases WHERE plan_id = ?',
-    [planId],
+    'SELECT COUNT(*) AS c FROM treatment_plan_phases WHERE alternative_id = ?',
+    [altId],
   ).rows?._array?.[0] as {c?: number} | undefined;
   const count = countRow?.c != null ? Number(countRow.c) : 0;
   const id = uuidv4();
@@ -563,18 +854,20 @@ export const addTreatmentPlanPhase = (
 
   db.execute(
     `INSERT INTO treatment_plan_phases (
-      id, plan_id, phase_number, name, priority, status, sort_order
-    ) VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
-    [id, planId, count + 1, name.trim(), priority, count],
+      id, plan_id, alternative_id, phase_number, name, priority, status, sort_order
+    ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+    [id, planId, altId, count + 1, name.trim(), priority, count],
   );
   db.execute('UPDATE treatment_plans SET updated_at = ? WHERE id = ?', [
     now,
     planId,
   ]);
+  recalculatePlanTotal(planId);
 
   return {
     id,
     planId,
+    alternativeId: altId,
     phaseNumber: count + 1,
     name: name.trim(),
     priority,

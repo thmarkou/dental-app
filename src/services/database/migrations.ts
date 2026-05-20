@@ -4,6 +4,7 @@
  */
 
 import {open} from 'react-native-quick-sqlite';
+import {uuidv4} from '../../utils/uuid';
 
 export type Database = ReturnType<typeof open>;
 
@@ -607,6 +608,52 @@ export const migrations: Migration[] = [
       database.execute(
         'CREATE INDEX IF NOT EXISTS idx_inventory_movements_item ON inventory_movements(item_id, created_at);',
       );
+    },
+  },
+  {
+    version: 16,
+    up: (database) => {
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS treatment_plan_alternatives (
+          id TEXT PRIMARY KEY,
+          plan_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          total_estimated_cost REAL NOT NULL DEFAULT 0,
+          is_selected INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (plan_id) REFERENCES treatment_plans(id) ON DELETE CASCADE
+        );
+      `);
+      database.execute(
+        'ALTER TABLE treatment_plan_phases ADD COLUMN alternative_id TEXT;',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_plan_alternatives_plan ON treatment_plan_alternatives(plan_id);',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_plan_phases_alternative ON treatment_plan_phases(alternative_id);',
+      );
+
+      const planRows =
+        database.execute('SELECT id FROM treatment_plans').rows?._array ?? [];
+      const now = new Date().toISOString();
+      for (const pr of planRows as {id?: string}[]) {
+        const planId = String(pr.id);
+        const altId = uuidv4();
+        database.execute(
+          `INSERT INTO treatment_plan_alternatives (
+            id, plan_id, name, description, sort_order, total_estimated_cost,
+            is_selected, created_at
+          ) VALUES (?, ?, ?, NULL, 0, 0, 1, ?)`,
+          [altId, planId, 'Κύρια επιλογή', now],
+        );
+        database.execute(
+          'UPDATE treatment_plan_phases SET alternative_id = ? WHERE plan_id = ?',
+          [altId, planId],
+        );
+      }
     },
   },
 ];

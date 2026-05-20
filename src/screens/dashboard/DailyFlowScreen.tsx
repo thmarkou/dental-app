@@ -80,11 +80,15 @@ const FlowColumn: React.FC<{
 
 const AppointmentFlowCard: React.FC<{
   item: AppointmentWithPatient;
+  onConfirm?: () => void;
   onCheckIn: () => void;
   onStart: () => void;
   onComplete: () => void;
-}> = ({item, onCheckIn, onStart, onComplete}) => {
+}> = ({item, onConfirm, onCheckIn, onStart, onComplete}) => {
+  const showConfirm = item.status === 'scheduled' && onConfirm != null;
   const showCheckIn = item.status === 'confirmed';
+  const showCheckInFromScheduled =
+    item.status === 'scheduled' && onConfirm != null;
   const showStart = item.status === 'checked_in';
   const showComplete = item.status === 'in_progress';
 
@@ -103,11 +107,27 @@ const AppointmentFlowCard: React.FC<{
         <BalanceBadge patientId={item.patientId} />
       </View>
       <View className="mt-2 flex-row flex-wrap gap-2">
+        {showConfirm && (
+          <Pressable
+            onPress={onConfirm}
+            className="rounded-lg bg-slate-700 px-3 py-2 active:bg-slate-800">
+            <Text className="text-xs font-semibold text-white">
+              {el.clinic.confirmAppointment}
+            </Text>
+          </Pressable>
+        )}
         {showCheckIn && (
           <Pressable
             onPress={onCheckIn}
             className="rounded-lg bg-blue-600 px-3 py-2 active:bg-blue-700">
             <Text className="text-xs font-semibold text-white">{el.clinic.checkIn}</Text>
+          </Pressable>
+        )}
+        {showCheckInFromScheduled && (
+          <Pressable
+            onPress={onCheckIn}
+            className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 active:bg-blue-100">
+            <Text className="text-xs font-semibold text-blue-800">{el.clinic.checkIn}</Text>
           </Pressable>
         )}
         {showStart && (
@@ -154,6 +174,7 @@ const DailyFlowScreen: React.FC = () => {
   const today = new Date();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [scheduled, setScheduled] = useState<AppointmentWithPatient[]>([]);
   const [waiting, setWaiting] = useState<AppointmentWithPatient[]>([]);
   const [inChair, setInChair] = useState<AppointmentWithPatient[]>([]);
   const [pendingPay, setPendingPay] = useState<
@@ -177,11 +198,13 @@ const DailyFlowScreen: React.FC = () => {
     }
     const day = new Date();
     const all = await getAppointmentsByDateWithPatient(day);
+    const sched = all.filter((a) => a.status === 'scheduled');
     const w = all.filter(
       (a) => a.status === 'confirmed' || a.status === 'checked_in',
     );
     const chair = all.filter((a) => a.status === 'in_progress');
     const pending = await getCompletedTodayPendingPayment(day);
+    setScheduled(sched);
     setWaiting(w);
     setInChair(chair);
     setPendingPay(pending);
@@ -295,6 +318,40 @@ const DailyFlowScreen: React.FC = () => {
 
         <View
           className={isWide ? 'min-h-[480px] flex-1 flex-row items-start' : 'flex-col'}>
+          <FlowColumn
+            title={el.clinic.scheduledColumn}
+            subtitle={el.clinic.scheduledSubtitle}
+            isWide={isWide}>
+            {scheduled.length === 0 ? (
+              <Text className="py-4 text-center text-sm text-slate-400">
+                {el.clinic.noPatientsHere}
+              </Text>
+            ) : (
+              scheduled.map((item) => (
+                <AppointmentFlowCard
+                  key={item.id}
+                  item={item}
+                  onConfirm={() =>
+                    void updateAppointmentStatus(item.id, 'confirmed')
+                      .then(() => load())
+                      .catch(() =>
+                        Alert.alert(el.common.error, el.clinic.confirmFailed),
+                      )
+                  }
+                  onCheckIn={() =>
+                    void updateAppointmentStatus(item.id, 'checked_in', {
+                      recordCheckIn: true,
+                    })
+                      .then(() => load())
+                      .catch(() => Alert.alert(el.common.error, el.clinic.checkInFailed))
+                  }
+                  onStart={() => {}}
+                  onComplete={() => {}}
+                />
+              ))
+            )}
+          </FlowColumn>
+
           <FlowColumn
             title={el.clinic.waitingRoom}
             subtitle={el.clinic.waitingSubtitle}
