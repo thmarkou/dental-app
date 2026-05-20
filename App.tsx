@@ -10,6 +10,10 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {StatusBar} from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import {initDatabase} from './src/services/database';
+import {
+  ensureAppointmentNotificationChannel,
+  processDueSmsReminders,
+} from './src/services/appointment/reminderScheduler.service';
 import {registerNotificationPresentationHandler} from './src/services/system/backupReminder.service';
 import {useAuthStore} from './src/store/auth.store';
 
@@ -28,6 +32,11 @@ const App = (): React.JSX.Element => {
         // Note: expo-sqlite requires development build
         // If running in Expo Go, database init will be skipped gracefully
         await initDatabase();
+
+        if (Platform.OS !== 'web') {
+          await ensureAppointmentNotificationChannel();
+          void processDueSmsReminders();
+        }
 
         // Check authentication (will work with AsyncStorage even without DB)
         await checkAuth();

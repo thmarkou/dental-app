@@ -31,6 +31,10 @@ import Card from '../../components/common/Card';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {DatePickerField} from '../../components/common/DatePickerField';
 import {TimePickerField} from '../../components/common/TimePickerField';
+import {
+  formatReminderChannelsLabel,
+  getPracticeReminderSettings,
+} from '../../services/appointment/reminderScheduler.service';
 import {el, appointmentTypeLabel, appointmentStatusLabel} from '../../i18n';
 
 function startOfDay(d: Date): Date {
@@ -410,6 +414,20 @@ const AddEditAppointmentScreen = () => {
           />
         </Card>
 
+        {(() => {
+          const rs = getPracticeReminderSettings();
+          if (!rs.enabled) {
+            return null;
+          }
+          return (
+            <Text style={styles.reminderHint}>
+              {el.appointments.reminderPreview
+                .replace('{hours}', String(rs.hoursBefore))
+                .replace('{channels}', formatReminderChannelsLabel(rs.channels))}
+            </Text>
+          );
+        })()}
+
         <View style={styles.buttonContainer}>
           <Button
             title={mode === 'add' ? el.appointments.create : el.appointments.update}
@@ -575,6 +593,13 @@ const styles = StyleSheet.create({
   notesInput: {
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  reminderHint: {
+    fontSize: 13,
+    color: '#64748b',
+    marginHorizontal: 4,
+    marginBottom: 8,
+    lineHeight: 18,
   },
   buttonContainer: {
     marginTop: 8,

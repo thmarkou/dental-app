@@ -15,20 +15,21 @@ import {
   appointmentsOnDay,
   formatTimeShort,
   generateTimeSlotLabels,
+  getGridDimensions,
   isSameLocalDay,
-  patientLabel,
+  patientDisplayName,
+  slotSpanForAppointment,
   statusColor,
+  statusShortLabel,
+  typeShortLabel,
 } from './appointmentGrid.utils';
 import {el, UI_LOCALE} from '../../i18n';
-
-const TIME_COL_W = 48;
-const DAY_COL_W = 96;
-const ROW_H = 52;
 
 export interface AppointmentWeekGridProps {
   anchor: Date;
   appointments: Appointment[];
   patients: Record<string, Patient>;
+  layoutWidth: number;
   onPressAppointment: (a: Appointment) => void;
   onPressDay?: (date: Date) => void;
 }
@@ -37,9 +38,11 @@ export const AppointmentWeekGrid: React.FC<AppointmentWeekGridProps> = ({
   anchor,
   appointments,
   patients,
+  layoutWidth,
   onPressAppointment,
   onPressDay,
 }) => {
+  const dim = useMemo(() => getGridDimensions(layoutWidth), [layoutWidth]);
   const slots = useMemo(() => generateTimeSlotLabels(), []);
   const days = useMemo(() => {
     const {start, end} = getAppointmentViewRange(anchor, 'week');
@@ -60,11 +63,13 @@ export const AppointmentWeekGrid: React.FC<AppointmentWeekGridProps> = ({
         <Text style={styles.legendText}>{el.appointments.weekPlanLegend}</Text>
       </View>
       <View style={styles.table}>
-        <View style={[styles.timeCol, {width: TIME_COL_W}]}>
-          <View style={[styles.corner, {height: 44}]} />
+        <View style={[styles.timeCol, {width: dim.timeColW}]}>
+          <View style={[styles.corner, {height: 48}]} />
           {slots.map((label) => (
-            <View key={label} style={[styles.timeCell, {height: ROW_H}]}>
-              <Text style={styles.timeText}>{label}</Text>
+            <View key={label} style={[styles.timeCell, {height: dim.rowH}]}>
+              <Text style={[styles.timeText, {fontSize: dim.aptMetaSize}]}>
+                {label}
+              </Text>
             </View>
           ))}
         </View>
@@ -79,13 +84,24 @@ export const AppointmentWeekGrid: React.FC<AppointmentWeekGridProps> = ({
                     onPress={() => onPressDay?.(day)}
                     style={[
                       styles.dayHeader,
-                      {width: DAY_COL_W},
+                      {width: dim.dayColW},
                       isToday && styles.dayHeaderToday,
                     ]}>
-                    <Text style={[styles.dayName, isToday && styles.dayNameToday]}>
-                      {new Intl.DateTimeFormat(UI_LOCALE, {weekday: 'short'}).format(day)}
+                    <Text
+                      style={[
+                        styles.dayName,
+                        {fontSize: dim.aptMetaSize + 1},
+                        isToday && styles.dayNameToday,
+                      ]}>
+                      {new Intl.DateTimeFormat(UI_LOCALE, {
+                        weekday: 'short',
+                      }).format(day)}
                     </Text>
-                    <Text style={[styles.dayNum, isToday && styles.dayNameToday]}>
+                    <Text
+                      style={[
+                        styles.dayNum,
+                        isToday && styles.dayNameToday,
+                      ]}>
                       {day.getDate()}
                     </Text>
                   </Pressable>
@@ -95,39 +111,76 @@ export const AppointmentWeekGrid: React.FC<AppointmentWeekGridProps> = ({
             {slots.map((slotLabel, slotIdx) => (
               <View key={slotLabel} style={styles.dataRow}>
                 {days.map((day) => {
-                  const dayApts = appointmentsOnDay(appointments, day);
-                  const inSlot = appointmentsInSlot(dayApts, slotIdx);
+                  const inSlot = appointmentsInSlot(
+                    appointmentsOnDay(appointments, day),
+                    slotIdx,
+                  );
                   const isToday = isSameLocalDay(day, today);
                   return (
                     <View
                       key={`${day.toISOString()}-${slotLabel}`}
                       style={[
                         styles.gridCell,
-                        {width: DAY_COL_W, minHeight: ROW_H},
+                        {
+                          width: dim.dayColW,
+                          minHeight: dim.rowH,
+                        },
                         isToday && styles.gridCellToday,
                       ]}>
-                      {inSlot.map((apt) => (
-                        <Pressable
-                          key={apt.id}
-                          onPress={() => onPressAppointment(apt)}
-                          style={[
-                            styles.aptBlock,
-                            {
-                              borderLeftColor: statusColor(apt.status),
-                              minHeight: Math.max(
-                                28,
-                                (apt.duration / 30) * (ROW_H * 0.45),
-                              ),
-                            },
-                          ]}>
-                          <Text style={styles.aptTime} numberOfLines={1}>
-                            {formatTimeShort(apt.startTime)}
-                          </Text>
-                          <Text style={styles.aptName} numberOfLines={2}>
-                            {patientLabel(patients, apt.patientId)}
-                          </Text>
-                        </Pressable>
-                      ))}
+                      {inSlot.map((apt) => {
+                        const span = slotSpanForAppointment(apt);
+                        return (
+                          <Pressable
+                            key={apt.id}
+                            onPress={() => onPressAppointment(apt)}
+                            style={[
+                              styles.aptBlock,
+                              {
+                                borderLeftColor: statusColor(apt.status),
+                                minHeight: span * dim.rowH - 6,
+                              },
+                            ]}>
+                            <Text
+                              style={[
+                                styles.aptTime,
+                                {fontSize: dim.aptTimeSize},
+                              ]}
+                              numberOfLines={1}>
+                              {formatTimeShort(apt.startTime)}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.aptName,
+                                {fontSize: dim.aptNameSize},
+                              ]}
+                              numberOfLines={2}>
+                              {patientDisplayName(
+                                patients,
+                                apt.patientId,
+                                'full',
+                              )}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.aptMeta,
+                                {fontSize: dim.aptMetaSize},
+                              ]}
+                              numberOfLines={1}>
+                              {statusShortLabel(apt.status)}
+                            </Text>
+                            {span >= 2 ? (
+                              <Text
+                                style={[
+                                  styles.aptMeta,
+                                  {fontSize: dim.aptMetaSize - 1},
+                                ]}
+                                numberOfLines={1}>
+                                {typeShortLabel(apt.type)}
+                              </Text>
+                            ) : null}
+                          </Pressable>
+                        );
+                      })}
                     </View>
                   );
                 })}
@@ -162,10 +215,10 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     alignItems: 'flex-end',
   },
-  timeText: {fontSize: 10, color: '#64748b', fontWeight: '500'},
+  timeText: {color: '#64748b', fontWeight: '500'},
   headerRow: {flexDirection: 'row', backgroundColor: '#f1f5f9'},
   dayHeader: {
-    height: 44,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
     borderRightWidth: 1,
@@ -173,7 +226,7 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
   },
   dayHeaderToday: {backgroundColor: '#dbeafe'},
-  dayName: {fontSize: 11, fontWeight: '600', color: '#475569'},
+  dayName: {fontWeight: '600', color: '#475569'},
   dayNum: {fontSize: 15, fontWeight: '700', color: '#0f172a'},
   dayNameToday: {color: '#1d4ed8'},
   dataRow: {flexDirection: 'row'},
@@ -183,6 +236,8 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     backgroundColor: '#fff',
     padding: 2,
+    overflow: 'visible',
+    zIndex: 1,
   },
   gridCellToday: {backgroundColor: '#f8fafc'},
   aptBlock: {
@@ -192,7 +247,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 3,
     marginBottom: 2,
+    zIndex: 2,
   },
-  aptTime: {fontSize: 9, fontWeight: '700', color: '#1e40af'},
-  aptName: {fontSize: 9, color: '#334155'},
+  aptTime: {fontWeight: '700', color: '#1e40af'},
+  aptName: {color: '#0f172a', fontWeight: '600'},
+  aptMeta: {color: '#64748b', marginTop: 1},
 });

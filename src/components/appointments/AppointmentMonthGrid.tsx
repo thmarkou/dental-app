@@ -19,8 +19,9 @@ import {startOfLocalDay} from '../../utils/localDate';
 import {
   appointmentsOnDay,
   formatTimeShort,
+  getGridDimensions,
   isSameLocalDay,
-  patientLabel,
+  patientDisplayName,
   statusColor,
 } from './appointmentGrid.utils';
 
@@ -32,6 +33,7 @@ export interface AppointmentMonthGridProps {
   anchor: Date;
   appointments: Appointment[];
   patients: Record<string, Patient>;
+  layoutWidth: number;
   onPressAppointment: (a: Appointment) => void;
   onPressDay?: (date: Date) => void;
 }
@@ -40,9 +42,11 @@ export const AppointmentMonthGrid: React.FC<AppointmentMonthGridProps> = ({
   anchor,
   appointments,
   patients,
+  layoutWidth,
   onPressAppointment,
   onPressDay,
 }) => {
+  const dim = useMemo(() => getGridDimensions(layoutWidth), [layoutWidth]);
   const monthStart = startOfMonth(startOfLocalDay(anchor));
   const gridStart = startOfWeek(monthStart, {weekStartsOn: 1});
   const gridEnd = endOfWeek(endOfMonth(monthStart), {weekStartsOn: 1});
@@ -64,18 +68,20 @@ export const AppointmentMonthGrid: React.FC<AppointmentMonthGridProps> = ({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.legend}>
-        {el.appointments.monthPlanLegend}
-      </Text>
+      <Text style={styles.legend}>{el.appointments.monthPlanLegend}</Text>
       <View style={styles.weekdayRow}>
         {WEEKDAYS.map((wd) => (
           <View key={wd} style={styles.weekdayCell}>
-            <Text style={styles.weekdayText}>{wd}</Text>
+            <Text style={[styles.weekdayText, {fontSize: dim.aptMetaSize + 1}]}>
+              {wd}
+            </Text>
           </View>
         ))}
       </View>
       {weeks.map((week, wi) => (
-        <View key={`w-${wi}`} style={styles.weekRow}>
+        <View
+          key={`w-${wi}`}
+          style={[styles.weekRow, {minHeight: dim.dayMinHeight}]}>
           {week.map((day) => {
             const inMonth = isSameMonth(day, monthStart);
             const isToday = isSameLocalDay(day, today);
@@ -108,14 +114,21 @@ export const AppointmentMonthGrid: React.FC<AppointmentMonthGridProps> = ({
                       styles.aptLine,
                       {borderLeftColor: statusColor(apt.status)},
                     ]}>
-                    <Text style={styles.aptLineText} numberOfLines={1}>
+                    <Text
+                      style={[styles.aptLineText, {fontSize: dim.aptMetaSize + 1}]}
+                      numberOfLines={1}>
                       {formatTimeShort(apt.startTime)}{' '}
-                      {patientLabel(patients, apt.patientId)}
+                      {patientDisplayName(patients, apt.patientId, 'short')}
                     </Text>
                   </Pressable>
                 ))}
                 {more > 0 ? (
-                  <Text style={styles.moreText}>+{more} more</Text>
+                  <Text style={[styles.moreText, {fontSize: dim.aptMetaSize}]}>
+                    {el.appointments.moreAppointments.replace(
+                      '{count}',
+                      String(more),
+                    )}
+                  </Text>
                 ) : null}
               </Pressable>
             );
@@ -143,8 +156,8 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     alignItems: 'center',
   },
-  weekdayText: {fontSize: 11, fontWeight: '700', color: '#475569'},
-  weekRow: {flexDirection: 'row', minHeight: 88},
+  weekdayText: {fontWeight: '700', color: '#475569'},
+  weekRow: {flexDirection: 'row'},
   dayCell: {
     flex: 1,
     borderWidth: 1,
@@ -170,6 +183,6 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     marginBottom: 1,
   },
-  aptLineText: {fontSize: 8, color: '#334155'},
-  moreText: {fontSize: 8, color: '#64748b', fontStyle: 'italic', marginTop: 1},
+  aptLineText: {color: '#334155'},
+  moreText: {color: '#64748b', fontStyle: 'italic', marginTop: 1},
 });

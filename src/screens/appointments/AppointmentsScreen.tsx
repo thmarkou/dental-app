@@ -17,6 +17,7 @@ import {
   Platform,
   Modal,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import DateTimePicker, {
   DateTimePickerEvent,
@@ -61,6 +62,7 @@ const VIEW_MODES: {id: AppointmentCalendarView; label: string}[] = [
 
 const AppointmentsScreen = () => {
   const navigation = useNavigation<any>();
+  const {width: layoutWidth} = useWindowDimensions();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Record<string, Patient>>({});
   const [loading, setLoading] = useState(true);
@@ -454,6 +456,7 @@ const AppointmentsScreen = () => {
               anchor={selectedDate}
               appointments={appointments}
               patients={patients}
+              layoutWidth={layoutWidth}
               onPressAppointment={handleAppointmentPress}
               onPressDay={handlePressDayFromGrid}
             />
@@ -463,6 +466,7 @@ const AppointmentsScreen = () => {
               anchor={selectedDate}
               appointments={appointments}
               patients={patients}
+              layoutWidth={layoutWidth}
               onPressAppointment={handleAppointmentPress}
               onPressDay={handlePressDayFromGrid}
             />

@@ -31,6 +31,13 @@ import {
   savePracticeSettings,
   type PracticeSettings,
 } from '../../services/settings/practiceSettings.service';
+import {
+  getPracticeReminderSettings,
+  savePracticeReminderSettings,
+  type PracticeReminderSettings,
+  type ReminderChannel,
+} from '../../services/appointment/reminderScheduler.service';
+import {isSmsGatewayConfigured, sendSms} from '../../services/appointment/smsGateway.service';
 import {el} from '../../i18n';
 
 function applySettingsToForm(s: PracticeSettings) {
@@ -61,6 +68,11 @@ const SettingsScreen = () => {
   const [csvBusy, setCsvBusy] = useState(false);
   const [reminderOn, setReminderOn] = useState(false);
   const [reminderLoading, setReminderLoading] = useState(true);
+  const [aptReminderEnabled, setAptReminderEnabled] = useState(true);
+  const [aptReminderHours, setAptReminderHours] = useState(24);
+  const [aptReminderPush, setAptReminderPush] = useState(true);
+  const [aptReminderSms, setAptReminderSms] = useState(false);
+  const [aptReminderLoading, setAptReminderLoading] = useState(true);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -108,6 +120,46 @@ const SettingsScreen = () => {
     }
   }, []);
 
+  const persistAptReminders = useCallback(
+    (patch: Partial<PracticeReminderSettings>) => {
+      const channels: ReminderChannel[] = [];
+      const push = patch.channels
+        ? patch.channels.includes('local_push')
+        : aptReminderPush;
+      const sms = patch.channels
+        ? patch.channels.includes('sms')
+        : aptReminderSms;
+      if (push) {
+        channels.push('local_push');
+      }
+      if (sms) {
+        channels.push('sms');
+      }
+      const settings: PracticeReminderSettings = {
+        enabled: patch.enabled ?? aptReminderEnabled,
+        hoursBefore: patch.hoursBefore ?? aptReminderHours,
+        channels: patch.channels ?? (channels.length ? channels : ['local_push']),
+      };
+      savePracticeReminderSettings(settings);
+    },
+    [aptReminderEnabled, aptReminderHours, aptReminderPush, aptReminderSms],
+  );
+
+  const loadAptReminders = useCallback(() => {
+    try {
+      setAptReminderLoading(true);
+      const s = getPracticeReminderSettings();
+      setAptReminderEnabled(s.enabled);
+      setAptReminderHours(s.hoursBefore);
+      setAptReminderPush(s.channels.includes('local_push'));
+      setAptReminderSms(s.channels.includes('sms'));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAptReminderLoading(false);
+    }
+  }, []);
+
   const loadReminder = useCallback(async () => {
     try {
       setReminderLoading(true);
@@ -127,9 +179,40 @@ const SettingsScreen = () => {
   useFocusEffect(
     useCallback(() => {
       loadPractice();
+      loadAptReminders();
       void loadReminder();
-    }, [loadPractice, loadReminder]),
+    }, [loadPractice, loadAptReminders, loadReminder]),
   );
+
+  const handleTestSms = () => {
+    if (!isSmsGatewayConfigured()) {
+      Alert.alert(el.common.error, el.settings.testSmsNoGateway);
+      return;
+    }
+    const sendTest = async (phone: string) => {
+      if (!phone.trim()) {
+        return;
+      }
+      try {
+        await sendSms(phone, 'Δοκιμή υπενθύμισης ραντεβού — Dental Practice Management');
+        Alert.alert(el.common.success, el.settings.testSmsSuccess);
+      } catch (e) {
+        Alert.alert(
+          el.common.error,
+          e instanceof Error ? e.message : el.settings.reminderFailed,
+        );
+      }
+    };
+    if (Platform.OS === 'ios' && Alert.prompt) {
+      Alert.prompt(el.settings.testSms, el.settings.testSmsPrompt, (phone) => {
+        void sendTest(phone ?? '');
+      });
+    } else if (practicePhone.trim()) {
+      void sendTest(practicePhone);
+    } else {
+      Alert.alert(el.common.error, el.settings.testSmsPrompt);
+    }
+  };
 
   const handleSavePractice = () => {
     setPracticeBusy(true);
@@ -531,6 +614,127 @@ const SettingsScreen = () => {
                 )}
               </Pressable>
             </View>
+          )}
+        </View>
+
+        <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <Text className="text-base font-semibold text-slate-900">
+            {el.settings.appointmentReminders}
+          </Text>
+          <Text className="mt-1 text-sm text-slate-600">
+            {el.settings.appointmentRemindersDesc}
+          </Text>
+
+          <View className="mt-4 flex-row items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3">
+            <Text className="text-sm font-medium text-slate-900">
+              {el.settings.appointmentRemindersEnabled}
+            </Text>
+            {aptReminderLoading ? (
+              <ActivityIndicator size="small" color="#64748b" />
+            ) : (
+              <Switch
+                value={aptReminderEnabled}
+                onValueChange={(v) => {
+                  setAptReminderEnabled(v);
+                  persistAptReminders({enabled: v});
+                }}
+                trackColor={{false: '#cbd5e1', true: '#93c5fd'}}
+                thumbColor={aptReminderEnabled ? '#1d4ed8' : '#f1f5f9'}
+              />
+            )}
+          </View>
+
+          <View className="mt-3 flex-row gap-2">
+            <Pressable
+              onPress={() => {
+                setAptReminderHours(24);
+                persistAptReminders({hoursBefore: 24});
+              }}
+              className={`flex-1 rounded-lg border py-2 ${
+                aptReminderHours === 24
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-slate-200 bg-white'
+              }`}>
+              <Text
+                className={`text-center text-sm font-medium ${
+                  aptReminderHours === 24 ? 'text-blue-800' : 'text-slate-700'
+                }`}>
+                {el.settings.hoursBefore24}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setAptReminderHours(48);
+                persistAptReminders({hoursBefore: 48});
+              }}
+              className={`flex-1 rounded-lg border py-2 ${
+                aptReminderHours === 48
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-slate-200 bg-white'
+              }`}>
+              <Text
+                className={`text-center text-sm font-medium ${
+                  aptReminderHours === 48 ? 'text-blue-800' : 'text-slate-700'
+                }`}>
+                {el.settings.hoursBefore48}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View className="mt-3 flex-row items-center justify-between rounded-xl border border-slate-100 px-3 py-3">
+            <Text className="text-sm text-slate-800">{el.settings.channelLocalPush}</Text>
+            <Switch
+              value={aptReminderPush}
+              disabled={Platform.OS === 'web'}
+              onValueChange={(v) => {
+                setAptReminderPush(v);
+                const channels: ReminderChannel[] = [];
+                if (v) {
+                  channels.push('local_push');
+                }
+                if (aptReminderSms) {
+                  channels.push('sms');
+                }
+                persistAptReminders({
+                  channels: channels.length ? channels : ['local_push'],
+                });
+              }}
+            />
+          </View>
+
+          <View className="mt-2 flex-row items-center justify-between rounded-xl border border-slate-100 px-3 py-3">
+            <Text className="text-sm text-slate-800">{el.settings.channelSms}</Text>
+            <Switch
+              value={aptReminderSms}
+              onValueChange={(v) => {
+                setAptReminderSms(v);
+                const channels: ReminderChannel[] = [];
+                if (aptReminderPush) {
+                  channels.push('local_push');
+                }
+                if (v) {
+                  channels.push('sms');
+                }
+                persistAptReminders({
+                  channels: channels.length ? channels : ['local_push'],
+                });
+              }}
+            />
+          </View>
+
+          {isSmsGatewayConfigured() ? (
+            <Pressable
+              onPress={handleTestSms}
+              className="mt-3 flex-row items-center justify-center rounded-xl border border-slate-200 bg-slate-50 py-3 active:bg-slate-100">
+              <MaterialIcons name="sms" size={20} color="#0f172a" />
+              <Text className="ml-2 text-sm font-semibold text-slate-900">
+                {el.settings.testSms}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text className="mt-2 text-xs text-amber-700">
+              {el.settings.testSmsNoGateway}
+            </Text>
           )}
         </View>
 

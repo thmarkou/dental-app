@@ -190,7 +190,7 @@ flowchart TD
 | ✅ | Εναλλακτικές σχεδίων + PDF + clinic `scheduled` | `401896f` |
 | ✅ | **Bug πολλών δοντιών** στο ledger (v17 `treatment_ids`) | υλοποιήθηκε |
 | ✅ | **Odontogram ↔ plan** (`plan_item_id`, overlay, guards) | υλοποιήθηκε |
-| Χαμηλή | Appointments grid polish | — |
+| — | Appointments grid + υπενθυμίσεις | [BACKLOG_APPOINTMENTS.md](./BACKLOG_APPOINTMENTS.md) |
 | Χαμηλή | Αποθήκη ↔ κατάλογος θεραπειών | — |
 | **Τέλος** | Πραγματικό myDATA (AADE) | αναβολή |
 

@@ -670,4 +670,47 @@ export const migrations: Migration[] = [
       );
     },
   },
+  {
+    version: 18,
+    up: (database) => {
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS reminder_settings (
+          id TEXT PRIMARY KEY,
+          scope TEXT NOT NULL DEFAULT 'practice',
+          patient_id TEXT,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          hours_before INTEGER NOT NULL DEFAULT 24,
+          channels TEXT NOT NULL DEFAULT '["local_push"]',
+          updated_at TEXT NOT NULL
+        );
+      `);
+      database.execute(`
+        CREATE TABLE IF NOT EXISTS appointment_reminder_log (
+          id TEXT PRIMARY KEY,
+          appointment_id TEXT NOT NULL,
+          channel TEXT NOT NULL,
+          scheduled_for TEXT NOT NULL,
+          sent_at TEXT,
+          status TEXT NOT NULL,
+          error_message TEXT,
+          notification_id TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
+        );
+      `);
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_reminder_log_appointment ON appointment_reminder_log(appointment_id);',
+      );
+      database.execute(
+        'CREATE INDEX IF NOT EXISTS idx_reminder_log_due ON appointment_reminder_log(status, scheduled_for);',
+      );
+      const now = new Date().toISOString();
+      database.execute(
+        `INSERT OR IGNORE INTO reminder_settings (
+          id, scope, patient_id, enabled, hours_before, channels, updated_at
+        ) VALUES ('practice_default', 'practice', NULL, 1, 24, '["local_push"]', ?)`,
+        [now],
+      );
+    },
+  },
 ];

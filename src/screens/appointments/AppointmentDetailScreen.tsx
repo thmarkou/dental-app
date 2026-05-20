@@ -27,6 +27,12 @@ import {getPatientById, Patient} from '../../services/patient';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
+import {
+  getPracticeReminderSettings,
+  sendAppointmentReminderSmsNow,
+  formatReminderChannelsLabel,
+} from '../../services/appointment/reminderScheduler.service';
+import {isSmsGatewayConfigured} from '../../services/appointment/smsGateway.service';
 import {el, appointmentTypeLabel, appointmentStatusLabel, UI_LOCALE} from '../../i18n';
 
 const AppointmentDetailScreen = () => {
@@ -363,6 +369,71 @@ const AppointmentDetailScreen = () => {
           )}
         </Card>
 
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>{el.settings.appointmentReminders}</Text>
+          {appointment.reminderSent && appointment.reminderSentAt ? (
+            <Text style={styles.reminderMeta}>
+              {el.appointments.reminderSentAt.replace(
+                '{when}',
+                new Intl.DateTimeFormat(UI_LOCALE, {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                }).format(appointment.reminderSentAt),
+              )}
+            </Text>
+          ) : (
+            <Text style={styles.reminderMeta}>
+              {getPracticeReminderSettings().enabled
+                ? el.appointments.reminderPreview
+                    .replace(
+                      '{hours}',
+                      String(getPracticeReminderSettings().hoursBefore),
+                    )
+                    .replace(
+                      '{channels}',
+                      formatReminderChannelsLabel(
+                        getPracticeReminderSettings().channels,
+                      ),
+                    )
+                : el.appointments.reminderDisabledStatus}
+            </Text>
+          )}
+          {isSmsGatewayConfigured() &&
+          patient?.phone &&
+          appointment.status !== 'cancelled' &&
+          appointment.status !== 'completed' ? (
+            <Button
+              title={el.appointments.sendReminderNow}
+              onPress={() => {
+                void (async () => {
+                  try {
+                    setProcessing(true);
+                    await sendAppointmentReminderSmsNow(appointmentId);
+                    await loadAppointment();
+                    Alert.alert(
+                      el.common.success,
+                      el.appointments.sendReminderSuccess,
+                    );
+                  } catch (e) {
+                    Alert.alert(
+                      el.common.error,
+                      e instanceof Error
+                        ? e.message
+                        : el.appointments.sendReminderFailed,
+                    );
+                  } finally {
+                    setProcessing(false);
+                  }
+                })();
+              }}
+              variant="outline"
+              loading={processing}
+              disabled={processing}
+              style={styles.actionButton}
+            />
+          ) : null}
+        </Card>
+
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
           {(appointment.status === 'scheduled' ||
@@ -537,6 +608,12 @@ const styles = StyleSheet.create({
   cancellationReason: {
     color: '#FF3B30',
     fontStyle: 'italic',
+  },
+  reminderMeta: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 12,
+    lineHeight: 20,
   },
   buttonContainer: {
     marginTop: 8,

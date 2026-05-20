@@ -17,6 +17,10 @@ import {
   formatLocalDateForDb,
   parseLocalDateFromDb,
 } from '../../utils/localDate';
+import {
+  cancelRemindersForAppointment,
+  scheduleRemindersForAppointment,
+} from './reminderScheduler.service';
 
 export interface UpdateAppointmentStatusOptions {
   recordCheckIn?: boolean;
@@ -90,13 +94,21 @@ export const createAppointment = async (
     ],
   );
 
-  return {
+  const created: Appointment = {
     ...appointmentData,
     id: appointmentId,
     reminderSent: false,
     createdAt: new Date(now),
     updatedAt: new Date(now),
   };
+
+  try {
+    await scheduleRemindersForAppointment(created);
+  } catch (e) {
+    console.warn('[reminders] schedule after create failed', e);
+  }
+
+  return created;
 };
 
 /**
@@ -347,6 +359,13 @@ export const updateAppointment = async (
   if (!updated) {
     throw new Error('Appointment not found after update');
   }
+
+  try {
+    await scheduleRemindersForAppointment(updated);
+  } catch (e) {
+    console.warn('[reminders] schedule after update failed', e);
+  }
+
   return updated;
 };
 
@@ -354,6 +373,11 @@ export const updateAppointment = async (
  * Delete appointment
  */
 export const deleteAppointment = async (appointmentId: string): Promise<void> => {
+  try {
+    await cancelRemindersForAppointment(appointmentId);
+  } catch (e) {
+    console.warn('[reminders] cancel before delete failed', e);
+  }
   await executeQuery('DELETE FROM appointments WHERE id = ?', [appointmentId]);
 };
 
