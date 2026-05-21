@@ -8,6 +8,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -16,6 +17,7 @@ import {
 } from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {DatabaseWarning} from '../../components/common/DatabaseWarning';
@@ -42,6 +44,7 @@ type EditorLine = ProcedureBomInputLine & {itemName: string; unit: string};
 
 const ProcedureInventoryLinksScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const {tooth, general} = getCatalogProcedureGroups();
 
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -248,24 +251,40 @@ const ProcedureInventoryLinksScreen: React.FC = () => {
           </ScrollView>
         )}
 
-        <Modal visible={editorOpen} animationType="slide" onRequestClose={closeEditor}>
-          <ScreenSafeArea variant="full">
-            <View className="flex-1 bg-slate-50">
-              <View className="flex-row items-center border-b border-slate-200 bg-white px-2 py-2">
-                <Pressable onPress={closeEditor} className="rounded-lg p-2">
+        <Modal
+          visible={editorOpen}
+          animationType="slide"
+          presentationStyle={Platform.OS === 'ios' ? 'fullScreen' : undefined}
+          onRequestClose={closeEditor}>
+          <View className="flex-1 bg-slate-50">
+            <View
+              className="border-b border-slate-200 bg-white"
+              style={{paddingTop: insets.top}}>
+              <View className="min-h-[52px] flex-row items-center px-2 py-2">
+                <Pressable
+                  onPress={closeEditor}
+                  accessibilityRole="button"
+                  accessibilityLabel={el.common.cancel}
+                  className="rounded-lg p-2 active:bg-slate-100">
                   <MaterialIcons name="close" size={24} color="#334155" />
                 </Pressable>
-                <View className="ml-1 flex-1">
-                  <Text className="text-base font-bold text-slate-900">
+                <View className="ml-1 min-w-0 flex-1 pr-2">
+                  <Text className="text-base font-bold text-slate-900" numberOfLines={1}>
                     {selectedProcedure
                       ? procedureShortLabel(selectedProcedure)
                       : '—'}
                   </Text>
+                  {selectedProcedure ? (
+                    <Text className="text-xs text-slate-500" numberOfLines={2}>
+                      {selectedProcedure}
+                    </Text>
+                  ) : null}
                 </View>
                 <Pressable
                   onPress={() => void saveEditor()}
                   disabled={saving}
-                  className="rounded-lg bg-blue-600 px-3 py-2 disabled:opacity-50">
+                  accessibilityRole="button"
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 disabled:opacity-50">
                   {saving ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
@@ -275,69 +294,78 @@ const ProcedureInventoryLinksScreen: React.FC = () => {
                   )}
                 </Pressable>
               </View>
+            </View>
 
-              <ScrollView className="flex-1 px-3 pt-3">
-                <Text className="mb-3 text-sm text-slate-600">
-                  {el.procedureInventory.editorHint}
-                </Text>
+            <ScrollView
+              className="flex-1 px-3 pt-4"
+              contentContainerStyle={{
+                paddingBottom: Math.max(insets.bottom, 16) + 24,
+                flexGrow: lines.length === 0 ? 1 : undefined,
+              }}
+              keyboardShouldPersistTaps="handled">
+              <Text className="mb-4 text-sm leading-5 text-slate-600">
+                {el.procedureInventory.editorHint}
+              </Text>
 
-                {lines.length === 0 ? (
-                  <Text className="text-sm text-slate-500">
+              {lines.length === 0 ? (
+                <View className="flex-1 justify-center py-8">
+                  <Text className="text-center text-sm text-slate-500">
                     {el.procedureInventory.noLines}
                   </Text>
-                ) : (
-                  lines.map((line) => (
-                    <View
-                      key={line.inventoryItemId}
-                      className="mb-2 rounded-xl border border-slate-200 bg-white p-3">
-                      <Text className="text-sm font-medium text-slate-900">
-                        {line.itemName}
+                </View>
+              ) : (
+                lines.map((line) => (
+                  <View
+                    key={line.inventoryItemId}
+                    className="mb-2 rounded-xl border border-slate-200 bg-white p-3">
+                    <Text className="text-sm font-medium text-slate-900">
+                      {line.itemName}
+                    </Text>
+                    <View className="mt-2 flex-row flex-wrap items-center">
+                      <Text className="mr-2 text-sm text-slate-600">
+                        {el.procedureInventory.qtyPerTreatment}
                       </Text>
-                      <View className="mt-2 flex-row items-center">
-                        <Text className="mr-2 text-sm text-slate-600">
-                          {el.procedureInventory.qtyPerTreatment}
-                        </Text>
-                        <TextInput
-                          className="min-w-[72px] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
-                          keyboardType="decimal-pad"
-                          value={String(line.quantity)}
-                          onChangeText={(t) =>
-                            updateLineQty(line.inventoryItemId, t)
-                          }
-                        />
-                        <Text className="ml-2 text-sm text-slate-500">
-                          {line.unit}
-                        </Text>
-                        <Pressable
-                          onPress={() => removeLine(line.inventoryItemId)}
-                          className="ml-auto rounded-lg p-2">
-                          <MaterialIcons name="delete-outline" size={22} color="#dc2626" />
-                        </Pressable>
-                      </View>
+                      <TextInput
+                        className="min-w-[72px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900"
+                        keyboardType="decimal-pad"
+                        value={String(line.quantity)}
+                        onChangeText={(t) =>
+                          updateLineQty(line.inventoryItemId, t)
+                        }
+                      />
+                      <Text className="ml-2 text-sm text-slate-500">
+                        {line.unit}
+                      </Text>
+                      <Pressable
+                        onPress={() => removeLine(line.inventoryItemId)}
+                        accessibilityRole="button"
+                        className="ml-auto rounded-lg p-2">
+                        <MaterialIcons name="delete-outline" size={22} color="#dc2626" />
+                      </Pressable>
                     </View>
-                  ))
-                )}
+                  </View>
+                ))
+              )}
 
-                <Pressable
-                  onPress={() => {
-                    if (inventory.length === 0) {
-                      Alert.alert(
-                        el.common.error,
-                        el.procedureInventory.noInventoryItems,
-                      );
-                      return;
-                    }
-                    setPickerOpen(true);
-                  }}
-                  className="mt-3 flex-row items-center justify-center rounded-xl border border-dashed border-slate-300 py-3">
-                  <MaterialIcons name="add" size={22} color="#475569" />
-                  <Text className="ml-2 text-sm font-semibold text-slate-700">
-                    {el.procedureInventory.addMaterial}
-                  </Text>
-                </Pressable>
-              </ScrollView>
-            </View>
-          </ScreenSafeArea>
+              <Pressable
+                onPress={() => {
+                  if (inventory.length === 0) {
+                    Alert.alert(
+                      el.common.error,
+                      el.procedureInventory.noInventoryItems,
+                    );
+                    return;
+                  }
+                  setPickerOpen(true);
+                }}
+                className="mt-4 flex-row items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white py-4 active:bg-slate-50">
+                <MaterialIcons name="add" size={22} color="#475569" />
+                <Text className="ml-2 text-sm font-semibold text-slate-700">
+                  {el.procedureInventory.addMaterial}
+                </Text>
+              </Pressable>
+            </ScrollView>
+          </View>
         </Modal>
 
         <Modal visible={pickerOpen} transparent animationType="fade">
@@ -345,7 +373,8 @@ const ProcedureInventoryLinksScreen: React.FC = () => {
             className="flex-1 justify-end bg-black/40"
             onPress={() => setPickerOpen(false)}>
             <Pressable
-              className="max-h-[70%] rounded-t-2xl bg-white px-3 pb-8 pt-4"
+              className="max-h-[70%] rounded-t-2xl bg-white px-3 pt-4"
+              style={{paddingBottom: Math.max(insets.bottom, 16) + 12}}
               onPress={(e) => e.stopPropagation()}>
               <Text className="mb-3 text-base font-semibold text-slate-900">
                 {el.procedureInventory.pickMaterial}

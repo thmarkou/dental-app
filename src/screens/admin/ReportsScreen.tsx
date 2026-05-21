@@ -1,5 +1,5 @@
 /**
- * Management reports (Module K) — monthly KPIs and receivables.
+ * Management reports (Module K+) — monthly KPIs, receivables, pending invoices.
  */
 
 import React, {useCallback, useState} from 'react';
@@ -9,6 +9,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Alert,
   useWindowDimensions,
 } from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
@@ -20,11 +21,14 @@ import {DatabaseWarning} from '../../components/common/DatabaseWarning';
 import {
   getMonthSummary,
   getOutstandingDebts,
+  getReportsOverview,
   type MonthSummary,
   type OutstandingDebtRow,
+  type ReportsOverview,
 } from '../../services/admin/report.service';
+import {shareMonthlyReportCsv} from '../../services/admin/reportExport.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
-import {el, formatCurrencyEur, UI_LOCALE} from '../../i18n';
+import {el, formatCurrencyEur, invoiceStatusLabel, UI_LOCALE} from '../../i18n';
 
 const monthLabel = (y: number, m: number) =>
   new Intl.DateTimeFormat(UI_LOCALE, {month: 'long', year: 'numeric'}).format(
@@ -34,10 +38,11 @@ const monthLabel = (y: number, m: number) =>
 const KpiCard: React.FC<{
   title: string;
   value: string;
+  hint?: string;
   icon: React.ComponentProps<typeof MaterialIcons>['name'];
   accent: string;
   minWidth: number;
-}> = ({title, value, icon, accent, minWidth}) => (
+}> = ({title, value, hint, icon, accent, minWidth}) => (
   <View
     className="mb-3 flex-grow rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
     style={{minWidth, flexBasis: minWidth}}>
@@ -48,6 +53,9 @@ const KpiCard: React.FC<{
       <MaterialIcons name={icon} size={22} color={accent} />
     </View>
     <Text className="text-2xl font-bold text-slate-900">{value}</Text>
+    {hint ? (
+      <Text className="mt-1 text-xs text-slate-500">{hint}</Text>
+    ) : null}
   </View>
 );
 
@@ -62,27 +70,33 @@ const ReportsScreen: React.FC = () => {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [summary, setSummary] = useState<MonthSummary | null>(null);
+  const [overview, setOverview] = useState<ReportsOverview | null>(null);
   const [debts, setDebts] = useState<OutstandingDebtRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
     if (!isDatabaseAvailable) {
       setSummary(null);
+      setOverview(null);
       setDebts([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const [s, d] = await Promise.all([
+      const [s, o, d] = await Promise.all([
         getMonthSummary(month, year),
+        getReportsOverview(20),
         getOutstandingDebts(15),
       ]);
       setSummary(s);
+      setOverview(o);
       setDebts(d);
     } catch (e) {
       console.error(e);
       setSummary(null);
+      setOverview(null);
       setDebts([]);
     } finally {
       setLoading(false);
@@ -99,6 +113,20 @@ const ReportsScreen: React.FC = () => {
     const d = new Date(year, month - 1 + delta, 1);
     setYear(d.getFullYear());
     setMonth(d.getMonth() + 1);
+  };
+
+  const onExportCsv = async () => {
+    try {
+      setExporting(true);
+      await shareMonthlyReportCsv(month, year);
+    } catch (e) {
+      Alert.alert(
+        el.common.error,
+        e instanceof Error ? e.message : el.reports.exportCsvFailed,
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -134,7 +162,7 @@ const ReportsScreen: React.FC = () => {
           <MaterialIcons name="chevron-right" size={24} color="#94a3b8" />
         </Pressable>
 
-        <View className="mb-6 flex-row items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm">
+        <View className="mb-4 flex-row items-center justify-between rounded-xl bg-white px-3 py-2 shadow-sm">
           <Pressable
             accessibilityRole="button"
             onPress={() => shiftMonth(-1)}
@@ -156,8 +184,12 @@ const ReportsScreen: React.FC = () => {
           <View className="py-12">
             <ActivityIndicator size="large" color="#0f172a" />
           </View>
-        ) : summary ? (
+        ) : summary && overview ? (
           <>
+            <Text className="mb-2 px-2 text-xs text-slate-500">
+              {el.reports.revenueVsChargesHint}
+            </Text>
+
             <View className="mb-2 flex-row flex-wrap justify-between gap-3">
               <KpiCard
                 title={el.reports.revenue}
@@ -167,12 +199,88 @@ const ReportsScreen: React.FC = () => {
                 minWidth={cardMinW}
               />
               <KpiCard
+                title={el.reports.charges}
+                value={formatCurrencyEur(summary.charges)}
+                icon="receipt-long"
+                accent="#d97706"
+                minWidth={cardMinW}
+              />
+              <KpiCard
                 title={el.reports.newPatients}
                 value={String(summary.newPatients)}
                 icon="person-add"
                 accent="#2563eb"
                 minWidth={cardMinW}
               />
+            </View>
+
+            <View className="mb-4 flex-row flex-wrap justify-between gap-3">
+              <KpiCard
+                title={el.reports.totalReceivables}
+                value={formatCurrencyEur(overview.totalReceivables)}
+                hint={el.reports.totalReceivablesHint}
+                icon="account-balance-wallet"
+                accent="#7c3aed"
+                minWidth={cardMinW}
+              />
+              <KpiCard
+                title={el.reports.pendingInvoices}
+                value={`${overview.pendingInvoiceCount} · ${formatCurrencyEur(overview.pendingInvoiceAmount)}`}
+                hint={el.reports.pendingInvoicesHint}
+                icon="description"
+                accent="#dc2626"
+                minWidth={cardMinW}
+              />
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={exporting}
+              onPress={() => void onExportCsv()}
+              className="mx-2 mb-6 flex-row items-center justify-center rounded-xl border border-slate-300 bg-white py-3 shadow-sm active:bg-slate-50">
+              {exporting ? (
+                <ActivityIndicator color="#334155" />
+              ) : (
+                <>
+                  <MaterialIcons name="ios-share" size={22} color="#334155" />
+                  <Text className="ml-2 text-base font-semibold text-slate-800">
+                    {el.reports.exportCsvBtn}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+
+            <View className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <Text className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+                {el.reports.pendingInvoices}
+              </Text>
+              {overview.pendingInvoices.length === 0 ? (
+                <Text className="text-sm text-slate-400">
+                  {el.reports.noPendingInvoices}
+                </Text>
+              ) : (
+                overview.pendingInvoices.map((inv, i) => (
+                  <View
+                    key={inv.invoiceId}
+                    className={`py-2 ${
+                      i < overview.pendingInvoices.length - 1
+                        ? 'border-b border-slate-100'
+                        : ''
+                    }`}>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="flex-1 text-sm font-medium text-slate-800">
+                        {inv.invoiceNumber} · {inv.firstName} {inv.lastName}
+                      </Text>
+                      <Text className="text-sm font-semibold text-slate-900">
+                        {formatCurrencyEur(inv.totalAmount)}
+                      </Text>
+                    </View>
+                    <Text className="mt-0.5 text-xs text-slate-500">
+                      {invoiceStatusLabel(inv.status as 'draft' | 'issued' | 'paid' | 'cancelled')}
+                    </Text>
+                  </View>
+                ))
+              )}
             </View>
 
             <View className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

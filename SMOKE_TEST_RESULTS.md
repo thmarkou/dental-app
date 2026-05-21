@@ -98,4 +98,4 @@ npm run smoke:db
 2. ~~**A3** Production env~~ ✅  
 3. ~~**A4** Xcode Release docs~~ ✅ [docs/XCODE_RELEASE_BUILD.md](./docs/XCODE_RELEASE_BUILD.md) · EAS: `eas build --profile production`  
 4. ~~**A5** Auth bcrypt~~ ✅ (`bcryptjs` + αυτόματη αναβάθμιση legacy `hashed_*` στο login)  
-5. **B1** ← **επόμενο** — Αναφορές K+
+5. ~~**B1** Αναφορές K+~~ ✅ (έσοδα/χρεώσεις, εκκρεμή τιμολόγια, CSV)
