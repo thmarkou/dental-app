@@ -181,6 +181,7 @@ See `EXPO_BUILD_GUIDE.md` for detailed build instructions.
 - **Latest session**: [SESSION_2026-05-21.md](./SESSION_2026-05-21.md)
 - **Reload / migrations**: [RELOAD_INSTRUCTIONS.md](./RELOAD_INSTRUCTIONS.md)
 - **Backlog**: [BACKLOG_CLINICAL.md](./BACKLOG_CLINICAL.md) · [BACKLOG_APPOINTMENTS.md](./BACKLOG_APPOINTMENTS.md)
+- **Πλάνο υλοποίησης (εκκρεμότητες):** [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)
 - **Prompt Document**: `dental-practice-prompt-merged.md` - Complete prompt for cursor.ai
 - **Specification Document**: `dental-practice-specification.md` - Detailed technical specifications
 - **Build Guide**: `EXPO_BUILD_GUIDE.md` - Expo build instructions
