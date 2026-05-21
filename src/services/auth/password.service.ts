@@ -5,7 +5,12 @@
 
 import {pbkdf2} from '@noble/hashes/pbkdf2.js';
 import {sha256} from '@noble/hashes/sha2.js';
-import {bytesToHex, hexToBytes, randomBytes} from '@noble/hashes/utils.js';
+import {
+  bytesToHex,
+  hexToBytes,
+  randomBytes,
+  utf8ToBytes,
+} from '@noble/hashes/utils.js';
 
 const SCHEMA = 'v1';
 const PBKDF2_ITERATIONS = 120_000;
@@ -14,7 +19,7 @@ const DK_LEN = 32;
 const LEGACY_PREFIX = 'hashed_';
 
 function passwordBytes(password: string): Uint8Array {
-  return new TextEncoder().encode(password);
+  return utf8ToBytes(password);
 }
 
 function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {

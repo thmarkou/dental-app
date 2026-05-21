@@ -42,6 +42,7 @@ import {
   createReceiptForInvoice,
   getInvoiceFinancialLink,
   getPatientReceipts,
+  getReceiptIssueBlockReason,
   getReceiptLines,
   parseReceiptLineDrafts,
   type InvoiceFinancialLink,
@@ -58,10 +59,12 @@ import {
   formatCurrencyEur,
   invoiceStatusLabel,
   paymentMethodLabel,
+  receiptIssueBlockMessage,
   UI_LOCALE,
 } from '../../i18n';
 
 type TabKey = 'invoices' | 'receipts';
+type InvoiceFilter = 'all' | 'draft' | 'issued' | 'paid';
 
 const formatWhen = (iso: string) => {
   try {
@@ -88,6 +91,7 @@ const PatientInvoicesScreen: React.FC = () => {
   const {user} = useAuthStore();
 
   const [tab, setTab] = useState<TabKey>('invoices');
+  const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
   const [patientName, setPatientName] = useState('');
   const [afmOk, setAfmOk] = useState(true);
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
@@ -275,6 +279,11 @@ const PatientInvoicesScreen: React.FC = () => {
   };
 
   const issueReceiptFromInvoice = async (invoiceId: string) => {
+    const block = getReceiptIssueBlockReason(invoiceId);
+    if (block) {
+      Alert.alert(el.invoices.receiptRulesTitle, receiptIssueBlockMessage(block));
+      return;
+    }
     try {
       setBusyId(invoiceId);
       createReceiptForInvoice(invoiceId, {createdBy: user?.id ?? null});
@@ -292,6 +301,26 @@ const PatientInvoicesScreen: React.FC = () => {
       setBusyId(null);
     }
   };
+
+  const promptIssueReceiptFromInvoice = (inv: InvoiceRow) => {
+    const block = getReceiptIssueBlockReason(inv.id);
+    if (block) {
+      Alert.alert(el.invoices.receiptRulesTitle, receiptIssueBlockMessage(block));
+      return;
+    }
+    Alert.alert(el.invoices.issueReceiptPromptTitle, el.invoices.issueReceiptPromptBody.replace('{number}', inv.invoiceNumber), [
+      {text: el.common.cancel, style: 'cancel'},
+      {
+        text: el.invoices.issueReceiptYes,
+        onPress: () => void issueReceiptFromInvoice(inv.id),
+      },
+    ]);
+  };
+
+  const filteredInvoices =
+    invoiceFilter === 'all'
+      ? invoices
+      : invoices.filter((inv) => inv.status === invoiceFilter);
 
   const openPayInvoiceModal = (inv: InvoiceRow) => {
     const link = invoiceLinks[inv.id] ?? getInvoiceFinancialLink(inv.id);
@@ -407,6 +436,20 @@ const PatientInvoicesScreen: React.FC = () => {
         </Text>
         <Text className="mt-1 text-sm text-slate-600">{el.invoices.intro}</Text>
 
+        <View className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/80 p-3">
+          <View className="flex-row items-start gap-2">
+            <MaterialIcons name="info-outline" size={22} color="#4338ca" />
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-indigo-950">
+                {el.invoices.receiptRulesTitle}
+              </Text>
+              <Text className="mt-1 text-sm leading-5 text-indigo-900/90">
+                {el.invoices.receiptRulesBody}
+              </Text>
+            </View>
+          </View>
+        </View>
+
         {!afmOk ? (
           <View className="mt-4 flex-row gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
             <MaterialIcons name="info-outline" size={22} color="#b45309" />
@@ -434,6 +477,37 @@ const PatientInvoicesScreen: React.FC = () => {
           ))}
         </View>
 
+        {tab === 'invoices' ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mt-3"
+            contentContainerStyle={{gap: 8, paddingVertical: 4}}>
+            {(
+              [
+                ['all', el.invoices.filterAll],
+                ['draft', el.invoices.filterDraft],
+                ['issued', el.invoices.filterIssued],
+                ['paid', el.invoices.filterPaid],
+              ] as const
+            ).map(([key, label]) => (
+              <Pressable
+                key={key}
+                onPress={() => setInvoiceFilter(key)}
+                className={`rounded-full px-3.5 py-2 ${
+                  invoiceFilter === key ? 'bg-slate-900' : 'border border-slate-200 bg-white'
+                }`}>
+                <Text
+                  className={`text-sm font-semibold ${
+                    invoiceFilter === key ? 'text-white' : 'text-slate-600'
+                  }`}>
+                  {label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+
         <Pressable
           onPress={tab === 'invoices' ? openInvoiceModal : openReceiptModal}
           className="mt-4 flex-row items-center justify-center rounded-xl bg-slate-900 py-3.5 active:bg-slate-800">
@@ -444,11 +518,13 @@ const PatientInvoicesScreen: React.FC = () => {
         </Pressable>
 
         {tab === 'invoices' ? (
-          invoices.length === 0 ? (
+          filteredInvoices.length === 0 ? (
             <EmptyState kind="invoice" />
           ) : (
             <View className="mt-4 gap-3">
-              {invoices.map((inv) => (
+              {filteredInvoices.map((inv) => {
+                const blockReason = getReceiptIssueBlockReason(inv.id);
+                return (
                 <View
                   key={inv.id}
                   className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -504,6 +580,10 @@ const PatientInvoicesScreen: React.FC = () => {
                         invoiceLinks[inv.id]!.receipt!.receiptNumber,
                       )}
                     </Text>
+                  ) : blockReason ? (
+                    <Text className="mt-1 text-xs text-amber-800">
+                      {receiptIssueBlockMessage(blockReason)}
+                    </Text>
                   ) : null}
                   <Pressable
                     disabled={busyId === inv.id}
@@ -539,9 +619,13 @@ const PatientInvoicesScreen: React.FC = () => {
                     </View>
                   ) : null}
                   {invoiceLinks[inv.id]?.canIssueReceipt ? (
-                    <Pressable
+                    <>
+                      <Text className="mt-2 text-xs leading-5 text-indigo-800">
+                        {el.invoices.receiptAwaitingIssue}
+                      </Text>
+                      <Pressable
                       disabled={busyId === inv.id}
-                      onPress={() => void issueReceiptFromInvoice(inv.id)}
+                      onPress={() => promptIssueReceiptFromInvoice(inv)}
                       className="mt-2 flex-row items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 py-2.5 disabled:opacity-50">
                       {busyId === inv.id ? (
                         <ActivityIndicator size="small" color="#4f46e5" />
@@ -554,9 +638,11 @@ const PatientInvoicesScreen: React.FC = () => {
                         </>
                       )}
                     </Pressable>
+                    </>
                   ) : null}
                 </View>
-              ))}
+                );
+              })}
             </View>
           )
         ) : receipts.length === 0 ? (

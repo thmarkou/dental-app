@@ -152,8 +152,12 @@ dentalapp/
 ### Testing
 
 ```bash
-npm test
+npm test          # τοπικά (Jest, Node environment)
+npm run test:ci   # όπως στο GitHub Actions
+npm run type-check
 ```
+
+**CI (GitHub Actions):** σε κάθε push/PR στο `main` τρέχουν `type-check`, `env:check` (από template), και `npm test`. Workflow: [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
 
 ## Building for Production
 

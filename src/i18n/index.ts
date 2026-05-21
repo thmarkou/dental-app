@@ -4,6 +4,7 @@ export {
   appointmentTypeLabel,
   paymentMethodLabel,
   invoiceStatusLabel,
+  receiptIssueBlockMessage,
   invoiceRecordPaymentBody,
   appointmentCountEl,
   UI_LOCALE,

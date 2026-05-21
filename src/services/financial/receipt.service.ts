@@ -215,6 +215,42 @@ export interface InvoiceFinancialLink {
   paymentIdForReceipt: string | null;
 }
 
+/** Why receipt-from-invoice is blocked; null means issuance is allowed. */
+export type ReceiptIssueBlockCode =
+  | 'already_has_receipt'
+  | 'has_balance'
+  | 'not_paid_status'
+  | 'no_payment';
+
+export function getReceiptIssueBlockReason(
+  invoiceId: string,
+): ReceiptIssueBlockCode | null {
+  const link = getInvoiceFinancialLink(invoiceId);
+  if (!link) {
+    return 'not_paid_status';
+  }
+  if (link.receipt) {
+    return 'already_has_receipt';
+  }
+  if (link.canIssueReceipt) {
+    return null;
+  }
+  const invoice = getInvoiceById(invoiceId);
+  if (!invoice) {
+    return 'not_paid_status';
+  }
+  if (invoice.status === 'draft' || invoice.status === 'cancelled') {
+    return 'not_paid_status';
+  }
+  if (invoice.status === 'issued' || link.balance > 0.01) {
+    return link.balance > 0.01 ? 'has_balance' : 'not_paid_status';
+  }
+  if (invoice.status === 'paid') {
+    return 'no_payment';
+  }
+  return 'not_paid_status';
+}
+
 export const getInvoiceFinancialLink = (
   invoiceId: string,
 ): InvoiceFinancialLink | null => {

@@ -48,9 +48,45 @@ export interface OutstandingDebtRow {
   balanceOwed: number;
 }
 
+/** Invoices, receipts, VAT and payments for a calendar month (Φάση B2+). */
+export interface MonthlyFinancialSummary {
+  year: number;
+  month: number;
+  periodKey: string;
+  invoicesIssuedCount: number;
+  invoicesIssuedAmount: number;
+  invoicesPaidCount: number;
+  invoicesPaidAmount: number;
+  receiptsCount: number;
+  receiptsNet: number;
+  receiptsVat: number;
+  receiptsGross: number;
+  paymentsTotal: number;
+}
+
 function monthKey(year: number, month: number): string {
   const m = String(month).padStart(2, '0');
   return `${year}-${m}`;
+}
+
+/** Calendar month immediately before the given month (1–12). */
+export function previousCalendarMonth(
+  month: number,
+  year: number,
+): {month: number; year: number} {
+  const d = new Date(year, month - 1, 1);
+  d.setMonth(d.getMonth() - 1);
+  return {month: d.getMonth() + 1, year: d.getFullYear()};
+}
+
+/**
+ * Percent change current vs previous. Returns null when previous is 0 and current > 0.
+ */
+export function percentChange(current: number, previous: number): number | null {
+  if (previous === 0) {
+    return current === 0 ? 0 : null;
+  }
+  return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
 function coalesceSum(value: unknown): number {
@@ -203,4 +239,59 @@ export const getOutstandingDebts = async (
     lastName: String(r.last_name),
     balanceOwed: Number(r.balance) || 0,
   }));
+};
+
+/**
+ * Monthly fiscal snapshot: invoices issued/paid, receipts VAT, cash collected.
+ */
+export const getMonthlyFinancialSummary = async (
+  month: number,
+  year: number,
+): Promise<MonthlyFinancialSummary> => {
+  if (month < 1 || month > 12) {
+    throw new Error('Month must be between 1 and 12');
+  }
+  const periodKey = monthKey(year, month);
+
+  const issuedRows = await query(
+    `SELECT COUNT(*) AS cnt, COALESCE(SUM(total_amount), 0) AS total
+     FROM invoices
+     WHERE substr(issue_date, 1, 7) = ? AND status IN ('issued', 'paid')`,
+    [periodKey],
+  );
+  const paidRows = await query(
+    `SELECT COUNT(*) AS cnt, COALESCE(SUM(total_amount), 0) AS total
+     FROM invoices
+     WHERE substr(issue_date, 1, 7) = ? AND status = 'paid'`,
+    [periodKey],
+  );
+  const receiptRows = await query(
+    `SELECT COUNT(*) AS cnt,
+            COALESCE(SUM(subtotal), 0) AS net,
+            COALESCE(SUM(vat_amount), 0) AS vat,
+            COALESCE(SUM(total_amount), 0) AS gross
+     FROM receipts
+     WHERE substr(issue_date, 1, 7) = ?`,
+    [periodKey],
+  );
+  const paymentRows = await query(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM payments
+     WHERE substr(transaction_date, 1, 7) = ?`,
+    [periodKey],
+  );
+
+  return {
+    year,
+    month,
+    periodKey,
+    invoicesIssuedCount: Number(issuedRows[0]?.cnt) || 0,
+    invoicesIssuedAmount: coalesceSum(issuedRows[0]?.total),
+    invoicesPaidCount: Number(paidRows[0]?.cnt) || 0,
+    invoicesPaidAmount: coalesceSum(paidRows[0]?.total),
+    receiptsCount: Number(receiptRows[0]?.cnt) || 0,
+    receiptsNet: coalesceSum(receiptRows[0]?.net),
+    receiptsVat: coalesceSum(receiptRows[0]?.vat),
+    receiptsGross: coalesceSum(receiptRows[0]?.gross),
+    paymentsTotal: coalesceSum(paymentRows[0]?.total),
+  };
 };

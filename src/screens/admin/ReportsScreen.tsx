@@ -20,13 +20,19 @@ import {isDatabaseAvailable} from '../../services/database';
 import {DatabaseWarning} from '../../components/common/DatabaseWarning';
 import {
   getMonthSummary,
+  getMonthlyFinancialSummary,
   getOutstandingDebts,
   getReportsOverview,
+  percentChange,
+  previousCalendarMonth,
   type MonthSummary,
+  type MonthlyFinancialSummary,
   type OutstandingDebtRow,
   type ReportsOverview,
 } from '../../services/admin/report.service';
 import {shareMonthlyReportCsv} from '../../services/admin/reportExport.service';
+import {shareMonthlyReportPdf} from '../../services/admin/reportPdf.service';
+import {getInventorySummary} from '../../services/inventory/inventory.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {el, formatCurrencyEur, invoiceStatusLabel, UI_LOCALE} from '../../i18n';
 
@@ -35,29 +41,82 @@ const monthLabel = (y: number, m: number) =>
     new Date(y, m - 1, 1),
   );
 
+function formatVsPrevHint(current: number, previous: number): string | undefined {
+  const pct = percentChange(current, previous);
+  let delta: string;
+  if (pct === null) {
+    delta = current > 0 ? el.reports.vsPrevMonthNew : el.reports.vsPrevMonthSame;
+  } else if (pct === 0) {
+    delta = el.reports.vsPrevMonthSame;
+  } else {
+    const abs = Math.abs(pct).toFixed(1).replace(/\.0$/, '');
+    delta =
+      pct > 0
+        ? el.reports.vsPrevMonthUp.replace('{pct}', abs)
+        : el.reports.vsPrevMonthDown.replace('{pct}', abs);
+  }
+  return el.reports.vsPrevMonthLabel.replace('{delta}', delta);
+}
+
 const KpiCard: React.FC<{
   title: string;
   value: string;
   hint?: string;
+  comparisonHint?: string;
   icon: React.ComponentProps<typeof MaterialIcons>['name'];
   accent: string;
   minWidth: number;
-}> = ({title, value, hint, icon, accent, minWidth}) => (
-  <View
-    className="mb-3 flex-grow rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-    style={{minWidth, flexBasis: minWidth}}>
-    <View className="mb-2 flex-row items-center justify-between">
-      <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {title}
-      </Text>
-      <MaterialIcons name={icon} size={22} color={accent} />
+  onPress?: () => void;
+}> = ({
+  title,
+  value,
+  hint,
+  comparisonHint,
+  icon,
+  accent,
+  minWidth,
+  onPress,
+}) => {
+  const content = (
+    <>
+      <View className="mb-2 flex-row items-center justify-between">
+        <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {title}
+        </Text>
+        <MaterialIcons name={icon} size={22} color={accent} />
+      </View>
+      <Text className="text-2xl font-bold text-slate-900">{value}</Text>
+      {comparisonHint ? (
+        <Text className="mt-1 text-xs font-medium text-indigo-600">
+          {comparisonHint}
+        </Text>
+      ) : null}
+      {hint ? (
+        <Text className="mt-1 text-xs text-slate-500">{hint}</Text>
+      ) : null}
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        className="mb-3 flex-grow rounded-2xl border border-slate-200 bg-white p-4 shadow-sm active:bg-slate-50"
+        style={{minWidth, flexBasis: minWidth}}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View
+      className="mb-3 flex-grow rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      style={{minWidth, flexBasis: minWidth}}>
+      {content}
     </View>
-    <Text className="text-2xl font-bold text-slate-900">{value}</Text>
-    {hint ? (
-      <Text className="mt-1 text-xs text-slate-500">{hint}</Text>
-    ) : null}
-  </View>
-);
+  );
+};
 
 const ReportsScreen: React.FC = () => {
   const navigation =
@@ -70,34 +129,51 @@ const ReportsScreen: React.FC = () => {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [summary, setSummary] = useState<MonthSummary | null>(null);
+  const [prevSummary, setPrevSummary] = useState<MonthSummary | null>(null);
   const [overview, setOverview] = useState<ReportsOverview | null>(null);
   const [debts, setDebts] = useState<OutstandingDebtRow[]>([]);
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [financial, setFinancial] = useState<MonthlyFinancialSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const load = useCallback(async () => {
     if (!isDatabaseAvailable) {
       setSummary(null);
+      setPrevSummary(null);
       setOverview(null);
       setDebts([]);
+      setLowStockCount(0);
+      setFinancial(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const [s, o, d] = await Promise.all([
+      const prev = previousCalendarMonth(month, year);
+      const [s, ps, o, d, inv, fin] = await Promise.all([
         getMonthSummary(month, year),
+        getMonthSummary(prev.month, prev.year),
         getReportsOverview(20),
         getOutstandingDebts(15),
+        getInventorySummary(),
+        getMonthlyFinancialSummary(month, year),
       ]);
       setSummary(s);
+      setPrevSummary(ps);
       setOverview(o);
       setDebts(d);
+      setLowStockCount(inv.lowStockCount);
+      setFinancial(fin);
     } catch (e) {
       console.error(e);
       setSummary(null);
+      setPrevSummary(null);
       setOverview(null);
       setDebts([]);
+      setLowStockCount(0);
+      setFinancial(null);
     } finally {
       setLoading(false);
     }
@@ -117,7 +193,7 @@ const ReportsScreen: React.FC = () => {
 
   const onExportCsv = async () => {
     try {
-      setExporting(true);
+      setExportingCsv(true);
       await shareMonthlyReportCsv(month, year);
     } catch (e) {
       Alert.alert(
@@ -125,9 +201,34 @@ const ReportsScreen: React.FC = () => {
         e instanceof Error ? e.message : el.reports.exportCsvFailed,
       );
     } finally {
-      setExporting(false);
+      setExportingCsv(false);
     }
   };
+
+  const onExportPdf = async () => {
+    try {
+      setExportingPdf(true);
+      await shareMonthlyReportPdf(month, year);
+    } catch (e) {
+      Alert.alert(
+        el.common.error,
+        e instanceof Error ? e.message : el.reports.exportPdfFailed,
+      );
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const vs = prevSummary
+    ? {
+        revenue: formatVsPrevHint(summary!.revenue, prevSummary.revenue),
+        charges: formatVsPrevHint(summary!.charges, prevSummary.charges),
+        newPatients: formatVsPrevHint(
+          summary!.newPatients,
+          prevSummary.newPatients,
+        ),
+      }
+    : null;
 
   return (
     <ScreenSafeArea variant="full">
@@ -156,7 +257,12 @@ const ReportsScreen: React.FC = () => {
               {el.reports.openInventory}
             </Text>
             <Text className="text-sm text-slate-500">
-              {el.reports.openInventoryHint}
+              {lowStockCount > 0
+                ? el.reports.openInventoryLowStock.replace(
+                    '{count}',
+                    String(lowStockCount),
+                  )
+                : el.reports.openInventoryHint}
             </Text>
           </View>
           <MaterialIcons name="chevron-right" size={24} color="#94a3b8" />
@@ -194,6 +300,7 @@ const ReportsScreen: React.FC = () => {
               <KpiCard
                 title={el.reports.revenue}
                 value={formatCurrencyEur(summary.revenue)}
+                comparisonHint={vs?.revenue}
                 icon="payments"
                 accent="#059669"
                 minWidth={cardMinW}
@@ -201,6 +308,7 @@ const ReportsScreen: React.FC = () => {
               <KpiCard
                 title={el.reports.charges}
                 value={formatCurrencyEur(summary.charges)}
+                comparisonHint={vs?.charges}
                 icon="receipt-long"
                 accent="#d97706"
                 minWidth={cardMinW}
@@ -208,6 +316,7 @@ const ReportsScreen: React.FC = () => {
               <KpiCard
                 title={el.reports.newPatients}
                 value={String(summary.newPatients)}
+                comparisonHint={vs?.newPatients}
                 icon="person-add"
                 accent="#2563eb"
                 minWidth={cardMinW}
@@ -231,24 +340,104 @@ const ReportsScreen: React.FC = () => {
                 accent="#dc2626"
                 minWidth={cardMinW}
               />
+              <KpiCard
+                title={el.reports.lowStockKpi}
+                value={String(lowStockCount)}
+                hint={el.reports.lowStockKpiHint}
+                icon="warning"
+                accent="#ea580c"
+                minWidth={cardMinW}
+                onPress={() => navigation.navigate('Inventory')}
+              />
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              disabled={exporting}
-              onPress={() => void onExportCsv()}
-              className="mx-2 mb-6 flex-row items-center justify-center rounded-xl border border-slate-300 bg-white py-3 shadow-sm active:bg-slate-50">
-              {exporting ? (
-                <ActivityIndicator color="#334155" />
-              ) : (
-                <>
-                  <MaterialIcons name="ios-share" size={22} color="#334155" />
-                  <Text className="ml-2 text-base font-semibold text-slate-800">
-                    {el.reports.exportCsvBtn}
-                  </Text>
-                </>
-              )}
-            </Pressable>
+            {financial ? (
+              <View className="mx-2 mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <Text className="text-sm font-bold uppercase tracking-wide text-slate-500">
+                  {el.reports.financialSectionTitle}
+                </Text>
+                <Text className="mt-1 text-xs text-slate-500">
+                  {el.reports.financialSectionHint}
+                </Text>
+                <View className="mt-3 gap-2">
+                  {[
+                    {
+                      label: el.reports.finInvoicesIssued,
+                      count: financial.invoicesIssuedCount,
+                      amount: financial.invoicesIssuedAmount,
+                    },
+                    {
+                      label: el.reports.finInvoicesPaid,
+                      count: financial.invoicesPaidCount,
+                      amount: financial.invoicesPaidAmount,
+                    },
+                    {
+                      label: el.reports.finReceipts,
+                      count: financial.receiptsCount,
+                      amount: financial.receiptsGross,
+                    },
+                    {
+                      label: el.reports.finReceiptsVat,
+                      count: null as number | null,
+                      amount: financial.receiptsVat,
+                    },
+                    {
+                      label: el.reports.finPayments,
+                      count: null as number | null,
+                      amount: financial.paymentsTotal,
+                    },
+                  ].map((row) => (
+                    <View
+                      key={row.label}
+                      className="flex-row items-center justify-between border-b border-slate-100 py-2 last:border-b-0">
+                      <Text className="flex-1 text-sm text-slate-700">{row.label}</Text>
+                      <Text className="text-sm font-semibold text-slate-900">
+                        {row.count != null
+                          ? el.reports.finCountAmount
+                              .replace('{count}', String(row.count))
+                              .replace('{amount}', formatCurrencyEur(row.amount))
+                          : formatCurrencyEur(row.amount)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            <View className="mx-2 mb-6 flex-row gap-3">
+              <Pressable
+                accessibilityRole="button"
+                disabled={exportingCsv || exportingPdf}
+                onPress={() => void onExportCsv()}
+                className="flex-1 flex-row items-center justify-center rounded-xl border border-slate-300 bg-white py-3 shadow-sm active:bg-slate-50">
+                {exportingCsv ? (
+                  <ActivityIndicator color="#334155" />
+                ) : (
+                  <>
+                    <MaterialIcons name="ios-share" size={22} color="#334155" />
+                    <Text className="ml-2 text-sm font-semibold text-slate-800">
+                      {el.reports.exportCsvBtn}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={exportingCsv || exportingPdf}
+                onPress={() => void onExportPdf()}
+                className="flex-1 flex-row items-center justify-center rounded-xl border border-indigo-300 bg-indigo-50 py-3 shadow-sm active:bg-indigo-100">
+                {exportingPdf ? (
+                  <ActivityIndicator color="#4338ca" />
+                ) : (
+                  <>
+                    <MaterialIcons name="picture-as-pdf" size={22} color="#4338ca" />
+                    <Text className="ml-2 text-sm font-semibold text-indigo-900">
+                      {el.reports.exportPdfBtn}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
 
             <View className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <Text className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">

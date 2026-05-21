@@ -463,8 +463,39 @@ export const el = {
     openInventory: 'Αποθήκη υλικών',
     openInventoryHint: 'Απόθεμα, χαμηλό stock, κινήσεις',
     exportCsvBtn: 'Εξαγωγή CSV μήνα',
+    exportPdfBtn: 'Εξαγωγή PDF μήνα',
     exportCsvTitle: 'Αναφορά',
+    exportPdfTitle: 'Αναφορά PDF',
     exportCsvFailed: 'Αποτυχία εξαγωγής CSV',
+    exportPdfFailed: 'Αποτυχία εξαγωγής PDF',
+    pdfTitle: 'Μηνιαία αναφορά διοίκησης',
+    pdfSubtitle: 'Σύνοψη KPIs, εκκρεμότητες και κλινικές πράξεις',
+    pdfFooter: 'Εσωτερικό έγγραφο · όχι φορολογικό τιμολόγιο',
+    pdfSectionSummary: 'Σύνοψη',
+    pdfColMetric: 'Δείκτης',
+    pdfColValue: 'Τιμή',
+    pdfColProcedure: 'Πράξη',
+    pdfColCount: 'Πλήθος',
+    pdfColAmount: 'Ποσό / κατάσταση',
+    pdfColBalance: 'Υπόλοιπο',
+    vsPrevMonthHeader: 'vs προηγ. μήνα',
+    vsPrevMonthLabel: 'vs προηγ. μήνα: {delta}',
+    vsPrevMonthUp: '+{pct}%',
+    vsPrevMonthDown: '−{pct}%',
+    vsPrevMonthSame: '±0%',
+    vsPrevMonthNew: 'νέο (προηγ. 0)',
+    lowStockKpi: 'Λίγα τεμάχια',
+    lowStockKpiHint: 'Είδη κάτω από το όριο αποθέματος',
+    openInventoryLowStock: '{count} είδη με χαμηλό απόθεμα',
+    financialSectionTitle: 'Οικονομική σύνοψη μήνα',
+    financialSectionHint:
+      'Τιμολόγια και αποδείξεις με ημερομηνία έκδοσης στον επιλεγμένο μήνα · εισπράξεις από πληρωμές.',
+    finInvoicesIssued: 'Τιμολόγια εκδοθέντα',
+    finInvoicesPaid: 'Τιμολόγια πληρωμένα',
+    finReceipts: 'Αποδείξεις',
+    finReceiptsVat: 'ΦΠΑ αποδείξεων',
+    finPayments: 'Εισπράξεις (πληρωμές)',
+    finCountAmount: '{count} · {amount}',
     csvSectionSummary: 'Σύνοψη',
     csvSectionPayments: 'Πληρωμές',
     csvPeriod: 'Περίοδος',
@@ -747,14 +778,30 @@ export const el = {
     linkedInvoice: 'Τιμολόγιο: {number}',
     paidAmount: 'Πληρώθηκε {paid} από {total}',
     issueReceiptFromInvoice: 'Έκδοση απόδειξης',
+    receiptAwaitingIssue:
+      'Το τιμολόγιο είναι πληρωμένο — λείπει η απόδειξη. Πατήστε μία φορά· μετά το κουμπί εξαφανίζεται.',
     issueReceiptPromptTitle: 'Έκδοση απόδειξης;',
     issueReceiptPromptBody:
-      'Το τιμολόγιο πληρώθηκε. Να εκδοθεί απόδειξη με τις ίδιες γραμμές;',
+      'Τιμολόγιο {number}: έκδοση μίας απόδειξης με τις ίδιες γραμμές; (δεν επιτρέπεται δεύτερη απόδειξη για το ίδιο τιμολόγιο.)',
     issueReceiptYes: 'Έκδοση τώρα',
     issueReceiptLater: 'Αργότερα',
     receiptFromInvoiceSuccess: 'Η απόδειξη εκδόθηκε και συνδέθηκε με το τιμολόγιο.',
     receiptFromInvoiceFailed: 'Αποτυχία έκδοσης απόδειξης.',
     invoiceAlreadyHasReceipt: 'Υπάρχει ήδη απόδειξη για αυτό το τιμολόγιο.',
+    receiptRulesTitle: 'Κανόνες αποδείξεων',
+    receiptRulesBody:
+      'Μία απόδειξη ανά πληρωμένο τιμολόγιο. Η απόδειξη εκδίδεται μόνο όταν το τιμολόγιο είναι πλήρως πληρωμένο (κατάσταση «Πληρωμένο») και δεν υπάρχει ήδη απόδειξη. Η λιανική απόδειξη (χωρίς τιμολόγιο) καταχωρεί δική της πληρωμή.',
+    receiptBlockAlreadyHas: 'Υπάρχει ήδη απόδειξη για αυτό το τιμολόγιο.',
+    receiptBlockHasBalance:
+      'Απομένει υπόλοιπο — ολοκληρώστε την πληρωμή πριν την έκδοση απόδειξης.',
+    receiptBlockNotPaidStatus:
+      'Το τιμολόγιο δεν είναι ακόμα πλήρως πληρωμένο (κατάσταση «Πληρωμένο»).',
+    receiptBlockNoPayment:
+      'Δεν βρέθηκε επιλέξιμη πληρωμή χωρίς απόδειξη για αυτό το τιμολόγιο.',
+    filterAll: 'Όλα',
+    filterDraft: 'Πρόχειρα',
+    filterIssued: 'Εκδοθέντα',
+    filterPaid: 'Πληρωμένα',
   },
 
   receipts: {
@@ -981,6 +1028,27 @@ export function appointmentTypeLabel(type: string): string {
 export function invoiceStatusLabel(status: string): string {
   const map = el.invoices.status as Record<string, string>;
   return map[status] ?? status;
+}
+
+export function receiptIssueBlockMessage(
+  code:
+    | 'already_has_receipt'
+    | 'has_balance'
+    | 'not_paid_status'
+    | 'no_payment',
+): string {
+  switch (code) {
+    case 'already_has_receipt':
+      return el.invoices.receiptBlockAlreadyHas;
+    case 'has_balance':
+      return el.invoices.receiptBlockHasBalance;
+    case 'not_paid_status':
+      return el.invoices.receiptBlockNotPaidStatus;
+    case 'no_payment':
+      return el.invoices.receiptBlockNoPayment;
+    default:
+      return el.invoices.receiptBlockNotPaidStatus;
+  }
 }
 
 /** Payment method label */
