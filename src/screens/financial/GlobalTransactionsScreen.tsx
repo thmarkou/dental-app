@@ -23,14 +23,7 @@ import {
   type RecentPaymentWithPatientRow,
 } from '../../services/financial/payment.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
-import {el, paymentMethodLabel, UI_LOCALE} from '../../i18n';
-
-const eur = (n: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(n);
+import {el, formatCurrencyEur, paymentMethodLabel, UI_LOCALE} from '../../i18n';
 
 const formatPaymentWhen = (isoOrLocal: string) => {
   try {
@@ -189,13 +182,13 @@ const GlobalTransactionsScreen: React.FC = () => {
                         {paymentMethodLabel(row.paymentMethod)}
                       </Text>
                       <Text className="text-base font-semibold text-slate-900">
-                        {eur(row.total)}
+                        {formatCurrencyEur(row.total)}
                       </Text>
                     </View>
                   ))}
                   <View className="mt-3 flex-row items-center justify-between border-t border-slate-200 pt-3">
                     <Text className="text-base font-bold text-slate-900">{el.financial.total}</Text>
-                    <Text className="text-lg font-bold text-emerald-700">{eur(dayGrandTotal)}</Text>
+                    <Text className="text-lg font-bold text-emerald-700">{formatCurrencyEur(dayGrandTotal)}</Text>
                   </View>
                 </>
               )}
@@ -225,7 +218,7 @@ const GlobalTransactionsScreen: React.FC = () => {
                       </Text>
                     </View>
                     <Text className="shrink-0 text-base font-bold text-emerald-700">
-                      {eur(p.amount)}
+                      {formatCurrencyEur(p.amount)}
                     </Text>
                   </View>
                 </View>

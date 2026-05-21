@@ -12,6 +12,8 @@
     "test": "jest",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "type-check": "tsc --noEmit",
+    "smoke:db": "node scripts/smoke-verify.mjs",
+    "migrate:sim": "node scripts/migrate-simulator-db.mjs",
     "build:ios": "eas build --platform ios",
     "build:android": "eas build --platform android"
   },

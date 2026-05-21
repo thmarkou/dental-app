@@ -7,6 +7,14 @@
 
 ## Πριν ξεκινήσετε
 
+**Αυτόματος προέλεγχος (προαιρετικό):**
+
+```bash
+npm run type-check && npm run smoke:db
+```
+
+Καταγραφή αποτελεσμάτων: [SMOKE_TEST_RESULTS.md](./SMOKE_TEST_RESULTS.md)
+
 | Βήμα | Ενέργεια |
 |------|----------|
 | Build | Development build (όχι Expo Go) — `npx expo run:ios` αν χρειάζεται |

@@ -15,7 +15,7 @@ import {
   getAppointmentsCountForDate,
 } from '../../services/financial/payment.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
-import {el, UI_LOCALE} from '../../i18n';
+import {el, formatCurrencyEur, UI_LOCALE} from '../../i18n';
 
 function todayLocalYmd(): string {
   const d = new Date();
@@ -24,13 +24,6 @@ function todayLocalYmd(): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-
-const formatEur = (n: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(n);
 
 const OverviewScreen: React.FC = () => {
   const {user} = useAuthStore();
@@ -84,7 +77,7 @@ const OverviewScreen: React.FC = () => {
               {el.overview.monthRevenue}
             </Text>
             <Text className="mt-2 text-3xl font-bold text-blue-600">
-              {formatEur(monthRevenue)}
+              {formatCurrencyEur(monthRevenue)}
             </Text>
           </View>
 
@@ -93,7 +86,7 @@ const OverviewScreen: React.FC = () => {
               {el.overview.outstandingBalances}
             </Text>
             <Text className="mt-2 text-3xl font-bold text-amber-700">
-              {formatEur(pendingTotal)}
+              {formatCurrencyEur(pendingTotal)}
             </Text>
             <Text className="mt-2 text-xs text-slate-500">
               {el.overview.outstandingHint}

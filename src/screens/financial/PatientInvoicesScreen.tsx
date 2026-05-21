@@ -54,6 +54,7 @@ import {useAuthStore} from '../../store/auth.store';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {
   el,
+  formatCurrencyEur,
   invoiceStatusLabel,
   invoiceRecordPaymentBody,
   paymentMethodLabel,
@@ -61,13 +62,6 @@ import {
 } from '../../i18n';
 
 type TabKey = 'invoices' | 'receipts';
-
-const currencyEl = (n: number) =>
-  new Intl.NumberFormat(UI_LOCALE, {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(n);
 
 const formatWhen = (iso: string) => {
   try {
@@ -278,20 +272,6 @@ const PatientInvoicesScreen: React.FC = () => {
     }
   };
 
-  const promptIssueReceipt = (invoiceId: string) => {
-    Alert.alert(
-      el.invoices.issueReceiptPromptTitle,
-      el.invoices.issueReceiptPromptBody,
-      [
-        {text: el.invoices.issueReceiptLater, style: 'cancel'},
-        {
-          text: el.invoices.issueReceiptYes,
-          onPress: () => void issueReceiptFromInvoice(invoiceId),
-        },
-      ],
-    );
-  };
-
   const issueReceiptFromInvoice = async (invoiceId: string) => {
     try {
       setBusyId(invoiceId);
@@ -314,35 +294,42 @@ const PatientInvoicesScreen: React.FC = () => {
   const onPayInvoice = (inv: InvoiceRow) => {
     Alert.alert(
       el.invoices.recordPaymentTitle,
-      invoiceRecordPaymentBody(currencyEl(inv.totalAmount), inv.invoiceNumber),
+      invoiceRecordPaymentBody(formatCurrencyEur(inv.totalAmount), inv.invoiceNumber),
       [
         {text: el.common.cancel, style: 'cancel'},
         {
           text: el.invoices.record,
           onPress: () => {
-            try {
-              recordPaymentForInvoice(
-                inv.id,
-                inv.totalAmount,
-                PAYMENT_METHODS.CASH,
-              );
-              void load();
-              Alert.alert(el.invoices.paid, el.invoices.paidLinked, [
-                {
-                  text: el.invoices.issueReceiptLater,
-                  style: 'cancel',
-                },
-                {
-                  text: el.invoices.issueReceiptYes,
-                  onPress: () => promptIssueReceipt(inv.id),
-                },
-              ]);
-            } catch (e) {
-              Alert.alert(
-                el.common.error,
-                e instanceof Error ? e.message : el.invoices.paymentRecordFailed,
-              );
-            }
+            void (async () => {
+              try {
+                recordPaymentForInvoice(
+                  inv.id,
+                  inv.totalAmount,
+                  PAYMENT_METHODS.CASH,
+                );
+                await load();
+                const link = getInvoiceFinancialLink(inv.id);
+                if (link?.canIssueReceipt) {
+                  Alert.alert(el.invoices.paid, el.invoices.paidLinked, [
+                    {
+                      text: el.invoices.issueReceiptLater,
+                      style: 'cancel',
+                    },
+                    {
+                      text: el.invoices.issueReceiptYes,
+                      onPress: () => void issueReceiptFromInvoice(inv.id),
+                    },
+                  ]);
+                } else {
+                  Alert.alert(el.invoices.paid, el.invoices.paidLinked);
+                }
+              } catch (e) {
+                Alert.alert(
+                  el.common.error,
+                  e instanceof Error ? e.message : el.invoices.paymentRecordFailed,
+                );
+              }
+            })();
           },
         },
       ],
@@ -464,11 +451,11 @@ const PatientInvoicesScreen: React.FC = () => {
                     </View>
                   </View>
                   <Text className="mt-3 text-lg font-bold text-slate-900">
-                    {currencyEl(inv.totalAmount)}
+                    {formatCurrencyEur(inv.totalAmount)}
                   </Text>
                   <Text className="text-xs text-slate-500">
-                    {el.invoices.netLabel} {currencyEl(inv.subtotal)} + {el.invoices.vatLabel}{' '}
-                    {currencyEl(inv.vatAmount)}
+                    {el.invoices.netLabel} {formatCurrencyEur(inv.subtotal)} + {el.invoices.vatLabel}{' '}
+                    {formatCurrencyEur(inv.vatAmount)}
                   </Text>
                   <Text className="mt-1 text-xs text-slate-500">
                     {getInvoiceLines(inv.id).length} {el.invoices.linesCount}
@@ -478,8 +465,8 @@ const PatientInvoicesScreen: React.FC = () => {
                   inv.status !== 'cancelled' ? (
                     <Text className="mt-1 text-xs text-slate-600">
                       {el.invoices.paidAmount
-                        .replace('{paid}', currencyEl(invoiceLinks[inv.id]!.totalPaid))
-                        .replace('{total}', currencyEl(inv.totalAmount))}
+                        .replace('{paid}', formatCurrencyEur(invoiceLinks[inv.id]!.totalPaid))
+                        .replace('{total}', formatCurrencyEur(inv.totalAmount))}
                     </Text>
                   ) : null}
                   {invoiceLinks[inv.id]?.receipt ? (
@@ -559,11 +546,11 @@ const PatientInvoicesScreen: React.FC = () => {
                   {formatWhen(rec.issueDate)} · {paymentMethodLabel(rec.paymentMethod)}
                 </Text>
                 <Text className="mt-2 text-lg font-bold text-slate-900">
-                  {currencyEl(rec.totalAmount)}
+                  {formatCurrencyEur(rec.totalAmount)}
                 </Text>
                 <Text className="text-xs text-slate-500">
-                  {el.invoices.netLabel} {currencyEl(rec.subtotal)} + {el.invoices.vatLabel}{' '}
-                  {currencyEl(rec.vatAmount)}
+                  {el.invoices.netLabel} {formatCurrencyEur(rec.subtotal)} + {el.invoices.vatLabel}{' '}
+                  {formatCurrencyEur(rec.vatAmount)}
                 </Text>
                 <Text className="mt-1 text-xs text-slate-500">
                   {getReceiptLines(rec.id).length} {el.receipts.linesCount}

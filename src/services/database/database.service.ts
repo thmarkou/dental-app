@@ -167,7 +167,50 @@ const runMigrations = async (): Promise<void> => {
       }
     }
   }
+
+  ensureBootstrapRows(database);
 };
+
+/** Idempotent rows required for login and settings (repair partial DBs). */
+function ensureBootstrapRows(database: ReturnType<typeof open>): void {
+  const now = new Date().toISOString();
+
+  const adminRows = database.execute(
+    "SELECT id FROM users WHERE username = 'admin'",
+  ).rows?._array;
+  if (!adminRows?.length) {
+    database.execute(
+      `INSERT INTO users (
+        id, username, email, password_hash, role, first_name, last_name,
+        is_active, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      [
+        '00000000-0000-0000-0000-000000000001',
+        'admin',
+        'admin@dentalpractice.gr',
+        'hashed_admin123',
+        'admin',
+        'Admin',
+        'User',
+        now,
+        now,
+      ],
+    );
+    console.log('✅ Bootstrap admin user ensured');
+  }
+
+  database.execute(
+    `INSERT OR IGNORE INTO practice_settings (id, legal_name, updated_at)
+     VALUES ('default', '', datetime('now'))`,
+  );
+
+  database.execute(
+    `INSERT OR IGNORE INTO reminder_settings (
+      id, scope, patient_id, enabled, hours_before, channels, updated_at
+    ) VALUES ('practice_default', 'practice', NULL, 1, 24, '["local_push"]', ?)`,
+    [now],
+  );
+}
 
 /**
  * Backup database

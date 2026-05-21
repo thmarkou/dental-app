@@ -7,6 +7,7 @@ export {
   invoiceRecordPaymentBody,
   appointmentCountEl,
   UI_LOCALE,
+  formatCurrencyEur,
   ledgerAccountTitle,
   ledgerReceiptBody,
   ledgerDeleteChargeBody,

@@ -24,14 +24,7 @@ import {
   type OutstandingDebtRow,
 } from '../../services/admin/report.service';
 import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
-import {el, UI_LOCALE} from '../../i18n';
-
-const eur = (n: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(n);
+import {el, formatCurrencyEur, UI_LOCALE} from '../../i18n';
 
 const monthLabel = (y: number, m: number) =>
   new Intl.DateTimeFormat(UI_LOCALE, {month: 'long', year: 'numeric'}).format(
@@ -168,7 +161,7 @@ const ReportsScreen: React.FC = () => {
             <View className="mb-2 flex-row flex-wrap justify-between gap-3">
               <KpiCard
                 title={el.reports.revenue}
-                value={eur(summary.revenue)}
+                value={formatCurrencyEur(summary.revenue)}
                 icon="payments"
                 accent="#059669"
                 minWidth={cardMinW}
@@ -221,7 +214,7 @@ const ReportsScreen: React.FC = () => {
                       {d.firstName} {d.lastName}
                     </Text>
                     <Text className="text-sm font-semibold text-amber-800">
-                      {eur(d.balanceOwed)}
+                      {formatCurrencyEur(d.balanceOwed)}
                     </Text>
                   </View>
                 ))

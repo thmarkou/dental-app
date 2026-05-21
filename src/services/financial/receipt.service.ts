@@ -228,9 +228,7 @@ export const getInvoiceFinancialLink = (
   );
   const balance = roundMoney(Math.max(0, invoice.totalAmount - totalPaid));
   const receipt = getReceiptByInvoiceId(invoiceId);
-  const paymentWithoutReceipt = payments.find(
-    (p) => !p.receiptId && !p.receiptIssued,
-  );
+  const paymentWithoutReceipt = payments.find((p) => !paymentHasReceipt(p.id));
   const canIssueReceipt =
     receipt == null &&
     balance <= 0.01 &&
@@ -272,10 +270,20 @@ export const getPatientReceipts = (patientId: string): ReceiptRow[] => {
 export const paymentHasReceipt = (paymentId: string): boolean => {
   const db = getDatabase();
   const row = db.execute(
-    'SELECT receipt_id FROM payments WHERE id = ?',
+    `SELECT p.receipt_id,
+            (SELECT COUNT(*) FROM receipts r WHERE r.payment_id = p.id) AS receipt_count
+     FROM payments p WHERE p.id = ?`,
     [paymentId],
-  ).rows?._array?.[0] as {receipt_id?: string | null} | undefined;
-  return row?.receipt_id != null && String(row.receipt_id).trim() !== '';
+  ).rows?._array?.[0] as
+    | {receipt_id?: string | null; receipt_count?: number}
+    | undefined;
+  if (!row) {
+    return false;
+  }
+  if (row.receipt_id != null && String(row.receipt_id).trim() !== '') {
+    return true;
+  }
+  return Number(row.receipt_count ?? 0) > 0;
 };
 
 export const createReceipt = (input: CreateReceiptInput): ReceiptRow => {

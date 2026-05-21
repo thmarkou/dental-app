@@ -967,6 +967,15 @@ export function appointmentCountEl(n: number): string {
 /** Locale for dates/times in UI */
 export const UI_LOCALE = 'el-GR';
 
+/** EUR amounts for Greek locale (use instead of hardcoded en-US). */
+export function formatCurrencyEur(amount: number): string {
+  return new Intl.NumberFormat(UI_LOCALE, {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+  }).format(amount);
+}
+
 export function ledgerAccountTitle(patientName: string): string {
   return `${patientName || el.ledger.patientFallback} — ${el.ledger.accountTitle}`;
 }
