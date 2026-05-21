@@ -22,8 +22,11 @@ import {MaterialIcons} from '@expo/vector-icons';
 import {
   createInventoryItem,
   getInventoryItems,
-  getInventorySummary,
+  getInventoryExtendedSummary,
+  getPracticeRecentMovements,
   getRecentMovements,
+  type InventoryExtendedSummary,
+  type InventoryMovementWithItem,
   isLowStock,
   recordStockMovement,
   updateInventoryItem,
@@ -41,6 +44,7 @@ import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {useAuthStore} from '../../store/auth.store';
 import {
   el,
+  formatCurrencyEur,
   inventoryCategoryLabel,
   inventoryMovementTypeLabel,
   UI_LOCALE,
@@ -89,7 +93,16 @@ const InventoryScreen: React.FC = () => {
 
   const [filter, setFilter] = useState<FilterKey>('all');
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [summary, setSummary] = useState({totalItems: 0, lowStockCount: 0});
+  const [summary, setSummary] = useState<InventoryExtendedSummary>({
+    totalItems: 0,
+    lowStockCount: 0,
+    estimatedStockValue: 0,
+    usageUnitsThisMonth: 0,
+    proceduresWithBom: 0,
+  });
+  const [recentPracticeMovements, setRecentPracticeMovements] = useState<
+    InventoryMovementWithItem[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -108,21 +121,30 @@ const InventoryScreen: React.FC = () => {
   const load = useCallback(async () => {
     if (!isDatabaseAvailable) {
       setItems([]);
-      setSummary({totalItems: 0, lowStockCount: 0});
+      setSummary({
+        totalItems: 0,
+        lowStockCount: 0,
+        estimatedStockValue: 0,
+        usageUnitsThisMonth: 0,
+        proceduresWithBom: 0,
+      });
+      setRecentPracticeMovements([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const [list, sum] = await Promise.all([
+      const [list, sum, recent] = await Promise.all([
         getInventoryItems({
           activeOnly: true,
           lowStockOnly: filter === 'low',
         }),
-        getInventorySummary(),
+        getInventoryExtendedSummary(),
+        getPracticeRecentMovements(10),
       ]);
       setItems(list);
       setSummary(sum);
+      setRecentPracticeMovements(recent);
     } catch (e) {
       console.error(e);
       Alert.alert(el.common.error, el.inventory.loadFailed);
@@ -373,14 +395,14 @@ const InventoryScreen: React.FC = () => {
           </View>
         )}
 
-        <View className="mx-3 mt-3 flex-row gap-3">
-          <View className="flex-1 rounded-xl bg-white p-3 shadow-sm">
+        <View className="mx-3 mt-3 flex-row flex-wrap gap-2">
+          <View className="min-w-[46%] flex-1 rounded-xl bg-white p-3 shadow-sm">
             <Text className="text-xs text-slate-500">{el.inventory.totalItems}</Text>
             <Text className="text-2xl font-bold text-slate-900">
               {summary.totalItems}
             </Text>
           </View>
-          <View className="flex-1 rounded-xl bg-white p-3 shadow-sm">
+          <View className="min-w-[46%] flex-1 rounded-xl bg-white p-3 shadow-sm">
             <Text className="text-xs text-slate-500">{el.inventory.lowStock}</Text>
             <Text
               className={`text-2xl font-bold ${
@@ -389,6 +411,61 @@ const InventoryScreen: React.FC = () => {
               {summary.lowStockCount}
             </Text>
           </View>
+          <View className="min-w-[46%] flex-1 rounded-xl bg-white p-3 shadow-sm">
+            <Text className="text-xs text-slate-500">{el.inventory.stockValue}</Text>
+            <Text className="text-xl font-bold text-slate-900">
+              {formatCurrencyEur(summary.estimatedStockValue)}
+            </Text>
+            <Text className="mt-0.5 text-[10px] text-slate-400">
+              {el.inventory.stockValueHint}
+            </Text>
+          </View>
+          <View className="min-w-[46%] flex-1 rounded-xl bg-white p-3 shadow-sm">
+            <Text className="text-xs text-slate-500">{el.inventory.usageThisMonth}</Text>
+            <Text className="text-2xl font-bold text-slate-900">
+              {qtyFmt(summary.usageUnitsThisMonth)}
+            </Text>
+            <Text className="mt-0.5 text-[10px] text-slate-400">
+              {el.inventory.usageThisMonthHint}
+            </Text>
+          </View>
+        </View>
+
+        <View className="mx-3 mt-2 rounded-xl border border-indigo-100 bg-white px-3 py-2.5 shadow-sm">
+          <Text className="text-xs text-slate-500">{el.inventory.proceduresLinked}</Text>
+          <Text className="text-lg font-bold text-indigo-900">
+            {summary.proceduresWithBom}
+          </Text>
+        </View>
+
+        <View className="mx-3 mt-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {el.inventory.practiceRecentMovements}
+          </Text>
+          {recentPracticeMovements.length === 0 ? (
+            <Text className="text-sm text-slate-400">{el.inventory.noPracticeMovements}</Text>
+          ) : (
+            recentPracticeMovements.map((m, i) => (
+              <View
+                key={m.id}
+                className={`py-2 ${
+                  i < recentPracticeMovements.length - 1
+                    ? 'border-b border-slate-100'
+                    : ''
+                }`}>
+                <Text className="text-sm font-medium text-slate-800">{m.itemName}</Text>
+                <Text className="text-xs text-slate-500">
+                  {inventoryMovementTypeLabel(m.movementType)} ·{' '}
+                  {m.quantityDelta > 0 ? '+' : ''}
+                  {qtyFmt(m.quantityDelta)} ·{' '}
+                  {new Intl.DateTimeFormat(UI_LOCALE, {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  }).format(new Date(m.createdAt))}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
 
         <View className="mx-3 mt-3 flex-row gap-2">

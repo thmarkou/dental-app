@@ -110,11 +110,84 @@ export async function getInventorySummary(): Promise<{
   totalItems: number;
   lowStockCount: number;
 }> {
+  const extended = await getInventoryExtendedSummary();
+  return {
+    totalItems: extended.totalItems,
+    lowStockCount: extended.lowStockCount,
+  };
+}
+
+export interface InventoryExtendedSummary {
+  totalItems: number;
+  lowStockCount: number;
+  /** Sum of quantity × unit_cost for active items (0 if no costs set). */
+  estimatedStockValue: number;
+  /** Total units removed via `usage` movements this calendar month. */
+  usageUnitsThisMonth: number;
+  /** Distinct procedure types with at least one BOM line. */
+  proceduresWithBom: number;
+}
+
+function currentPeriodKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export async function getInventoryExtendedSummary(): Promise<InventoryExtendedSummary> {
   const items = await getInventoryItems({activeOnly: true});
+  const estimatedStockValue = items.reduce(
+    (sum, item) => sum + item.quantity * (item.unitCost ?? 0),
+    0,
+  );
+
+  const db = getDatabase();
+  const periodKey = currentPeriodKey();
+  const usageRow = db.execute(
+    `SELECT COALESCE(SUM(ABS(quantity_delta)), 0) AS total
+     FROM inventory_movements
+     WHERE movement_type = 'usage' AND substr(created_at, 1, 7) = ?`,
+    [periodKey],
+  ).rows?._array?.[0] as {total?: unknown} | undefined;
+  const usageUnitsThisMonth = Number(usageRow?.total ?? 0) || 0;
+
+  let proceduresWithBom = 0;
+  try {
+    const bomRow = db.execute(
+      `SELECT COUNT(DISTINCT procedure_type) AS cnt FROM procedure_inventory_bom`,
+    ).rows?._array?.[0] as {cnt?: unknown} | undefined;
+    proceduresWithBom = Number(bomRow?.cnt ?? 0) || 0;
+  } catch {
+    proceduresWithBom = 0;
+  }
+
   return {
     totalItems: items.length,
     lowStockCount: items.filter(isLowStock).length,
+    estimatedStockValue,
+    usageUnitsThisMonth,
+    proceduresWithBom,
   };
+}
+
+export type InventoryMovementWithItem = InventoryMovement & {itemName: string};
+
+export async function getPracticeRecentMovements(
+  limit = 12,
+): Promise<InventoryMovementWithItem[]> {
+  const db = getDatabase();
+  const cap = Math.min(Math.max(1, limit), 50);
+  const result = db.execute(
+    `SELECT m.*, i.name AS item_name
+     FROM inventory_movements m
+     INNER JOIN inventory_items i ON i.id = m.item_id
+     ORDER BY m.created_at DESC
+     LIMIT ?`,
+    [cap],
+  );
+  return queryRows(result).map((row) => ({
+    ...mapMovement(row),
+    itemName: String(row.item_name),
+  }));
 }
 
 export async function getInventoryItemById(
