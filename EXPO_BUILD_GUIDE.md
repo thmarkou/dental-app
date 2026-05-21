@@ -57,6 +57,22 @@ eas build --profile development --platform ios --local
 
 ## Production Build για Real iPhone
 
+### Xcode Release → φυσικό iPhone (χωρίς Metro)
+
+Δείτε **[docs/XCODE_RELEASE_BUILD.md](./docs/XCODE_RELEASE_BUILD.md)** — scheme **Release**, `npm run env:check:prod`, ▶ Run.
+
+### Environment (A3 — πριν το production build)
+
+Δείτε [docs/PRODUCTION_ENV.md](./docs/PRODUCTION_ENV.md).
+
+```bash
+cp env.dentalapp.example .env.dentalapp
+npm run env:secrets -- --write
+npm run env:check:prod
+eas secret:create --scope project --name JWT_SECRET --value "..."
+eas secret:create --scope project --name ENCRYPTION_KEY --value "..."
+```
+
 ### Build με EAS (Cloud Build)
 
 ```bash

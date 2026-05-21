@@ -72,16 +72,15 @@ This application runs in an isolated environment to prevent conflicts with other
 1. **Initial Setup**:
 
    ```bash
-   # The .env.dentalapp file is already created with defaults
-   # Check if it's configured correctly
-   ./scripts/check-env.sh
+   npm run env:setup
+   npm run env:check
    ```
 
-2. **Generate Secure Secrets** (for production):
+2. **Production / EAS** (required before release):
    ```bash
-   ./scripts/generate-secrets.sh
-   # Copy the generated secrets to .env.dentalapp
+   npm run env:check:prod
    ```
+   See [docs/PRODUCTION_ENV.md](./docs/PRODUCTION_ENV.md).
 
 ## Running the App
 

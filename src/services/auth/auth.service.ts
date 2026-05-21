@@ -6,33 +6,25 @@
 import {query, executeQuery} from '../database';
 import {uuidv4} from '../../utils/uuid';
 import {User, UserRole} from '../../types';
+import {
+  hashPassword,
+  shouldUpgradePasswordHash,
+  verifyPassword,
+} from './password.service';
 
-// Password hashing for React Native
-// Note: bcryptjs doesn't work directly in React Native
-// For production, consider using react-native-bcrypt or a backend API
-// For now, using a simple hash (NOT SECURE - replace in production)
-
-/**
- * Hash password (simple implementation - replace with proper solution in production)
- * TODO: Implement proper password hashing (react-native-bcrypt or backend API)
- */
-const hashPassword = async (password: string): Promise<string> => {
-  // Simple hash - REPLACE WITH PROPER HASHING IN PRODUCTION
-  // This is NOT secure and should be replaced
-  return `hashed_${password}`; // Placeholder
-};
-
-/**
- * Verify password
- * TODO: Implement proper password verification
- */
-const verifyPassword = async (
+const upgradePasswordHashIfLegacy = async (
+  userId: string,
   password: string,
-  hash: string,
-): Promise<boolean> => {
-  // Simple comparison - REPLACE WITH PROPER VERIFICATION IN PRODUCTION
-  // This is NOT secure and should be replaced
-  return hash === `hashed_${password}`; // Placeholder
+  storedHash: string,
+): Promise<void> => {
+  if (!shouldUpgradePasswordHash(storedHash)) {
+    return;
+  }
+  const passwordHash = await hashPassword(password);
+  await executeQuery(
+    'UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?',
+    [passwordHash, new Date().toISOString(), userId],
+  );
 };
 
 /**
@@ -108,6 +100,8 @@ export const authenticateUser = async (
     if (!isValid) {
       throw new Error('Invalid username or password');
     }
+
+    await upgradePasswordHashIfLegacy(user.id, password, user.password_hash);
 
     // Update last login
     await executeQuery(

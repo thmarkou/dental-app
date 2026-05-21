@@ -17,6 +17,9 @@
       }
     },
     "production": {
+      "env": {
+        "NODE_ENV": "production"
+      },
       "ios": {
         "simulator": false
       }

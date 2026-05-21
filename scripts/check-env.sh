@@ -50,17 +50,10 @@ else
     exit 1
 fi
 
-# Check security variables
-if [ "$JWT_SECRET" = "dev_jwt_secret_change_in_production" ] || [ -z "$JWT_SECRET" ]; then
-    echo "⚠️  Warning: JWT_SECRET is not set or using default value"
-    echo "   Run ./scripts/generate-secrets.sh to generate a secure secret"
+# Security (strict check via Node)
+if command -v node &> /dev/null; then
+    node scripts/validate-env.mjs || exit 1
+else
+    echo "⚠️  Node not found — run: npm run env:check"
 fi
-
-if [ "$ENCRYPTION_KEY" = "dev_encryption_key_change_in_production" ] || [ -z "$ENCRYPTION_KEY" ]; then
-    echo "⚠️  Warning: ENCRYPTION_KEY is not set or using default value"
-    echo "   Run ./scripts/generate-secrets.sh to generate a secure secret"
-fi
-
-echo ""
-echo "Environment check complete!"
 
