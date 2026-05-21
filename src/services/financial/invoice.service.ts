@@ -278,6 +278,19 @@ export const recordPaymentForInvoice = (
   if (!invoice) {
     throw new Error('Invoice not found');
   }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('INVALID_AMOUNT');
+  }
+
+  const paidResultBefore = getDatabase().execute(
+    `SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE invoice_id = ?`,
+    [invoiceId],
+  ).rows?._array?.[0] as {paid?: number} | undefined;
+  const alreadyPaid = Number(paidResultBefore?.paid ?? 0);
+  const balance = Math.max(0, invoice.totalAmount - alreadyPaid);
+  if (amount > balance + 0.01) {
+    throw new Error('AMOUNT_EXCEEDS_BALANCE');
+  }
 
   const db = getDatabase();
   const paymentId = uuidv4();

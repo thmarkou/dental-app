@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Pressable,
   Alert,
+  TextInput,
   Modal,
   KeyboardAvoidingView,
   Platform,
@@ -56,7 +57,6 @@ import {
   el,
   formatCurrencyEur,
   invoiceStatusLabel,
-  invoiceRecordPaymentBody,
   paymentMethodLabel,
   UI_LOCALE,
 } from '../../i18n';
@@ -107,6 +107,8 @@ const PatientInvoicesScreen: React.FC = () => {
     createEmptyLineDraft(),
   ]);
   const [payMethod, setPayMethod] = useState<string>(PAYMENT_METHODS.CASH);
+  const [payModalInvoice, setPayModalInvoice] = useState<InvoiceRow | null>(null);
+  const [invoicePayAmount, setInvoicePayAmount] = useState('');
   const defaultVatRate = getPracticeSettings().defaultVatRate;
   const [saving, setSaving] = useState(false);
 
@@ -291,49 +293,65 @@ const PatientInvoicesScreen: React.FC = () => {
     }
   };
 
-  const onPayInvoice = (inv: InvoiceRow) => {
-    Alert.alert(
-      el.invoices.recordPaymentTitle,
-      invoiceRecordPaymentBody(formatCurrencyEur(inv.totalAmount), inv.invoiceNumber),
-      [
-        {text: el.common.cancel, style: 'cancel'},
-        {
-          text: el.invoices.record,
-          onPress: () => {
-            void (async () => {
-              try {
-                recordPaymentForInvoice(
-                  inv.id,
-                  inv.totalAmount,
-                  PAYMENT_METHODS.CASH,
-                );
-                await load();
-                const link = getInvoiceFinancialLink(inv.id);
-                if (link?.canIssueReceipt) {
-                  Alert.alert(el.invoices.paid, el.invoices.paidLinked, [
-                    {
-                      text: el.invoices.issueReceiptLater,
-                      style: 'cancel',
-                    },
-                    {
-                      text: el.invoices.issueReceiptYes,
-                      onPress: () => void issueReceiptFromInvoice(inv.id),
-                    },
-                  ]);
-                } else {
-                  Alert.alert(el.invoices.paid, el.invoices.paidLinked);
-                }
-              } catch (e) {
-                Alert.alert(
-                  el.common.error,
-                  e instanceof Error ? e.message : el.invoices.paymentRecordFailed,
-                );
-              }
-            })();
+  const openPayInvoiceModal = (inv: InvoiceRow) => {
+    const link = invoiceLinks[inv.id] ?? getInvoiceFinancialLink(inv.id);
+    const balance = link?.balance ?? inv.totalAmount;
+    setPayModalInvoice(inv);
+    setInvoicePayAmount(balance > 0 ? String(Math.round(balance * 100) / 100) : '');
+    setPayMethod(PAYMENT_METHODS.CASH);
+  };
+
+  const closePayInvoiceModal = () => {
+    setPayModalInvoice(null);
+    setInvoicePayAmount('');
+  };
+
+  const submitInvoicePayment = async () => {
+    if (!payModalInvoice) {
+      return;
+    }
+    const amount = Number.parseFloat(invoicePayAmount.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      Alert.alert(el.common.error, el.invoices.partialPaymentInvalid);
+      return;
+    }
+    const link = getInvoiceFinancialLink(payModalInvoice.id);
+    const balance = link?.balance ?? payModalInvoice.totalAmount;
+    if (amount > balance + 0.01) {
+      Alert.alert(el.common.error, el.invoices.partialPaymentExceeds);
+      return;
+    }
+    try {
+      setSaving(true);
+      recordPaymentForInvoice(payModalInvoice.id, amount, payMethod);
+      const invId = payModalInvoice.id;
+      closePayInvoiceModal();
+      await load();
+      const updated = getInvoiceFinancialLink(invId);
+      if (updated?.canIssueReceipt) {
+        Alert.alert(el.invoices.paid, el.invoices.paidLinked, [
+          {text: el.invoices.issueReceiptLater, style: 'cancel'},
+          {
+            text: el.invoices.issueReceiptYes,
+            onPress: () => void issueReceiptFromInvoice(invId),
           },
-        },
-      ],
-    );
+        ]);
+      } else {
+        Alert.alert(el.invoices.paid, el.invoices.paidLinked);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      Alert.alert(
+        el.common.error,
+        msg === 'AMOUNT_EXCEEDS_BALANCE'
+          ? el.invoices.partialPaymentExceeds
+          : msg === 'INVALID_AMOUNT'
+            ? el.invoices.partialPaymentInvalid
+            : el.invoices.paymentRecordFailed,
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const onCancelInvoice = (inv: InvoiceRow) => {
@@ -469,6 +487,16 @@ const PatientInvoicesScreen: React.FC = () => {
                         .replace('{total}', formatCurrencyEur(inv.totalAmount))}
                     </Text>
                   ) : null}
+                  {invoiceLinks[inv.id] &&
+                  invoiceLinks[inv.id]!.balance > 0.01 &&
+                  inv.status === 'issued' ? (
+                    <Text className="mt-0.5 text-xs font-medium text-amber-800">
+                      {el.invoices.balanceRemaining.replace(
+                        '{amount}',
+                        formatCurrencyEur(invoiceLinks[inv.id]!.balance),
+                      )}
+                    </Text>
+                  ) : null}
                   {invoiceLinks[inv.id]?.receipt ? (
                     <Text className="mt-1 text-xs font-medium text-emerald-700">
                       {el.invoices.linkedReceipt.replace(
@@ -495,7 +523,7 @@ const PatientInvoicesScreen: React.FC = () => {
                   {inv.status === 'issued' ? (
                     <View className="mt-2 flex-row gap-2">
                       <Pressable
-                        onPress={() => onPayInvoice(inv)}
+                        onPress={() => openPayInvoiceModal(inv)}
                         className="flex-1 rounded-lg border border-emerald-200 bg-emerald-50 py-2">
                         <Text className="text-center text-sm font-semibold text-emerald-800">
                           {el.invoices.recordPayment}
@@ -728,6 +756,103 @@ const PatientInvoicesScreen: React.FC = () => {
                 ) : (
                   <Text className="text-center font-semibold text-white">
                     {el.common.save}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={payModalInvoice != null}
+        animationType="slide"
+        transparent
+        onRequestClose={closePayInvoiceModal}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1 justify-end bg-black/40">
+          <View className="rounded-t-2xl bg-white p-5 pb-6">
+            <Text className="text-lg font-bold text-slate-900">
+              {el.invoices.partialPaymentTitle}
+            </Text>
+            {payModalInvoice ? (
+              <Text className="mt-1 font-mono text-sm text-slate-600">
+                {payModalInvoice.invoiceNumber}
+              </Text>
+            ) : null}
+            {payModalInvoice && invoiceLinks[payModalInvoice.id] ? (
+              <Text className="mt-2 text-sm text-amber-800">
+                {el.invoices.partialPaymentBalance.replace(
+                  '{amount}',
+                  formatCurrencyEur(invoiceLinks[payModalInvoice.id]!.balance),
+                )}
+              </Text>
+            ) : null}
+            <Text className="mt-4 text-sm font-medium text-slate-700">
+              {el.invoices.partialPaymentAmount}
+            </Text>
+            <TextInput
+              className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base text-slate-900"
+              keyboardType="decimal-pad"
+              value={invoicePayAmount}
+              onChangeText={setInvoicePayAmount}
+            />
+            {payModalInvoice && invoiceLinks[payModalInvoice.id] ? (
+              <Pressable
+                onPress={() =>
+                  setInvoicePayAmount(
+                    String(
+                      Math.round(invoiceLinks[payModalInvoice!.id]!.balance * 100) / 100,
+                    ),
+                  )
+                }
+                className="mt-2 self-start rounded-lg bg-slate-100 px-3 py-1.5">
+                <Text className="text-xs font-semibold text-slate-700">
+                  {el.invoices.partialPaymentPayFull}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Text className="mt-4 text-sm font-medium text-slate-700">
+              {el.clinic.method}
+            </Text>
+            <View className="mt-2 flex-row flex-wrap gap-2">
+              {Object.values(PAYMENT_METHODS).map((m) => (
+                <Pressable
+                  key={m}
+                  onPress={() => setPayMethod(m)}
+                  className={`rounded-lg border px-3 py-2 ${
+                    payMethod === m
+                      ? 'border-slate-900 bg-slate-900'
+                      : 'border-slate-200 bg-slate-50'
+                  }`}>
+                  <Text
+                    className={`text-sm font-medium ${
+                      payMethod === m ? 'text-white' : 'text-slate-700'
+                    }`}>
+                    {paymentMethodLabel(m)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <View className="mt-5 flex-row gap-2">
+              <Pressable
+                onPress={closePayInvoiceModal}
+                disabled={saving}
+                className="flex-1 rounded-xl border border-slate-200 py-3">
+                <Text className="text-center font-semibold text-slate-700">
+                  {el.common.cancel}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void submitInvoicePayment()}
+                disabled={saving}
+                className="flex-1 rounded-xl bg-emerald-600 py-3 disabled:opacity-50">
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text className="text-center font-semibold text-white">
+                    {el.invoices.record}
                   </Text>
                 )}
               </Pressable>

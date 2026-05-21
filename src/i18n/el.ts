@@ -703,6 +703,13 @@ export const el = {
     netLabel: 'Καθαρά',
     vatLabel: 'ΦΠΑ',
     recordPaymentTitle: 'Καταχώρηση πληρωμής',
+    partialPaymentTitle: 'Πληρωμή τιμολογίου',
+    partialPaymentBalance: 'Υπόλοιπο: {amount}',
+    partialPaymentAmount: 'Ποσό πληρωμής (€)',
+    partialPaymentPayFull: 'Πλήρες υπόλοιπο',
+    partialPaymentExceeds: 'Το ποσό υπερβαίνει το υπόλοιπο του τιμολογίου.',
+    partialPaymentInvalid: 'Εισάγετε έγκυρο ποσό μεγαλύτερο από 0.',
+    balanceRemaining: 'Υπόλοιπο: {amount}',
     record: 'Καταχώρηση',
     paymentRecordFailed: 'Αποτυχία καταχώρησης πληρωμής.',
     cancelInvoiceNo: 'Όχι',
@@ -975,9 +982,9 @@ export function paymentMethodLabel(method: string): string {
   return map[method] ?? method;
 }
 
-/** Πλήρης πληρωμή τιμολογίου */
+/** Legacy alert body (full payment prompt). */
 export function invoiceRecordPaymentBody(amount: string, number: string): string {
-  return `Πλήρης πληρωμή ${amount} για ${number};`;
+  return `Πληρωμή ${amount} για ${number};`;
 }
 
 /** «N ραντεβού» */
