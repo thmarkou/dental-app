@@ -90,6 +90,7 @@ This application runs in an isolated environment to prevent conflicts with other
 | [docs/XCODE_RELEASE_BUILD.md](./docs/XCODE_RELEASE_BUILD.md) | USB Release + TestFlight checklist |
 | [docs/VERSIONING.md](./docs/VERSIONING.md) | Version vs build number |
 | [docs/RELEASE_NOTES.md](./docs/RELEASE_NOTES.md) | Current release notes |
+| [docs/USE_CASES_PRESENTATION.md](./docs/USE_CASES_PRESENTATION.md) | Full use cases for testing & demos |
 
 ## Running the App
 

@@ -1,6 +1,7 @@
 # Χειροκίνητο checklist δοκιμών
 
-> **Τελευταία ενημέρωση:** 19 Μαΐου 2026 · schema **v19** · `main` @ `26afada`  
+> **Τελευταία ενημέρωση:** 22 Μαΐου 2026 · schema **v21**  
+> **Αναλυτικά use cases & παρουσίαση:** [docs/USE_CASES_PRESENTATION.md](./docs/USE_CASES_PRESENTATION.md)  
 > Χρησιμοποιήστε το μετά από pull, πριν demo/release, ή όταν αλλάζει η βάση.
 
 ---
