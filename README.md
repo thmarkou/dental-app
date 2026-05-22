@@ -80,7 +80,16 @@ This application runs in an isolated environment to prevent conflicts with other
    ```bash
    npm run env:check:prod
    ```
-   See [docs/PRODUCTION_ENV.md](./docs/PRODUCTION_ENV.md).
+   See [docs/PRODUCTION_ENV.md](./docs/PRODUCTION_ENV.md). Before release: `npm run release:preflight`.
+
+### Release & distribution (Φάση 5)
+
+| Doc | Purpose |
+|-----|---------|
+| [docs/PRODUCTION_ENV.md](./docs/PRODUCTION_ENV.md) | Secrets, EAS profiles |
+| [docs/XCODE_RELEASE_BUILD.md](./docs/XCODE_RELEASE_BUILD.md) | USB Release + TestFlight checklist |
+| [docs/VERSIONING.md](./docs/VERSIONING.md) | Version vs build number |
+| [docs/RELEASE_NOTES.md](./docs/RELEASE_NOTES.md) | Current release notes |
 
 ## Running the App
 

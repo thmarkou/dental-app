@@ -23,6 +23,7 @@ import {
   isSameLocalDay,
   patientDisplayName,
   statusColor,
+  type PatientNameMode,
 } from './appointmentGrid.utils';
 
 import {el} from '../../i18n';
@@ -34,6 +35,7 @@ export interface AppointmentMonthGridProps {
   appointments: Appointment[];
   patients: Record<string, Patient>;
   layoutWidth: number;
+  patientNameMode?: PatientNameMode;
   onPressAppointment: (a: Appointment) => void;
   onPressDay?: (date: Date) => void;
 }
@@ -43,6 +45,7 @@ export const AppointmentMonthGrid: React.FC<AppointmentMonthGridProps> = ({
   appointments,
   patients,
   layoutWidth,
+  patientNameMode = 'short',
   onPressAppointment,
   onPressDay,
 }) => {
@@ -106,22 +109,56 @@ export const AppointmentMonthGrid: React.FC<AppointmentMonthGridProps> = ({
                   ]}>
                   {format(day, 'd')}
                 </Text>
-                {visible.map((apt) => (
-                  <Pressable
-                    key={apt.id}
-                    onPress={() => onPressAppointment(apt)}
-                    style={[
-                      styles.aptLine,
-                      {borderLeftColor: statusColor(apt.status)},
-                    ]}>
-                    <Text
-                      style={[styles.aptLineText, {fontSize: dim.aptMetaSize + 1}]}
-                      numberOfLines={1}>
-                      {formatTimeShort(apt.startTime)}{' '}
-                      {patientDisplayName(patients, apt.patientId, 'short')}
-                    </Text>
-                  </Pressable>
-                ))}
+                {visible.map((apt) => {
+                  const name = patientDisplayName(
+                    patients,
+                    apt.patientId,
+                    patientNameMode,
+                  );
+                  const time = formatTimeShort(apt.startTime);
+                  const isFull = patientNameMode === 'full';
+
+                  return (
+                    <Pressable
+                      key={apt.id}
+                      onPress={() => onPressAppointment(apt)}
+                      style={[
+                        styles.aptLine,
+                        isFull && styles.aptLineFull,
+                        {borderLeftColor: statusColor(apt.status)},
+                      ]}>
+                      {isFull ? (
+                        <>
+                          <Text
+                            style={[
+                              styles.aptLineTime,
+                              {fontSize: dim.aptMetaSize},
+                            ]}
+                            numberOfLines={1}>
+                            {time}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.aptLineName,
+                              {fontSize: dim.aptMetaSize + 1},
+                            ]}
+                            numberOfLines={2}>
+                            {name}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text
+                          style={[
+                            styles.aptLineText,
+                            {fontSize: dim.aptMetaSize + 1},
+                          ]}
+                          numberOfLines={1}>
+                          {time} {name}
+                        </Text>
+                      )}
+                    </Pressable>
+                  );
+                })}
                 {more > 0 ? (
                   <Text style={[styles.moreText, {fontSize: dim.aptMetaSize}]}>
                     {el.appointments.moreAppointments.replace(
@@ -183,6 +220,12 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     marginBottom: 1,
   },
+  aptLineFull: {
+    paddingVertical: 2,
+    minHeight: 28,
+  },
+  aptLineTime: {color: '#64748b', fontWeight: '600'},
+  aptLineName: {color: '#0f172a', fontWeight: '600', marginTop: 1},
   aptLineText: {color: '#334155'},
   moreText: {color: '#64748b', fontStyle: 'italic', marginTop: 1},
 });

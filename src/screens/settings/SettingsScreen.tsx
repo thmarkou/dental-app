@@ -30,8 +30,15 @@ import {
   getPracticeSettings,
   savePracticeSettings,
   setAutoDeductInventory as persistAutoDeductInventory,
+  setAppointmentGridNameMode,
   type PracticeSettings,
 } from '../../services/settings/practiceSettings.service';
+import {
+  getPushTokenStatus,
+  type PushTokenStatus,
+} from '../../services/appointment/pushToken.service';
+import {isRemotePushFeatureEnabled} from '../../../config/env.config';
+import type {PatientNameMode} from '../../components/appointments/appointmentGrid.utils';
 import {
   getPracticeReminderSettings,
   savePracticeReminderSettings,
@@ -97,6 +104,9 @@ const SettingsScreen = () => {
   const [invoiceFooter, setInvoiceFooter] = useState('');
   const [autoDeductInventory, setAutoDeductOn] = useState(false);
   const [inventorySettingsLoading, setInventorySettingsLoading] = useState(true);
+  const [gridNameMode, setGridNameMode] = useState<PatientNameMode>('full');
+  const [pushStatus, setPushStatus] = useState<PushTokenStatus | null>(null);
+  const [pushStatusLoading, setPushStatusLoading] = useState(true);
 
   const loadPractice = useCallback(() => {
     try {
@@ -116,12 +126,30 @@ const SettingsScreen = () => {
       setWebsite(form.website);
       setDefaultVatRate(form.defaultVatRate);
       setInvoiceFooter(form.invoiceFooter);
-      setAutoDeductOn(getPracticeSettings().autoDeductInventory);
+      const s = getPracticeSettings();
+      setAutoDeductOn(s.autoDeductInventory);
+      setGridNameMode(s.appointmentGridNameMode);
     } catch (e) {
       console.error(e);
     } finally {
       setPracticeLoading(false);
       setInventorySettingsLoading(false);
+    }
+  }, []);
+
+  const loadPushStatus = useCallback(async () => {
+    try {
+      setPushStatusLoading(true);
+      if (!isRemotePushFeatureEnabled() || Platform.OS === 'web') {
+        setPushStatus(null);
+        return;
+      }
+      setPushStatus(await getPushTokenStatus());
+    } catch (e) {
+      console.error(e);
+      setPushStatus(null);
+    } finally {
+      setPushStatusLoading(false);
     }
   }, []);
 
@@ -186,7 +214,8 @@ const SettingsScreen = () => {
       loadPractice();
       loadAptReminders();
       void loadReminder();
-    }, [loadPractice, loadAptReminders, loadReminder]),
+      void loadPushStatus();
+    }, [loadPractice, loadAptReminders, loadReminder, loadPushStatus]),
   );
 
   const handleTestSms = () => {
@@ -238,6 +267,7 @@ const SettingsScreen = () => {
         defaultVatRate: Number.parseFloat(defaultVatRate.replace(',', '.')),
         invoiceFooter: invoiceFooter.trim() || null,
         autoDeductInventory,
+        appointmentGridNameMode: gridNameMode,
       });
       Alert.alert(el.common.success, el.settings.practiceSaved);
       loadPractice();
@@ -625,6 +655,51 @@ const SettingsScreen = () => {
 
         <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <Text className="text-base font-semibold text-slate-900">
+            {el.settings.calendarSection}
+          </Text>
+          <Text className="mt-1 text-sm text-slate-600">
+            {el.settings.calendarSectionDesc}
+          </Text>
+          <View className="mt-4 flex-row gap-2">
+            <Pressable
+              onPress={() => {
+                setGridNameMode('full');
+                setAppointmentGridNameMode('full');
+              }}
+              className={`flex-1 rounded-lg border py-2.5 ${
+                gridNameMode === 'full'
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-slate-200 bg-white'
+              }`}>
+              <Text
+                className={`text-center text-sm font-medium ${
+                  gridNameMode === 'full' ? 'text-blue-800' : 'text-slate-700'
+                }`}>
+                {el.settings.gridNameFull}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setGridNameMode('short');
+                setAppointmentGridNameMode('short');
+              }}
+              className={`flex-1 rounded-lg border py-2.5 ${
+                gridNameMode === 'short'
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-slate-200 bg-white'
+              }`}>
+              <Text
+                className={`text-center text-sm font-medium ${
+                  gridNameMode === 'short' ? 'text-blue-800' : 'text-slate-700'
+                }`}>
+                {el.settings.gridNameShort}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <Text className="text-base font-semibold text-slate-900">
             {el.settings.inventorySection}
           </Text>
           <Text className="mt-1 text-sm text-slate-600">
@@ -772,6 +847,44 @@ const SettingsScreen = () => {
           ) : (
             <Text className="mt-2 text-xs text-amber-700">
               {el.settings.testSmsNoGateway}
+            </Text>
+          )}
+
+          {aptReminderSms ? (
+            <Text className="mt-3 text-xs leading-5 text-slate-600">
+              {el.settings.smsBackgroundLimitation}
+            </Text>
+          ) : null}
+        </View>
+
+        <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <Text className="text-base font-semibold text-slate-900">
+            {el.settings.remotePushSection}
+          </Text>
+          <Text className="mt-1 text-sm text-slate-600">
+            {el.settings.remotePushDesc}
+          </Text>
+          {pushStatusLoading ? (
+            <ActivityIndicator className="mt-4" size="small" color="#64748b" />
+          ) : (
+            <Text className="mt-3 text-xs leading-5 text-slate-600">
+              {!isRemotePushFeatureEnabled()
+                ? el.settings.remotePushDisabled
+                : pushStatus?.reason === 'no_project_id'
+                  ? el.settings.remotePushNoProject
+                  : pushStatus?.reason === 'permission_denied'
+                    ? el.settings.remotePushPermission
+                    : pushStatus?.reason === 'error'
+                      ? el.settings.remotePushError.replace(
+                          '{msg}',
+                          pushStatus.errorMessage ?? '—',
+                        )
+                      : pushStatus?.registered && pushStatus.tokenPreview
+                        ? el.settings.remotePushTokenOk.replace(
+                            '{token}',
+                            pushStatus.tokenPreview,
+                          )
+                        : el.settings.remotePushDisabled}
             </Text>
           )}
         </View>

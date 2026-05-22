@@ -114,6 +114,16 @@ npm run type-check && npm run smoke:db
 
 ---
 
+## 4b. Ραντεβού advanced (B4 / Φάση 4)
+
+- [ ] **Ρυθμίσεις** → **Πλάνο ραντεβού** → Πλήρες: μήνας = ώρα + όνομα σε 2η γραμμή · Συντομογραφία: μία γραμμή «09:30 Μ. Επώνυμο»
+- [ ] **Ρυθμίσεις** → Υπενθυμίσεις → SMS ON → κείμενο: SMS μόνο όταν ξανανοίγεις την app (όχι αυτόματα στο background)
+- [ ] Κλείσιμο app μέχρι μετά το `scheduled_for` SMS → άνοιγμα app → SMS στέλνεται (αν gateway OK)
+- [ ] **Έτος** → πάτα μήνα → μετάβαση σε μηνιαίο πλάνο · chevron στη λίστα
+- [ ] (Προαιρετικό) `FEATURE_REMOTE_PUSH=true` + EAS projectId → Ρυθμίσεις δείχνει token preview
+
+---
+
 ## 5. Αναφορές admin (K+)
 
 - [ ] Μήνας ◀ ▶: **Έσοδα**, **Χρεώσεις**, **Νέοι ασθενείς** — κάτω από κάθε ένα: **vs προηγ. μήνα: …**
@@ -130,6 +140,16 @@ npm run type-check && npm run smoke:db
 - [ ] Πληρωμένο τιμολόγιο χωρίς απόδειξη → **Έκδοση απόδειξης** → confirm → μία απόδειξη
 - [ ] Δεύτερη προσπάθεια → μήνυμα «Υπάρχει ήδη απόδειξη»
 - [ ] Εκδοθέν με υπόλοιπο → hint «Απομένει υπόλοιπο…»
+
+---
+
+## 5c. Release preflight (A4+ / Φάση 5)
+
+- [ ] `npm run release:preflight` — πράσινο (env + types + tests)
+- [ ] `app.json`: `version` 1.0.0 · `ios.buildNumber` ακέραιος
+- [ ] `.env.dentalapp`: πραγματικά JWT / ENCRYPTION (όχι placeholders)
+- [ ] (TestFlight) `eas build --profile preview --platform ios` + internal tester install
+- [ ] (USB) Xcode Release Clean + Run — ίδια smoke με checklist
 
 ---
 

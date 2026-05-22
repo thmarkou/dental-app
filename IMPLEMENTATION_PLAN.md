@@ -85,30 +85,30 @@
 
 ---
 
-## Φάση 4 — B4: Ραντεβού
+## Φάση 4 — B4: Ραντεβού ✅
 
 | # | Εργασία | Σημείωση |
 |---|---------|----------|
-| 4.1 | **SMS background** — expo-task ή documented limitation + best-effort scheduler | Ελάχιστο: doc + env flags |
-| 4.2 | **Remote push (FCM)** — backlog φάσης 2· χρειάζεται backend ή Expo push service | Μεγάλο· υπο-φάσεις 4.2a token 4.2b send |
-| 4.3 | Ρύθμιση **πλήρες / σύντομο** όνομα στο grid | `reminder_settings` ή νέο πεδίο |
-| 4.4 | Year grid polish | Χαμηλή προτεραιότητα — τελευταίο μέσα στη B4 |
+| 4.1 | **SMS MVP** (μόνο όταν ανοίγει ξανά η app) | `reminderTick` · **αποστολή χωρίς app → Φάση 6** |
+| 4.2 | **Remote push** | 4.2a token (`FEATURE_REMOTE_PUSH`) · 4.2b send = backlog server |
+| 4.3 | **Πλήρες / σύντομο** όνομα grid | `practice_settings.appointment_grid_name_mode` v21 |
+| 4.4 | Year grid polish | Chevron, μεγαλύτερα rows, hint |
 
-**Εκκρεμότητες που κλείνουν:** B4 (με ρεαλιστικό scope για 4.2).
+**Ολοκληρώθηκε:** tick SMS, token registration UI, grid names, year UX.
 
-**Ήδη έτοιμο:** week/month/year grid, τοπικό push v18, SMS όταν ανοίγει app.
+**Ήδη έτοιμο (πριν):** week/month/year grid, local push v18, SMS on app open.
 
 ---
 
-## Φάση 5 — A4+: Production release
+## Φάση 5 — A4+: Production release ✅
 
 | # | Εργασία | Σημείωση |
 |---|---------|----------|
-| 5.1 | `eas.json` profiles + secrets documentation | Σύνδεση με [docs/PRODUCTION_ENV.md](./docs/PRODUCTION_ENV.md) |
-| 5.2 | TestFlight / internal distribution checklist | Επέκταση [docs/XCODE_RELEASE_BUILD.md](./docs/XCODE_RELEASE_BUILD.md) |
-| 5.3 | Versioning / build number policy | `app.json` + release notes template |
+| 5.1 | `eas.json` profiles + secrets | [docs/PRODUCTION_ENV.md](./docs/PRODUCTION_ENV.md) · preview/production `autoIncrement` |
+| 5.2 | TestFlight / internal checklist | [docs/XCODE_RELEASE_BUILD.md](./docs/XCODE_RELEASE_BUILD.md) §B |
+| 5.3 | Versioning policy | [docs/VERSIONING.md](./docs/VERSIONING.md) · `RELEASE_NOTES_*` · `npm run release:preflight` |
 
-**Εκκρεμότητες που κλείνουν:** A4 πέρα από «docs μόνο».
+**Ολοκληρώθηκε:** EAS profiles, release docs, build `1` + v1.0.0.
 
 ---
 
@@ -120,8 +120,9 @@
 | 6.2 | Πραγματική υποβολή τιμολογίου/απόδειξης | Αντικατάσταση προσομοίωσης |
 | 6.3 | Ακύρωση / διορθωτικά (αν απαιτούνται) | Νομική αξιολόγηση |
 | 6.4 | UAT με λογιστή / sandbox AADE | Πριν production ON |
+| 6.5 | **SMS υπενθυμίσεων χωρίς ανοιχτή app** | Server cron + gateway (μαζί με cloud infra) |
 
-**Μέχρι τότε:** προσομοίωση mark + PDF + CSV — **δεν αγγίζεται** στην φάση 6.
+**Μέχρι τότε:** προσομοίωση mark + PDF + CSV — **δεν αγγίζεται** στην φάση 6. SMS αυτόματο χωρίς app = **6.5**, όχι νωρίτερα.
 
 ---
 
@@ -150,13 +151,14 @@
 | Auto-deduct χωρίς dialog (ON/OFF) | 3 ✅ |
 | Ημερομηνίες λήξης υλικών | 3 ✅ |
 | Παραγγελίες προμηθευτή | **Εκτός MVP** |
-| Remote push FCM | 4 |
-| SMS background | 4 |
+| Remote push FCM (token only) | 4 ✅ (send = server) |
+| SMS χωρίς ανοιχτή app (server) | **6** (με myDATA) |
+| SMS όταν ξανανοίγει η app (MVP) | 4 ✅ |
 | Full/short όνομα grid | 4 |
 | Year grid polish | 4 |
 | Jest tests | 0 ✅ |
 | GitHub Actions CI | 0 ✅ |
-| EAS / TestFlight pipeline | 5 |
+| EAS / TestFlight pipeline | 5 ✅ |
 | myDATA AADE πραγματικό | **6 (τελευταίο)** |
 
 ---
@@ -174,7 +176,7 @@
 
 ## Επόμενο βήμα εκτέλεσης
 
-**Φάση 4 (B4):** push/SMS ραντεβού, grid polish, year view.
+**Φάση 6 (Γ):** myDATA + SMS server (6.5) — τελευταίο.
 
 ---
 

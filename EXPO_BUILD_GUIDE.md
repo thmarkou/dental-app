@@ -114,9 +114,13 @@ eas submit --platform ios
 
 ## Build Profiles (eas.json)
 
-- **development**: Development build με development client
-- **preview**: Internal distribution (TestFlight)
-- **production**: App Store build
+| Profile | Use |
+|---------|-----|
+| **development** | Dev client, iOS simulator |
+| **preview** | TestFlight / internal (`autoIncrement`, `NODE_ENV=production`) |
+| **production** | App Store (`autoIncrement`) |
+
+Πλήρης πίνακας: [docs/PRODUCTION_ENV.md](./docs/PRODUCTION_ENV.md). Preflight: `npm run release:preflight`.
 
 ## Σημαντικές Σημειώσεις
 

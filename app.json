@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dentalapp.practice",
-      "buildNumber": "1.0.0",
+      "buildNumber": "1",
       "deploymentTarget": "15.1",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to camera to take photos of dental conditions.",

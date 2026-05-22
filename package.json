@@ -17,6 +17,7 @@
     "migrate:sim": "node scripts/migrate-simulator-db.mjs",
     "env:check": "node scripts/validate-env.mjs",
     "env:check:prod": "node scripts/validate-env.mjs --strict",
+    "release:preflight": "npm run env:check:prod && npm run type-check && npm test",
     "env:secrets": "node scripts/generate-secrets.mjs",
     "env:setup": "cp -n env.dentalapp.example .env.dentalapp 2>/dev/null || true && node scripts/generate-secrets.mjs --write",
     "build:ios": "eas build --platform ios",

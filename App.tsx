@@ -14,6 +14,8 @@ import {
   ensureAppointmentNotificationChannel,
   processDueSmsReminders,
 } from './src/services/appointment/reminderScheduler.service';
+import {startAppointmentReminderTick} from './src/services/appointment/reminderTick.service';
+import {registerExpoPushTokenOnLaunch} from './src/services/appointment/pushToken.service';
 import {registerNotificationPresentationHandler} from './src/services/system/backupReminder.service';
 import {useAuthStore} from './src/store/auth.store';
 
@@ -26,6 +28,8 @@ const App = (): React.JSX.Element => {
   const {checkAuth} = useAuthStore();
 
   useEffect(() => {
+    let stopReminderTick: (() => void) | undefined;
+
     const initializeApp = async () => {
       try {
         // Initialize database
@@ -36,6 +40,8 @@ const App = (): React.JSX.Element => {
         if (Platform.OS !== 'web') {
           await ensureAppointmentNotificationChannel();
           void processDueSmsReminders();
+          stopReminderTick = startAppointmentReminderTick();
+          void registerExpoPushTokenOnLaunch();
         }
 
         // Check authentication (will work with AsyncStorage even without DB)
@@ -49,7 +55,11 @@ const App = (): React.JSX.Element => {
       }
     };
 
-    initializeApp();
+    void initializeApp();
+
+    return () => {
+      stopReminderTick?.();
+    };
   }, [checkAuth]);
 
   if (isInitializing) {

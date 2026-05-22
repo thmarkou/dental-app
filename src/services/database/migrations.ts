@@ -758,4 +758,16 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 21,
+    up: (database) => {
+      try {
+        database.execute(
+          `ALTER TABLE practice_settings ADD COLUMN appointment_grid_name_mode TEXT NOT NULL DEFAULT 'full';`,
+        );
+      } catch {
+        // column may exist
+      }
+    },
+  },
 ];

@@ -278,7 +278,9 @@ export const el = {
       'Πλάνο εβδομάδας · πάτα ραντεβού ή ημέρα · χρώμα = κατάσταση',
     monthPlanLegend:
       'Μηνιαίο πλάνο · πάτα ημέρα για λίστα · πάτα γραμμή για λεπτομέρειες',
-    yearOverview: 'Επισκόπηση έτους · πάτα μήνα για μηνιαίο πλάνο',
+    yearOverview: 'Επισκόπηση έτους',
+    yearTapHint: 'Πάτα σε μήνα για μετάβαση στο μηνιαίο πλάνο',
+    yearMonthA11y: '{month}, {count} ραντεβού',
     monthCol: 'Μήνας',
     apptsCol: 'Ραντεβού',
     daysCol: 'Ημέρες',
@@ -375,6 +377,21 @@ export const el = {
     testSmsPrompt: 'Αριθμός κινητού για δοκιμή (π.χ. 6912345678)',
     testSmsSuccess: 'Το δοκιμαστικό SMS στάλθηκε.',
     testSmsNoGateway: 'Το SMS δεν είναι ρυθμισμένο (API key / FEATURE_SMS_REMINDERS).',
+    smsBackgroundLimitation:
+      'Προσωρινά: το SMS στέλνεται μόνο όταν ανοίγετε ξανά την εφαρμογή (μετά από κλείσιμο ή όταν την αφήσατε στο παρασκήνιο). Η αυτόματη αποστολή χωρίς να ανοίγετε την app θα υλοποιηθεί αργότερα (μαζί με cloud / myDATA).',
+    calendarSection: 'Πλάνο ραντεβού',
+    calendarSectionDesc:
+      'Εβδομάδα και μήνας: στο μηνιαίο πλάνο το πλήρες όνομα εμφανίζεται σε δεύτερη γραμμή (πιο ευανάγνωστο).',
+    gridNameFull: 'Πλήρες όνομα',
+    gridNameShort: 'Συντομογραφία',
+    remotePushSection: 'Push από cloud (προχωρημένο)',
+    remotePushDesc:
+      'Τοπικές ειδοποιήσεις λειτουργούν χωρίς server. Για push από cloud: FEATURE_REMOTE_PUSH και EAS projectId.',
+    remotePushDisabled: 'Απενεργοποιημένο (FEATURE_REMOTE_PUSH=false).',
+    remotePushNoProject: 'Ρυθμίστε έγκυρο extra.eas.projectId στο app.json.',
+    remotePushTokenOk: 'Token καταχωρήθηκε: {token}',
+    remotePushPermission: 'Δεν δόθηκε άδεια ειδοποιήσεων.',
+    remotePushError: 'Σφάλμα token: {msg}',
     inventorySection: 'Αποθήκη υλικών',
     inventorySectionDesc:
       'Μετά θεραπεία με BOM: αυτόματη αφαίρεση απόθεματος χωρίς ερώτηση (αν υπάρχει stock).',

@@ -29,6 +29,8 @@ import {
   deleteAppointment,
   getAppointmentsByDateRange,
 } from '../../services/appointment';
+import {getPracticeSettings} from '../../services/settings/practiceSettings.service';
+import type {PatientNameMode} from '../../components/appointments/appointmentGrid.utils';
 import {getPatientById, Patient} from '../../services/patient';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -73,6 +75,7 @@ const AppointmentsScreen = () => {
   const [datePickerDraft, setDatePickerDraft] = useState(() =>
     startOfLocalDay(new Date()),
   );
+  const [gridNameMode, setGridNameMode] = useState<PatientNameMode>('full');
 
   const openDatePicker = () => {
     setDatePickerDraft(startOfLocalDay(selectedDate));
@@ -114,6 +117,12 @@ const AppointmentsScreen = () => {
       setRefreshing(false);
     }
   }, [selectedDate, viewMode]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setGridNameMode(getPracticeSettings().appointmentGridNameMode);
+    }, []),
+  );
 
   // Initial load
   useEffect(() => {
@@ -457,6 +466,7 @@ const AppointmentsScreen = () => {
               appointments={appointments}
               patients={patients}
               layoutWidth={layoutWidth}
+              patientNameMode={gridNameMode}
               onPressAppointment={handleAppointmentPress}
               onPressDay={handlePressDayFromGrid}
             />
@@ -467,6 +477,7 @@ const AppointmentsScreen = () => {
               appointments={appointments}
               patients={patients}
               layoutWidth={layoutWidth}
+              patientNameMode={gridNameMode}
               onPressAppointment={handleAppointmentPress}
               onPressDay={handlePressDayFromGrid}
             />

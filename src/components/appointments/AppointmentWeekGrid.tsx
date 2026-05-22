@@ -19,6 +19,7 @@ import {
   isSameLocalDay,
   patientDisplayName,
   slotSpanForAppointment,
+  type PatientNameMode,
   statusColor,
   statusShortLabel,
   typeShortLabel,
@@ -30,6 +31,7 @@ export interface AppointmentWeekGridProps {
   appointments: Appointment[];
   patients: Record<string, Patient>;
   layoutWidth: number;
+  patientNameMode?: PatientNameMode;
   onPressAppointment: (a: Appointment) => void;
   onPressDay?: (date: Date) => void;
 }
@@ -39,6 +41,7 @@ export const AppointmentWeekGrid: React.FC<AppointmentWeekGridProps> = ({
   appointments,
   patients,
   layoutWidth,
+  patientNameMode = 'full',
   onPressAppointment,
   onPressDay,
 }) => {
@@ -157,7 +160,7 @@ export const AppointmentWeekGrid: React.FC<AppointmentWeekGridProps> = ({
                               {patientDisplayName(
                                 patients,
                                 apt.patientId,
-                                'full',
+                                patientNameMode,
                               )}
                             </Text>
                             <Text

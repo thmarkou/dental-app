@@ -4,6 +4,7 @@
  */
 
 import {getDatabase} from '../database';
+import type {PatientNameMode} from '../../components/appointments/appointmentGrid.utils';
 
 export const PRACTICE_SETTINGS_ID = 'default';
 
@@ -25,6 +26,8 @@ export interface PracticeSettings {
   invoiceFooter: string | null;
   /** When true, BOM stock is deducted after treatment without confirmation dialog. */
   autoDeductInventory: boolean;
+  /** How patient names appear on week/month appointment grids. */
+  appointmentGridNameMode: PatientNameMode;
   updatedAt: string;
 }
 
@@ -50,8 +53,13 @@ const EMPTY_ROW: PracticeSettings = {
   defaultVatRate: 24,
   invoiceFooter: null,
   autoDeductInventory: false,
+  appointmentGridNameMode: 'full',
   updatedAt: new Date(0).toISOString(),
 };
+
+function parseGridNameMode(raw: unknown): PatientNameMode {
+  return String(raw ?? 'full') === 'short' ? 'short' : 'full';
+}
 
 function mapRow(row: Record<string, unknown>): PracticeSettings {
   return {
@@ -105,6 +113,7 @@ function mapRow(row: Record<string, unknown>): PracticeSettings {
         ? String(row.invoice_footer)
         : null,
     autoDeductInventory: Number(row.auto_deduct_inventory ?? 0) === 1,
+    appointmentGridNameMode: parseGridNameMode(row.appointment_grid_name_mode),
     updatedAt: String(row.updated_at),
   };
 }
@@ -163,8 +172,8 @@ export function savePracticeSettings(input: SavePracticeSettingsInput): Practice
       id, legal_name, trade_name, afm, doy, activity_code,
       address_street, address_city, address_postal_code, address_country,
       phone, email, website, default_vat_rate, invoice_footer,
-      auto_deduct_inventory, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      auto_deduct_inventory, appointment_grid_name_mode, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       legal_name = excluded.legal_name,
       trade_name = excluded.trade_name,
@@ -181,6 +190,7 @@ export function savePracticeSettings(input: SavePracticeSettingsInput): Practice
       default_vat_rate = excluded.default_vat_rate,
       invoice_footer = excluded.invoice_footer,
       auto_deduct_inventory = excluded.auto_deduct_inventory,
+      appointment_grid_name_mode = excluded.appointment_grid_name_mode,
       updated_at = excluded.updated_at`,
     [
       PRACTICE_SETTINGS_ID,
@@ -199,10 +209,23 @@ export function savePracticeSettings(input: SavePracticeSettingsInput): Practice
       vat,
       input.invoiceFooter?.trim() || null,
       input.autoDeductInventory ? 1 : 0,
+      input.appointmentGridNameMode,
       now,
     ],
   );
 
+  return getPracticeSettings();
+}
+
+export function setAppointmentGridNameMode(
+  mode: PatientNameMode,
+): PracticeSettings {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  db.execute(
+    `UPDATE practice_settings SET appointment_grid_name_mode = ?, updated_at = ? WHERE id = ?`,
+    [mode, now, PRACTICE_SETTINGS_ID],
+  );
   return getPracticeSettings();
 }
 

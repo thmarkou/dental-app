@@ -66,6 +66,10 @@ export interface EnvConfig {
     interval: number;
     onStartup: boolean;
   };
+  /** Register Expo push token on launch (sending still needs server — see docs/APPOINTMENT_REMINDERS.md). */
+  remotePush: {
+    enabled: boolean;
+  };
   nodeEnv: 'development' | 'staging' | 'production';
   debugMode: boolean;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
@@ -184,6 +188,10 @@ const loadEnvConfig = (): EnvConfig => {
       onStartup: getEnvBool('SYNC_ON_STARTUP', false),
     },
 
+    remotePush: {
+      enabled: getEnvBool('FEATURE_REMOTE_PUSH', false),
+    },
+
     nodeEnv,
     debugMode: getEnvBool('DEBUG_MODE', nodeEnv !== 'production'),
     logLevel: getEnv('LOG_LEVEL', nodeEnv === 'production' ? 'warn' : 'debug') as
@@ -249,3 +257,7 @@ try {
 
 export default envConfig;
 export {validateEnvConfig, loadEnvConfig, isReleaseBuild};
+
+export function isRemotePushFeatureEnabled(): boolean {
+  return envConfig.remotePush.enabled;
+}
