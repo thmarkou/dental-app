@@ -29,6 +29,7 @@ import {ScreenSafeArea} from '../../components/common/ScreenSafeArea';
 import {
   getPracticeSettings,
   savePracticeSettings,
+  setAutoDeductInventory as persistAutoDeductInventory,
   type PracticeSettings,
 } from '../../services/settings/practiceSettings.service';
 import {
@@ -94,6 +95,8 @@ const SettingsScreen = () => {
   const [website, setWebsite] = useState('');
   const [defaultVatRate, setDefaultVatRate] = useState('24');
   const [invoiceFooter, setInvoiceFooter] = useState('');
+  const [autoDeductInventory, setAutoDeductOn] = useState(false);
+  const [inventorySettingsLoading, setInventorySettingsLoading] = useState(true);
 
   const loadPractice = useCallback(() => {
     try {
@@ -113,10 +116,12 @@ const SettingsScreen = () => {
       setWebsite(form.website);
       setDefaultVatRate(form.defaultVatRate);
       setInvoiceFooter(form.invoiceFooter);
+      setAutoDeductOn(getPracticeSettings().autoDeductInventory);
     } catch (e) {
       console.error(e);
     } finally {
       setPracticeLoading(false);
+      setInventorySettingsLoading(false);
     }
   }, []);
 
@@ -232,6 +237,7 @@ const SettingsScreen = () => {
         website: website.trim() || null,
         defaultVatRate: Number.parseFloat(defaultVatRate.replace(',', '.')),
         invoiceFooter: invoiceFooter.trim() || null,
+        autoDeductInventory,
       });
       Alert.alert(el.common.success, el.settings.practiceSaved);
       loadPractice();
@@ -615,6 +621,38 @@ const SettingsScreen = () => {
               </Pressable>
             </View>
           )}
+        </View>
+
+        <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <Text className="text-base font-semibold text-slate-900">
+            {el.settings.inventorySection}
+          </Text>
+          <Text className="mt-1 text-sm text-slate-600">
+            {el.settings.inventorySectionDesc}
+          </Text>
+          <View className="mt-4 flex-row items-center justify-between rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3">
+            <View className="mr-3 flex-1">
+              <Text className="text-sm font-medium text-slate-900">
+                {el.settings.autoDeductInventory}
+              </Text>
+              <Text className="mt-1 text-xs text-slate-500">
+                {el.settings.autoDeductInventoryHint}
+              </Text>
+            </View>
+            {inventorySettingsLoading ? (
+              <ActivityIndicator size="small" color="#64748b" />
+            ) : (
+              <Switch
+                value={autoDeductInventory}
+                onValueChange={(v) => {
+                  setAutoDeductOn(v);
+                  persistAutoDeductInventory(v);
+                }}
+                trackColor={{false: '#cbd5e1', true: '#93c5fd'}}
+                thumbColor={autoDeductInventory ? '#1d4ed8' : '#f1f5f9'}
+              />
+            )}
+          </View>
         </View>
 
         <View className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

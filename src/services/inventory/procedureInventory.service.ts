@@ -12,6 +12,7 @@ import {
 import {recordStockMovement} from './inventory.service';
 import {uuidv4} from '../../utils/uuid';
 import {el} from '../../i18n';
+import {getPracticeSettings} from '../settings/practiceSettings.service';
 import type {
   InventoryDeductionPreview,
   ProcedureBomInputLine,
@@ -204,6 +205,21 @@ export function offerInventoryDeductionForTreatment(params: {
           el.procedureInventory.deductTitle,
           el.procedureInventory.insufficientStock,
         );
+        return;
+      }
+
+      const autoDeduct = getPracticeSettings().autoDeductInventory;
+      if (autoDeduct) {
+        try {
+          await deductMaterialsForTreatment(params);
+        } catch (e) {
+          Alert.alert(
+            el.common.error,
+            e instanceof Error && e.message === 'INSUFFICIENT_STOCK'
+              ? el.procedureInventory.insufficientStock
+              : el.procedureInventory.deductFailed,
+          );
+        }
         return;
       }
 

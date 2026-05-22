@@ -23,6 +23,73 @@ export type {
   InventoryMovementType,
 };
 
+/** Days before expiry_date to flag «expiring soon». */
+export const EXPIRING_SOON_DAYS = 30;
+
+function todayYmd(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  return todayYmdFromDate(dt);
+}
+
+function todayYmdFromDate(dt: Date): string {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Normalize user input to YYYY-MM-DD or null; throws INVALID_EXPIRY_DATE. */
+export function normalizeExpiryDateInput(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    throw new Error('INVALID_EXPIRY_DATE');
+  }
+  const [y, m, d] = trimmed.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  if (
+    dt.getFullYear() !== y ||
+    dt.getMonth() !== m - 1 ||
+    dt.getDate() !== d
+  ) {
+    throw new Error('INVALID_EXPIRY_DATE');
+  }
+  return trimmed;
+}
+
+export function isExpired(
+  item: InventoryItem,
+  referenceYmd: string = todayYmd(),
+): boolean {
+  if (!item.expiryDate) {
+    return false;
+  }
+  return item.expiryDate < referenceYmd;
+}
+
+export function isExpiringSoon(
+  item: InventoryItem,
+  referenceYmd: string = todayYmd(),
+): boolean {
+  if (!item.expiryDate || isExpired(item, referenceYmd)) {
+    return false;
+  }
+  const limit = addDaysYmd(referenceYmd, EXPIRING_SOON_DAYS);
+  return item.expiryDate <= limit;
+}
+
 /** react-native-quick-sqlite exposes row arrays on `rows._array`. */
 function queryRows(result: {rows?: {_array?: unknown[]}}): Record<string, unknown>[] {
   return (result.rows?._array ?? []) as Record<string, unknown>[];
@@ -53,6 +120,10 @@ function mapItem(row: Record<string, unknown>): InventoryItem {
     notes:
       row.notes != null && String(row.notes).trim() !== ''
         ? String(row.notes)
+        : null,
+    expiryDate:
+      row.expiry_date != null && String(row.expiry_date).trim() !== ''
+        ? String(row.expiry_date).slice(0, 10)
         : null,
     isActive: Number(row.is_active ?? 1) === 1,
     createdAt: String(row.created_at),
@@ -90,6 +161,8 @@ export function isLowStock(item: InventoryItem): boolean {
 export async function getInventoryItems(options?: {
   activeOnly?: boolean;
   lowStockOnly?: boolean;
+  expiringSoonOnly?: boolean;
+  expiredOnly?: boolean;
 }): Promise<InventoryItem[]> {
   const activeOnly = options?.activeOnly !== false;
   const db = getDatabase();
@@ -102,6 +175,10 @@ export async function getInventoryItems(options?: {
   let items = queryRows(result).map(mapItem);
   if (options?.lowStockOnly) {
     items = items.filter(isLowStock);
+  } else if (options?.expiredOnly) {
+    items = items.filter((i) => isExpired(i));
+  } else if (options?.expiringSoonOnly) {
+    items = items.filter((i) => isExpiringSoon(i));
   }
   return items;
 }
@@ -120,6 +197,8 @@ export async function getInventorySummary(): Promise<{
 export interface InventoryExtendedSummary {
   totalItems: number;
   lowStockCount: number;
+  expiringSoonCount: number;
+  expiredCount: number;
   /** Sum of quantity × unit_cost for active items (0 if no costs set). */
   estimatedStockValue: number;
   /** Total units removed via `usage` movements this calendar month. */
@@ -163,6 +242,8 @@ export async function getInventoryExtendedSummary(): Promise<InventoryExtendedSu
   return {
     totalItems: items.length,
     lowStockCount: items.filter(isLowStock).length,
+    expiringSoonCount: items.filter((i) => isExpiringSoon(i)).length,
+    expiredCount: items.filter((i) => isExpired(i)).length,
     estimatedStockValue,
     usageUnitsThisMonth,
     proceduresWithBom,
@@ -218,11 +299,15 @@ export async function createInventoryItem(
 
   await transaction(async () => {
     const db = getDatabase();
+    const expiryDate =
+      input.expiryDate !== undefined
+        ? input.expiryDate
+        : null;
     db.execute(
       `INSERT INTO inventory_items (
         id, sku, name, category, unit, quantity, min_quantity, unit_cost,
-        supplier, location, notes, is_active, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        supplier, location, notes, expiry_date, is_active, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       [
         id,
         input.sku?.trim() || null,
@@ -235,6 +320,7 @@ export async function createInventoryItem(
         input.supplier?.trim() || null,
         input.location?.trim() || null,
         input.notes?.trim() || null,
+        expiryDate,
         now,
         now,
       ],
@@ -285,6 +371,7 @@ export async function updateInventoryItem(
       supplier = ?,
       location = ?,
       notes = ?,
+      expiry_date = ?,
       is_active = ?,
       updated_at = ?
     WHERE id = ?`,
@@ -310,6 +397,9 @@ export async function updateInventoryItem(
       input.notes !== undefined
         ? input.notes?.trim() || null
         : existing.notes,
+      input.expiryDate !== undefined
+        ? input.expiryDate
+        : existing.expiryDate,
       input.isActive !== undefined ? (input.isActive ? 1 : 0) : existing.isActive
         ? 1
         : 0,

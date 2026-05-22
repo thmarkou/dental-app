@@ -23,6 +23,8 @@ export interface PracticeSettings {
   website: string | null;
   defaultVatRate: number;
   invoiceFooter: string | null;
+  /** When true, BOM stock is deducted after treatment without confirmation dialog. */
+  autoDeductInventory: boolean;
   updatedAt: string;
 }
 
@@ -47,6 +49,7 @@ const EMPTY_ROW: PracticeSettings = {
   website: null,
   defaultVatRate: 24,
   invoiceFooter: null,
+  autoDeductInventory: false,
   updatedAt: new Date(0).toISOString(),
 };
 
@@ -101,6 +104,7 @@ function mapRow(row: Record<string, unknown>): PracticeSettings {
       row.invoice_footer != null && String(row.invoice_footer).trim() !== ''
         ? String(row.invoice_footer)
         : null,
+    autoDeductInventory: Number(row.auto_deduct_inventory ?? 0) === 1,
     updatedAt: String(row.updated_at),
   };
 }
@@ -158,8 +162,9 @@ export function savePracticeSettings(input: SavePracticeSettingsInput): Practice
     `INSERT INTO practice_settings (
       id, legal_name, trade_name, afm, doy, activity_code,
       address_street, address_city, address_postal_code, address_country,
-      phone, email, website, default_vat_rate, invoice_footer, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      phone, email, website, default_vat_rate, invoice_footer,
+      auto_deduct_inventory, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       legal_name = excluded.legal_name,
       trade_name = excluded.trade_name,
@@ -175,6 +180,7 @@ export function savePracticeSettings(input: SavePracticeSettingsInput): Practice
       website = excluded.website,
       default_vat_rate = excluded.default_vat_rate,
       invoice_footer = excluded.invoice_footer,
+      auto_deduct_inventory = excluded.auto_deduct_inventory,
       updated_at = excluded.updated_at`,
     [
       PRACTICE_SETTINGS_ID,
@@ -192,9 +198,20 @@ export function savePracticeSettings(input: SavePracticeSettingsInput): Practice
       input.website?.trim() || null,
       vat,
       input.invoiceFooter?.trim() || null,
+      input.autoDeductInventory ? 1 : 0,
       now,
     ],
   );
 
+  return getPracticeSettings();
+}
+
+export function setAutoDeductInventory(enabled: boolean): PracticeSettings {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  db.execute(
+    `UPDATE practice_settings SET auto_deduct_inventory = ?, updated_at = ? WHERE id = ?`,
+    [enabled ? 1 : 0, now, PRACTICE_SETTINGS_ID],
+  );
   return getPracticeSettings();
 }

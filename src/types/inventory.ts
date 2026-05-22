@@ -31,6 +31,8 @@ export interface InventoryItem {
   supplier: string | null;
   location: string | null;
   notes: string | null;
+  /** ISO date YYYY-MM-DD; null if not tracked. */
+  expiryDate: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -59,6 +61,7 @@ export interface CreateInventoryItemInput {
   supplier?: string | null;
   location?: string | null;
   notes?: string | null;
+  expiryDate?: string | null;
   /** Recorded on first stock movement when quantity > 0 on create. */
   initialStockNote?: string | null;
 }
@@ -73,6 +76,7 @@ export interface UpdateInventoryItemInput {
   supplier?: string | null;
   location?: string | null;
   notes?: string | null;
+  expiryDate?: string | null;
   isActive?: boolean;
 }
 

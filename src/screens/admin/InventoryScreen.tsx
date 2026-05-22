@@ -27,7 +27,10 @@ import {
   getRecentMovements,
   type InventoryExtendedSummary,
   type InventoryMovementWithItem,
+  isExpired,
+  isExpiringSoon,
   isLowStock,
+  normalizeExpiryDateInput,
   recordStockMovement,
   updateInventoryItem,
   type InventoryItem,
@@ -51,7 +54,7 @@ import {
 } from '../../i18n';
 import type {ReportsStackParamList} from '../../navigation/navigation.types';
 
-type FilterKey = 'all' | 'low';
+type FilterKey = 'all' | 'low' | 'expiring' | 'expired';
 
 const qtyFmt = (n: number) =>
   new Intl.NumberFormat(UI_LOCALE, {maximumFractionDigits: 2}).format(n);
@@ -84,6 +87,7 @@ const emptyForm = () => ({
   supplier: '',
   location: '',
   notes: '',
+  expiryDate: '',
 });
 
 const InventoryScreen: React.FC = () => {
@@ -96,6 +100,8 @@ const InventoryScreen: React.FC = () => {
   const [summary, setSummary] = useState<InventoryExtendedSummary>({
     totalItems: 0,
     lowStockCount: 0,
+    expiringSoonCount: 0,
+    expiredCount: 0,
     estimatedStockValue: 0,
     usageUnitsThisMonth: 0,
     proceduresWithBom: 0,
@@ -124,6 +130,8 @@ const InventoryScreen: React.FC = () => {
       setSummary({
         totalItems: 0,
         lowStockCount: 0,
+        expiringSoonCount: 0,
+        expiredCount: 0,
         estimatedStockValue: 0,
         usageUnitsThisMonth: 0,
         proceduresWithBom: 0,
@@ -138,6 +146,8 @@ const InventoryScreen: React.FC = () => {
         getInventoryItems({
           activeOnly: true,
           lowStockOnly: filter === 'low',
+          expiringSoonOnly: filter === 'expiring',
+          expiredOnly: filter === 'expired',
         }),
         getInventoryExtendedSummary(),
         getPracticeRecentMovements(10),
@@ -178,6 +188,7 @@ const InventoryScreen: React.FC = () => {
       supplier: item.supplier ?? '',
       location: item.location ?? '',
       notes: item.notes ?? '',
+      expiryDate: item.expiryDate ?? '',
     });
     setItemModal(true);
   };
@@ -216,6 +227,14 @@ const InventoryScreen: React.FC = () => {
       Alert.alert(el.common.error, el.inventory.invalidAmount);
       return;
     }
+    let expiryDate: string | null = null;
+    try {
+      expiryDate = normalizeExpiryDateInput(form.expiryDate);
+    } catch {
+      Alert.alert(el.common.error, el.inventory.invalidExpiryDate);
+      return;
+    }
+
     setSaving(true);
     try {
       if (editing) {
@@ -229,6 +248,7 @@ const InventoryScreen: React.FC = () => {
           supplier: form.supplier.trim() || null,
           location: form.location.trim() || null,
           notes: form.notes.trim() || null,
+          expiryDate,
         });
         const delta = newQty - editing.quantity;
         if (delta !== 0) {
@@ -252,6 +272,7 @@ const InventoryScreen: React.FC = () => {
           supplier: form.supplier.trim() || null,
           location: form.location.trim() || null,
           notes: form.notes.trim() || null,
+          expiryDate,
           initialStockNote: el.inventory.initialStockNote,
         });
       }
@@ -297,8 +318,23 @@ const InventoryScreen: React.FC = () => {
     }
   };
 
+  const emptyListMessage = (): string => {
+    switch (filter) {
+      case 'low':
+        return el.inventory.emptyLow;
+      case 'expiring':
+        return el.inventory.emptyExpiringSoon;
+      case 'expired':
+        return el.inventory.emptyExpired;
+      default:
+        return el.inventory.empty;
+    }
+  };
+
   const renderItem = ({item}: {item: InventoryItem}) => {
     const low = isLowStock(item);
+    const expired = isExpired(item);
+    const expiring = isExpiringSoon(item);
     return (
       <Pressable
         accessibilityRole="button"
@@ -309,7 +345,21 @@ const InventoryScreen: React.FC = () => {
             <Text className="text-base font-semibold text-slate-900">
               {item.name}
             </Text>
-            {low && (
+            {expired && (
+              <View className="rounded-full bg-red-100 px-2 py-0.5">
+                <Text className="text-xs font-medium text-red-800">
+                  {el.inventory.expired}
+                </Text>
+              </View>
+            )}
+            {!expired && expiring && (
+              <View className="rounded-full bg-orange-100 px-2 py-0.5">
+                <Text className="text-xs font-medium text-orange-900">
+                  {el.inventory.expiringSoon}
+                </Text>
+              </View>
+            )}
+            {low && !expired && (
               <View className="rounded-full bg-amber-100 px-2 py-0.5">
                 <Text className="text-xs font-medium text-amber-800">
                   {el.inventory.lowStock}
@@ -320,6 +370,7 @@ const InventoryScreen: React.FC = () => {
           <Text className="mt-0.5 text-sm text-slate-500">
             {inventoryCategoryLabel(item.category)}
             {item.sku ? ` · ${item.sku}` : ''}
+            {item.expiryDate ? ` · ${el.inventory.expiryDate}: ${item.expiryDate}` : ''}
           </Text>
         </View>
         <View className="items-end">
@@ -468,24 +519,41 @@ const InventoryScreen: React.FC = () => {
           )}
         </View>
 
-        <View className="mx-3 mt-3 flex-row gap-2">
-          {(['all', 'low'] as const).map(key => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mx-3 mt-3"
+          contentContainerStyle={{gap: 8, paddingVertical: 4}}>
+          {(
+            [
+              ['all', el.inventory.filterAll],
+              ['low', el.inventory.filterLow],
+              ['expiring', el.inventory.filterExpiringSoon],
+              ['expired', el.inventory.filterExpired],
+            ] as const
+          ).map(([key, label]) => (
             <Pressable
               key={key}
               accessibilityRole="button"
               onPress={() => setFilter(key)}
               className={`rounded-full px-4 py-2 ${
-                filter === key ? 'bg-slate-900' : 'bg-white border border-slate-200'
+                filter === key ? 'bg-slate-900' : 'border border-slate-200 bg-white'
               }`}>
               <Text
                 className={`text-sm font-medium ${
                   filter === key ? 'text-white' : 'text-slate-700'
                 }`}>
-                {key === 'all' ? el.inventory.filterAll : el.inventory.filterLow}
+                {label}
+                {key === 'expiring' && summary.expiringSoonCount > 0
+                  ? ` (${summary.expiringSoonCount})`
+                  : ''}
+                {key === 'expired' && summary.expiredCount > 0
+                  ? ` (${summary.expiredCount})`
+                  : ''}
               </Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
 
         {loading ? (
           <View className="flex-1 items-center justify-center py-16">
@@ -500,7 +568,7 @@ const InventoryScreen: React.FC = () => {
             contentContainerStyle={{paddingBottom: 24}}
             ListEmptyComponent={
               <Text className="py-8 text-center text-slate-500">
-                {filter === 'low' ? el.inventory.emptyLow : el.inventory.empty}
+                {emptyListMessage()}
               </Text>
             }
           />
@@ -584,6 +652,12 @@ const InventoryScreen: React.FC = () => {
                   label={el.inventory.location}
                   value={form.location}
                   onChangeText={v => setForm(f => ({...f, location: v}))}
+                />
+                <Field
+                  label={el.inventory.expiryDate}
+                  hint={el.inventory.expiryDateHint}
+                  value={form.expiryDate}
+                  onChangeText={v => setForm(f => ({...f, expiryDate: v}))}
                 />
                 <Field
                   label={el.inventory.notes}

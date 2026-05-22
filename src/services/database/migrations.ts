@@ -739,4 +739,23 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 20,
+    up: (database) => {
+      try {
+        database.execute(
+          'ALTER TABLE practice_settings ADD COLUMN auto_deduct_inventory INTEGER NOT NULL DEFAULT 0;',
+        );
+      } catch {
+        // column may exist
+      }
+      try {
+        database.execute(
+          'ALTER TABLE inventory_items ADD COLUMN expiry_date TEXT;',
+        );
+      } catch {
+        // column may exist
+      }
+    },
+  },
 ];
