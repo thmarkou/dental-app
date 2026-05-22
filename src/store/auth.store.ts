@@ -6,6 +6,7 @@
 import {create} from 'zustand';
 import {persist, createJSONStorage} from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {authenticateUser, createUser} from '../services/auth';
 import {UserRole, type User} from '../types';
 
 export type {User};
@@ -39,7 +40,6 @@ export const useAuthStore = create<AuthState>()(
       login: async (username: string, password: string) => {
         set({isLoading: true});
         try {
-          const {authenticateUser} = await import('../services/auth');
           const user = await authenticateUser(username, password);
 
           set({
@@ -74,7 +74,6 @@ export const useAuthStore = create<AuthState>()(
       ) => {
         set({isLoading: true});
         try {
-          const {createUser} = await import('../services/auth');
           const user = await createUser(
             username,
             email,

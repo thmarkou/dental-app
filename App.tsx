@@ -3,6 +3,7 @@
  * Main App Component
  */
 
+import './src/polyfills/crypto';
 import './global.css';
 import React, {useEffect, useState} from 'react';
 import {View, ActivityIndicator, StyleSheet, Platform} from 'react-native';
@@ -36,18 +37,17 @@ const App = (): React.JSX.Element => {
         // Note: expo-sqlite requires development build
         // If running in Expo Go, database init will be skipped gracefully
         await initDatabase();
+        await checkAuth();
+        setIsInitializing(false);
 
         if (Platform.OS !== 'web') {
-          await ensureAppointmentNotificationChannel();
-          void processDueSmsReminders();
-          stopReminderTick = startAppointmentReminderTick();
-          void registerExpoPushTokenOnLaunch();
+          void (async () => {
+            await ensureAppointmentNotificationChannel();
+            void processDueSmsReminders();
+            stopReminderTick = startAppointmentReminderTick();
+            void registerExpoPushTokenOnLaunch();
+          })();
         }
-
-        // Check authentication (will work with AsyncStorage even without DB)
-        await checkAuth();
-
-        setIsInitializing(false);
       } catch (error) {
         console.error('Failed to initialize app:', error);
         // Don't block app startup - allow UI to show

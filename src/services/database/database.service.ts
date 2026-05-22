@@ -5,6 +5,7 @@
  */
 
 import {open} from 'react-native-quick-sqlite';
+import {DEFAULT_ADMIN_PASSWORD_HASH} from '../../constants/defaultAdminPassword';
 import {migrations} from './migrations';
 import * as FileSystem from 'expo-file-system';
 
@@ -188,7 +189,7 @@ function ensureBootstrapRows(database: ReturnType<typeof open>): void {
         '00000000-0000-0000-0000-000000000001',
         'admin',
         'admin@dentalpractice.gr',
-        'hashed_admin123',
+        DEFAULT_ADMIN_PASSWORD_HASH,
         'admin',
         'Admin',
         'User',

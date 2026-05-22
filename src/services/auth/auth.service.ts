@@ -12,19 +12,26 @@ import {
   verifyPassword,
 } from './password.service';
 
-const upgradePasswordHashIfLegacy = async (
+/** Runs after login so the UI is not blocked by a second PBKDF2 round. */
+export const upgradePasswordHashInBackground = (
   userId: string,
   password: string,
   storedHash: string,
-): Promise<void> => {
+): void => {
   if (!shouldUpgradePasswordHash(storedHash)) {
     return;
   }
-  const passwordHash = await hashPassword(password);
-  await executeQuery(
-    'UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?',
-    [passwordHash, new Date().toISOString(), userId],
-  );
+  void (async () => {
+    try {
+      const passwordHash = await hashPassword(password);
+      await executeQuery(
+        'UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?',
+        [passwordHash, new Date().toISOString(), userId],
+      );
+    } catch (e) {
+      console.warn('[auth] background password upgrade failed', e);
+    }
+  })();
 };
 
 /**
@@ -101,15 +108,12 @@ export const authenticateUser = async (
       throw new Error('Invalid username or password');
     }
 
-    await upgradePasswordHashIfLegacy(user.id, password, user.password_hash);
-
-    // Update last login
     await executeQuery(
       'UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?',
       [new Date().toISOString(), new Date().toISOString(), user.id],
     );
 
-    return {
+    const authenticated: User = {
       id: user.id,
       username: user.username,
       email: user.email,
@@ -118,6 +122,10 @@ export const authenticateUser = async (
       lastName: user.last_name,
       phone: user.phone,
     };
+
+    upgradePasswordHashInBackground(user.id, password, user.password_hash);
+
+    return authenticated;
   } catch (error: any) {
     // If database is not available, provide helpful error message
     if (error?.message?.includes('Database not available') || 

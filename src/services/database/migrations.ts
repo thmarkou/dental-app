@@ -4,6 +4,7 @@
  */
 
 import {open} from 'react-native-quick-sqlite';
+import {DEFAULT_ADMIN_PASSWORD_HASH} from '../../constants/defaultAdminPassword';
 import {uuidv4} from '../../utils/uuid';
 
 export type Database = ReturnType<typeof open>;
@@ -767,6 +768,56 @@ export const migrations: Migration[] = [
         );
       } catch {
         // column may exist
+      }
+    },
+  },
+  {
+    version: 22,
+    up: (database) => {
+      const rows =
+        database.execute(
+          `SELECT id, password_hash FROM users WHERE username = ?`,
+          ['admin'],
+        ).rows?._array ?? [];
+      const row = rows[0] as
+        | {id?: string; password_hash?: string}
+        | undefined;
+      if (
+        row?.id &&
+        (row.password_hash === 'hashed_admin123' ||
+          row.password_hash?.startsWith('hashed_'))
+      ) {
+        database.execute(
+          `UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`,
+          [DEFAULT_ADMIN_PASSWORD_HASH, new Date().toISOString(), String(row.id)],
+        );
+      }
+    },
+  },
+  {
+    version: 23,
+    up: (database) => {
+      const rows =
+        database.execute(
+          `SELECT id, password_hash FROM users WHERE username = ?`,
+          ['admin'],
+        ).rows?._array ?? [];
+      const row = rows[0] as
+        | {id?: string; password_hash?: string}
+        | undefined;
+      if (!row?.id) {
+        return;
+      }
+      const hash = row.password_hash ?? '';
+      const needsFastHash =
+        hash === 'hashed_admin123' ||
+        hash.startsWith('hashed_') ||
+        hash.startsWith('v1$');
+      if (needsFastHash) {
+        database.execute(
+          `UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`,
+          [DEFAULT_ADMIN_PASSWORD_HASH, new Date().toISOString(), String(row.id)],
+        );
       }
     },
   },

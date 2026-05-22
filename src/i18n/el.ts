@@ -345,7 +345,7 @@ export const el = {
 
   settings: {
     title: 'Ρυθμίσεις',
-    subtitle: 'Προφίλ, αντίγραφα ασφαλείας και αποσύνωση',
+    subtitle: 'Προφίλ, αντίγραφα ασφαλείας και αποσύνδεση',
     profile: 'Προφίλ',
     name: 'Όνομα',
     email: 'Email',
@@ -416,7 +416,7 @@ export const el = {
     exportDb: 'Εξαγωγή βάσης (.db)',
     exportCsv: 'Εξαγωγή CSV (αναφορά)',
     weeklyReminder: 'Εβδομαδιαία υπενθύμιση backup',
-    logout: 'Αποσύνωση',
+    logout: 'Αποσύνδεση',
     logoutConfirm: 'Να αποσυνδεθείτε;',
     backupFailed: 'Αποτυχία backup',
     exportFailed: 'Αποτυχία εξαγωγής',
